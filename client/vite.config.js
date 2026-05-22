@@ -6,6 +6,7 @@ export default defineConfig({
   envDir: '../',
   server: {
     port: 3050,
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5050',
