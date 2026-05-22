@@ -58,6 +58,21 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async getDeletedSongs() {
+    const res = await this.api.get('/songs/trash');
+    return res.data;
+  }
+
+  async restoreSong(id) {
+    const res = await this.api.post(`/songs/${id}/restore`);
+    return res.data;
+  }
+
+  async purgeSong(id) {
+    const res = await this.api.delete(`/songs/${id}/purge`);
+    return res.data;
+  }
+
   // ── Audits ────────────────────────────────────────────────────────────────
   async getAudits() {
     const res = await this.api.get('/audits');
@@ -95,6 +110,21 @@ export class HttpBackendAdapter extends IBackendService {
 
   async deleteAudit(id) {
     const res = await this.api.delete(`/audits/${id}`);
+    return res.data;
+  }
+
+  async getDeletedAudits() {
+    const res = await this.api.get('/audits/trash');
+    return res.data;
+  }
+
+  async restoreAudit(id) {
+    const res = await this.api.post(`/audits/${id}/restore`);
+    return res.data;
+  }
+
+  async purgeAudit(id) {
+    const res = await this.api.delete(`/audits/${id}/purge`);
     return res.data;
   }
 

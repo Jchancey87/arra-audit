@@ -14,6 +14,9 @@ export class IBackendService {
   async getSong(id) { throw new Error('Not implemented'); }
   async importSong(youtubeUrl) { throw new Error('Not implemented'); }
   async deleteSong(id) { throw new Error('Not implemented'); }
+  async getDeletedSongs() { throw new Error('Not implemented'); }
+  async restoreSong(id) { throw new Error('Not implemented'); }
+  async purgeSong(id) { throw new Error('Not implemented'); }
   
   // Audits
   async getAudits() { throw new Error('Not implemented'); }
@@ -23,6 +26,9 @@ export class IBackendService {
   async getAudit(id) { throw new Error('Not implemented'); }
   async updateAudit(id, updates) { throw new Error('Not implemented'); }
   async deleteAudit(id) { throw new Error('Not implemented'); }
+  async getDeletedAudits() { throw new Error('Not implemented'); }
+  async restoreAudit(id) { throw new Error('Not implemented'); }
+  async purgeAudit(id) { throw new Error('Not implemented'); }
   
   // Techniques
   async getTechniques(filters) { throw new Error('Not implemented'); }

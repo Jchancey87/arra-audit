@@ -45,9 +45,35 @@ export class InMemoryRepository extends IRepository {
    */
   _matches(doc, query) {
     for (const [key, value] of Object.entries(query)) {
-      // Simple equality match (doesn't support complex operators like $gt, $lt yet)
-      if (doc[key] !== value) {
-        return false;
+      const docVal = doc[key];
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // Handle operator query, e.g. { deletedAt: { $ne: null } }
+        for (const [op, opVal] of Object.entries(value)) {
+          if (op === '$ne') {
+            if (opVal === null) {
+              if (docVal === null || docVal === undefined) return false;
+            } else {
+              if (docVal === opVal) return false;
+            }
+          } else if (op === '$eq') {
+            if (opVal === null) {
+              if (docVal !== null && docVal !== undefined) return false;
+            } else {
+              if (docVal !== opVal) return false;
+            }
+          }
+        }
+      } else if (value === null) {
+        // MongoDB query { field: null } matches if field is null, undefined, or missing
+        if (docVal !== null && docVal !== undefined) {
+          return false;
+        }
+      } else {
+        // Simple equality match
+        if (docVal !== value) {
+          return false;
+        }
       }
     }
     return true;

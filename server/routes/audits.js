@@ -120,6 +120,17 @@ export default function createAuditRoutes(auditService, templateComposer) {
     }
   });
 
+  // ── Get all soft-deleted audits for user ───────────────────────────────────
+  router.get('/trash', async (req, res) => {
+    try {
+      const audits = await auditService.getDeletedAudits(req.userId);
+      res.json(audits);
+    } catch (error) {
+      console.error('Get deleted audits error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Get audit by ID ───────────────────────────────────────────────────────
   router.get('/:id', async (req, res) => {
     try {
@@ -207,6 +218,30 @@ export default function createAuditRoutes(auditService, templateComposer) {
       res.json({ message: 'Audit deleted' });
     } catch (error) {
       console.error('Delete audit error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Restore audit ─────────────────────────────────────────────────────────
+  router.post('/:id/restore', async (req, res) => {
+    try {
+      const result = await auditService.restoreAudit(req.params.id, req.userId);
+      if (!result) return res.status(404).json({ error: 'Audit not found or not in trash' });
+      res.json({ message: 'Audit restored successfully' });
+    } catch (error) {
+      console.error('Restore audit error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Purge audit (permanent delete) ───────────────────────────────────────
+  router.delete('/:id/purge', async (req, res) => {
+    try {
+      const result = await auditService.purgeAudit(req.params.id, req.userId);
+      if (!result) return res.status(404).json({ error: 'Audit not found' });
+      res.json({ message: 'Audit permanently deleted' });
+    } catch (error) {
+      console.error('Purge audit error:', error);
       res.status(500).json({ error: error.message });
     }
   });

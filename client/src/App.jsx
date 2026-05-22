@@ -9,6 +9,7 @@ import AuditCreate from './pages/AuditCreate';
 import AuditForm from './pages/AuditForm';
 import AuditDetail from './pages/AuditDetail';
 import TechniqueNotebook from './pages/TechniqueNotebook';
+import Trash from './pages/Trash';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -38,6 +39,9 @@ const AppContent = () => {
               </li>
               <li>
                 <Link to="/techniques">Technique Notebook</Link>
+              </li>
+              <li>
+                <Link to="/trash">Trash</Link>
               </li>
             </>
           )}
@@ -101,6 +105,14 @@ const AppContent = () => {
             element={
               <PrivateRoute>
                 <TechniqueNotebook />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/trash"
+            element={
+              <PrivateRoute>
+                <Trash />
               </PrivateRoute>
             }
           />

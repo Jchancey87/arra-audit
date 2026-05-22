@@ -202,4 +202,58 @@ export class SongService {
     const artists = new Set(songs.map((s) => s.artistName || s.artist));
     return { totalSongs: songs.length, artistCount: artists.size, artists: Array.from(artists) };
   }
+
+  // ─── Trash / Archives ─────────────────────────────────────────────────────
+
+  async getDeletedSongs(userId) {
+    const songs = await this.songRepository.find({ userId });
+    return songs
+      .filter((s) => s.deletedAt !== null && s.deletedAt !== undefined)
+      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+  }
+
+  /**
+   * Restore a soft-deleted song and cascade to its audits + techniques.
+   */
+  async restoreSong(songId, userId, auditRepository, techniqueRepository) {
+    const song = await this.songRepository.findOne({ _id: songId, userId });
+    if (!song || !song.deletedAt) return false;
+
+    if (auditRepository) {
+      const audits = await auditRepository.find({ songId, deletedAt: { $ne: null } });
+      for (const audit of audits) {
+        if (techniqueRepository) {
+          const techniques = await techniqueRepository.find({ auditId: audit._id, deletedAt: { $ne: null } });
+          for (const t of techniques) {
+            await techniqueRepository.updateById(t._id, { deletedAt: null });
+          }
+        }
+        await auditRepository.updateById(audit._id, { deletedAt: null });
+      }
+    }
+
+    await this.songRepository.updateById(songId, { deletedAt: null });
+    return true;
+  }
+
+  /**
+   * Permanently delete a song and all its associated audits and techniques from the database.
+   */
+  async purgeSong(songId, userId, auditRepository, techniqueRepository) {
+    const song = await this.songRepository.findOne({ _id: songId, userId });
+    if (!song) return false;
+
+    if (auditRepository) {
+      const audits = await auditRepository.find({ songId });
+      for (const audit of audits) {
+        if (techniqueRepository) {
+          await techniqueRepository.deleteMany({ auditId: audit._id });
+        }
+        await auditRepository.deleteById(audit._id);
+      }
+    }
+
+    await this.songRepository.deleteById(songId);
+    return true;
+  }
 }

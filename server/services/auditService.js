@@ -324,4 +324,77 @@ export class AuditService {
       lensStats,
     };
   }
+
+  // ─── Trash / Archives ─────────────────────────────────────────────────────
+
+  /**
+   * Get all soft-deleted audits for a user whose parent song is active.
+   */
+  async getDeletedAudits(userId) {
+    const audits = await this.auditRepository.find({ userId });
+    const deletedAudits = audits.filter((a) => a.deletedAt !== null && a.deletedAt !== undefined);
+
+    const results = [];
+    for (const audit of deletedAudits) {
+      if (this.songRepository) {
+        const song = await this.songRepository.findById(audit.songId);
+        if (song && !song.deletedAt) {
+          // Attach populated song info
+          audit.songId = song;
+          results.push(audit);
+        }
+      } else {
+        results.push(audit);
+      }
+    }
+
+    return results.sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+  }
+
+  /**
+   * Restore a soft-deleted audit and its techniques.
+   */
+  async restoreAudit(auditId, userId, techniqueRepository) {
+    const audit = await this.auditRepository.findById(auditId);
+    if (!audit || audit.userId.toString() !== userId.toString() || !audit.deletedAt) {
+      return false;
+    }
+
+    if (this.songRepository) {
+      const song = await this.songRepository.findById(audit.songId);
+      if (!song || song.deletedAt) {
+        throw new Error('Cannot restore audit because its parent song is deleted. Restore the song first.');
+      }
+    }
+
+    const techRepo = techniqueRepository || this.techniqueRepository;
+    if (techRepo) {
+      const allTechs = await techRepo.find({ auditId });
+      const deletedTechs = allTechs.filter((t) => t.deletedAt !== null && t.deletedAt !== undefined);
+      for (const t of deletedTechs) {
+        await techRepo.updateById(t._id, { deletedAt: null });
+      }
+    }
+
+    await this.auditRepository.updateById(auditId, { deletedAt: null });
+    return true;
+  }
+
+  /**
+   * Permanently delete an audit and its techniques.
+   */
+  async purgeAudit(auditId, userId, techniqueRepository) {
+    const audit = await this.auditRepository.findById(auditId);
+    if (!audit || audit.userId.toString() !== userId.toString()) {
+      return false;
+    }
+
+    const techRepo = techniqueRepository || this.techniqueRepository;
+    if (techRepo) {
+      await techRepo.deleteMany({ auditId });
+    }
+
+    await this.auditRepository.deleteById(auditId);
+    return true;
+  }
 }

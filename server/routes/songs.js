@@ -135,6 +135,17 @@ export default function createSongRoutes(songService, auditRepository, technique
     }
   });
 
+  // ── Get all soft-deleted songs for user ───────────────────────────────────
+  router.get('/trash', async (req, res) => {
+    try {
+      const songs = await songService.getDeletedSongs(req.userId);
+      res.json(songs.map((s) => _sanitizeSong(s)));
+    } catch (error) {
+      console.error('Get deleted songs error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Get song by ID ────────────────────────────────────────────────────────
   router.get('/:id', async (req, res) => {
     try {
@@ -164,6 +175,40 @@ export default function createSongRoutes(songService, auditRepository, technique
     }
   });
 
+  // ── Restore song (cascade) ────────────────────────────────────────────────
+  router.post('/:id/restore', async (req, res) => {
+    try {
+      const result = await songService.restoreSong(
+        req.params.id,
+        req.userId,
+        auditRepository,
+        techniqueRepository
+      );
+      if (!result) return res.status(404).json({ error: 'Song not found or not in trash' });
+      res.json({ message: 'Song restored successfully' });
+    } catch (error) {
+      console.error('Restore song error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Purge song (cascade permanent delete) ────────────────────────────────
+  router.delete('/:id/purge', async (req, res) => {
+    try {
+      const result = await songService.purgeSong(
+        req.params.id,
+        req.userId,
+        auditRepository,
+        techniqueRepository
+      );
+      if (!result) return res.status(404).json({ error: 'Song not found' });
+      res.json({ message: 'Song permanently deleted' });
+    } catch (error) {
+      console.error('Purge song error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }
 
@@ -187,6 +232,7 @@ function _sanitizeSong(song) {
     researchSummary: song.researchSummary,
     researchStatus: song.researchStatus,
     metadataFetchStatus: song.metadataFetchStatus,
+    deletedAt: song.deletedAt,
     createdAt: song.createdAt,
     updatedAt: song.updatedAt,
   };

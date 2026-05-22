@@ -261,4 +261,66 @@ export class InMemoryBackendAdapter extends IBackendService {
     if (idx !== -1) this.techniques[idx].deletedAt = new Date().toISOString();
     return true;
   }
+
+  // ── Trash / Archives (Mock) ──────────────────────────────────────────────
+  async getDeletedSongs() {
+    return this.songs
+      .filter((s) => s.deletedAt)
+      .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+  }
+
+  async restoreSong(id) {
+    const song = this.songs.find((s) => s._id === id);
+    if (!song) return false;
+    song.deletedAt = null;
+    this.audits.filter((a) => a.songId === id).forEach((a) => {
+      a.deletedAt = null;
+      this.techniques.filter((t) => t.auditId === a._id).forEach((t) => { t.deletedAt = null; });
+    });
+    return true;
+  }
+
+  async purgeSong(id) {
+    this.songs = this.songs.filter((s) => s._id !== id);
+    const auditsToDelete = this.audits.filter((a) => a.songId === id).map((a) => a._id);
+    this.audits = this.audits.filter((a) => a.songId !== id);
+    this.techniques = this.techniques.filter((t) => !auditsToDelete.includes(t.auditId));
+    return true;
+  }
+
+  async getDeletedAudits() {
+    // Return deleted audits whose parent song is active
+    const deleted = this.audits.filter((a) => {
+      if (!a.deletedAt) return false;
+      const song = this.songs.find((s) => s._id === a.songId);
+      return !song || !song.deletedAt;
+    });
+
+    // Populate song field
+    return deleted.map((a) => {
+      const song = this.songs.find((s) => s._id === a.songId);
+      return {
+        ...a,
+        songId: song || a.songId,
+      };
+    }).sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+  }
+
+  async restoreAudit(id) {
+    const audit = this.audits.find((a) => a._id === id);
+    if (!audit) return false;
+    const song = this.songs.find((s) => s._id === audit.songId);
+    if (song && song.deletedAt) {
+      throw new Error('Cannot restore audit because its parent song is deleted. Restore the song first.');
+    }
+    audit.deletedAt = null;
+    this.techniques.filter((t) => t.auditId === id).forEach((t) => { t.deletedAt = null; });
+    return true;
+  }
+
+  async purgeAudit(id) {
+    this.audits = this.audits.filter((a) => a._id !== id);
+    this.techniques = this.techniques.filter((t) => t.auditId !== id);
+    return true;
+  }
 }

@@ -64,4 +64,63 @@ describe('SongService Unit Tests', () => {
       expect(results[0].title).toBe('Blue Monday');
     });
   });
+
+  describe('Trash/Restore/Purge operations', () => {
+    let auditRepository;
+    let techniqueRepository;
+
+    beforeEach(() => {
+      auditRepository = new InMemoryRepository();
+      techniqueRepository = new InMemoryRepository();
+    });
+
+    test('should get only soft-deleted songs', async () => {
+      const active = await songRepository.create({ title: 'Active', userId: 'user-1', deletedAt: null });
+      const deleted1 = await songRepository.create({ title: 'Deleted 1', userId: 'user-1', deletedAt: new Date('2023-01-01') });
+      const deleted2 = await songRepository.create({ title: 'Deleted 2', userId: 'user-1', deletedAt: new Date('2023-01-02') });
+
+      const results = await songService.getDeletedSongs('user-1');
+      expect(results).toHaveLength(2);
+      // Sorted by deletedAt desc
+      expect(results[0].title).toBe('Deleted 2');
+      expect(results[1].title).toBe('Deleted 1');
+    });
+
+    test('should restore a song and cascade to its audits and techniques', async () => {
+      const deletedTime = new Date();
+      const song = await songRepository.create({ title: 'Song', userId: 'user-1', deletedAt: deletedTime });
+      const audit = await auditRepository.create({ songId: song._id, userId: 'user-1', deletedAt: deletedTime });
+      const tech = await techniqueRepository.create({ auditId: audit._id, userId: 'user-1', deletedAt: deletedTime });
+
+      const success = await songService.restoreSong(song._id, 'user-1', auditRepository, techniqueRepository);
+      expect(success).toBe(true);
+
+      const restoredSong = await songRepository.findById(song._id);
+      expect(restoredSong.deletedAt).toBeNull();
+
+      const restoredAudit = await auditRepository.findById(audit._id);
+      expect(restoredAudit.deletedAt).toBeNull();
+
+      const restoredTech = await techniqueRepository.findById(tech._id);
+      expect(restoredTech.deletedAt).toBeNull();
+    });
+
+    test('should purge a song and cascade delete its audits and techniques', async () => {
+      const song = await songRepository.create({ title: 'Song', userId: 'user-1', deletedAt: new Date() });
+      const audit = await auditRepository.create({ songId: song._id, userId: 'user-1', deletedAt: new Date() });
+      const tech = await techniqueRepository.create({ auditId: audit._id, userId: 'user-1', deletedAt: new Date() });
+
+      const success = await songService.purgeSong(song._id, 'user-1', auditRepository, techniqueRepository);
+      expect(success).toBe(true);
+
+      const foundSong = await songRepository.findById(song._id);
+      expect(foundSong).toBeNull();
+
+      const foundAudit = await auditRepository.findById(audit._id);
+      expect(foundAudit).toBeNull();
+
+      const foundTech = await techniqueRepository.findById(tech._id);
+      expect(foundTech).toBeNull();
+    });
+  });
 });
