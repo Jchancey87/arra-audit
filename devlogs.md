@@ -6,6 +6,32 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-05-22: DAW-Style Layout & Persistent Playback Redesign
+
+#### 1. Global Audio Context & Persistent YouTube Player
+- **Goal**: Implement a persistent audio player shell so that route navigation does not interrupt playback.
+- **Implementation**:
+  - Built `AudioContext.jsx` using `react-youtube` in a single global provider wrapper at the root layout (`App.jsx`).
+  - Implemented persistent player variables (`activeSong`, `activeAudit`, `isPlaying`, `currentTime`, `duration`, `volume`, `isMuted`, `bookmarks`) with global callback controllers (`loadSong`, `play`, `pause`, `seekTo`, `addGlobalBookmark`).
+  - Added a toggleable mini video monitor for YouTube playback positioned outside the routing views.
+
+#### 2. Dark DAW Theme & Monospace Typography
+- **Styling Overhaul**: Replaced the consumer light theme with a dark, industrial "analog hardware" aesthetic.
+- **Design Tokens**:
+  - Backgrounds: `#0a0a0c` (main canvas), `#141418` (control chrome/sidebars), `#151518` (panels).
+  - Accents: Muted amber/orange (`#d08f60`) for active signals/markers, soft red (`#f87171`) for destructive warnings.
+  - Typography: Google Fonts Inter (interface labels) paired with Roboto Mono (metrics, logs, timecodes).
+- **Hard-Edged Layouts**: Replaced rounded card containers and shadows with flat, border-only panels (`1px solid rgba(255,255,255,0.08)`).
+- **Responsive Panels**: Configured a triple-pane layout (left collapsible Navigator, center viewport, right collapsible Inspector).
+
+#### 3. Frontend Route View Alignment
+- Refactored all page views to integrate with the global player state:
+  - `Dashboard.jsx`: Replaced cards with panels; added `▲ LOAD` button to load song data to transport.
+  - `AuditForm.jsx`: Removed local inline player; converted step indicators to hardware LED sequencers; synced responses, techniques, and global bookmarks.
+  - `AuditDetail.jsx`: Synced session audit reference to update inspector details; converted list timestamps to click-to-seek playback actions.
+  - `TechniqueNotebook.jsx`: Applied grid panel styles; enabled seeking on notebook timestamps if matching song is loaded.
+  - `ImportSong.jsx` / `Trash.jsx` / `AuditCreate.jsx` / `Login.jsx`: Refactored inputs, buttons, warning modals, and list structures.
+
 ### 2026-05-22: Archives/Trash UI & Network Exposure Configuration
 
 #### 1. Archives & Trash Feature Implementation

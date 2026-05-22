@@ -3,10 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 
 const LENS_META = {
-  rhythm:      { emoji: '🥁', label: 'Rhythm',      desc: 'Drums, groove, pocket, timing' },
-  texture:     { emoji: '🎛️', label: 'Texture',     desc: 'Timbre, EQ, reverb, space' },
-  harmony:     { emoji: '🎹', label: 'Harmony',     desc: 'Chords, progressions, tonality' },
-  arrangement: { emoji: '🎼', label: 'Arrangement', desc: 'Structure, transitions, energy arc' },
+  rhythm:      { emoji: '🥁', label: 'Rhythm',      desc: 'Groove, pocket, and timing' },
+  texture:     { emoji: '🎛️', label: 'Texture',     desc: 'Timbre, space, and mixing' },
+  harmony:     { emoji: '🎹', label: 'Harmony',     desc: 'Chords, progressions, keys' },
+  arrangement: { emoji: '🎼', label: 'Arrangement', desc: 'Transitions and energy arcs' },
 };
 
 const AuditCreate = () => {
@@ -61,31 +61,48 @@ const AuditCreate = () => {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading">LOADING REFERENCE TARGET...</div>;
   if (!song)   return <div className="error">Song not found</div>;
 
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-      <div className="card">
-        <h1>Create New Audit</h1>
+      <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
+        <h1>Configure New Audit</h1>
 
         {error && <div className="error">{error}</div>}
 
         {/* Song info */}
-        <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #e0e0e0' }}>
-          <h3>{song.title}</h3>
-          <p style={{ color: '#666' }}>by {song.artistName || song.artist}</p>
+        <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <h3 style={{ color: '#d08f60' }}>{song.title}</h3>
+          <p style={{ color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'Roboto Mono', fontSize: '11px', marginTop: '2px' }}>
+            by {song.artistName || song.artist}
+          </p>
           {song.researchSummary?.summary && (
-            <div style={{ marginTop: '15px', background: '#f9f9f9', padding: '15px', borderRadius: '4px' }}>
-              <strong>Research Summary:</strong>
-              <p style={{ fontSize: '14px', lineHeight: '1.6', marginTop: '10px' }}>
+            <div style={{ 
+              marginTop: '15px', 
+              background: '#0c0c0e', 
+              padding: '15px', 
+              borderRadius: '2px',
+              border: '1px solid rgba(255, 255, 255, 0.06)'
+            }}>
+              <strong style={{ fontFamily: 'Roboto Mono', fontSize: '11px', color: '#d08f60' }}>RESEARCH INTELLIGENCE LOG:</strong>
+              <p style={{ fontSize: '12px', lineHeight: '1.6', marginTop: '8px', color: 'rgba(255, 255, 255, 0.75)' }}>
                 {song.researchSummary.summary}
               </p>
             </div>
           )}
           {song.researchStatus === 'failed' && (
-            <div style={{ marginTop: '10px', color: '#b26a00', fontSize: '13px' }}>
-              ⚠ Research unavailable — you can still run an audit.
+            <div style={{ 
+              marginTop: '12px', 
+              color: '#d08f60', 
+              fontSize: '11px', 
+              fontFamily: 'Roboto Mono',
+              background: 'rgba(208, 143, 96, 0.05)',
+              border: '1px solid rgba(208, 143, 96, 0.15)',
+              padding: '8px 12px',
+              borderRadius: '2px'
+            }}>
+              ⚠️ RESEARCH SUMMARY UNAVAILABLE — INITIALIZING DIRECT OBSERVATION WORKFLOW.
             </div>
           )}
         </div>
@@ -93,8 +110,8 @@ const AuditCreate = () => {
         {/* Lens selection */}
         <div style={{ marginBottom: '30px' }}>
           <h3>Select Lenses</h3>
-          <p style={{ color: '#666', marginBottom: '15px' }}>
-            Choose one or more angles to study this song:
+          <p style={{ color: 'rgba(255, 255, 255, 0.45)', marginBottom: '15px', fontSize: '12px' }}>
+            Choose one or more study perspectives:
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px' }}>
             {Object.entries(LENS_META).map(([lens, meta]) => {
@@ -105,20 +122,32 @@ const AuditCreate = () => {
                   id={`lens-${lens}`}
                   onClick={() => toggleLens(lens)}
                   style={{
-                    background: active ? '#1976d2' : '#e0e0e0',
-                    color: active ? 'white' : '#333',
+                    background: active ? '#d08f60' : '#1c1c22',
+                    color: active ? '#0c0c0e' : '#d08f60',
                     padding: '15px',
                     textAlign: 'center',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    border: active ? '2px solid #1565c0' : '2px solid transparent',
-                    borderRadius: '8px',
-                    transition: 'all 0.2s',
+                    border: `1px solid ${active ? '#d08f60' : 'rgba(208, 143, 96, 0.3)'}`,
+                    borderRadius: '2px',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '120px'
                   }}
                 >
                   <div style={{ fontSize: '24px', marginBottom: '6px' }}>{meta.emoji}</div>
-                  <div>{meta.label}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 'normal', marginTop: '4px', opacity: 0.8 }}>
+                  <div style={{ fontFamily: 'Roboto Mono', fontSize: '11px', textTransform: 'uppercase' }}>{meta.label}</div>
+                  <div style={{ 
+                    fontSize: '9px', 
+                    fontFamily: 'Inter',
+                    fontWeight: 'normal', 
+                    marginTop: '6px', 
+                    opacity: 0.8,
+                    lineHeight: '1.3'
+                  }}>
                     {meta.desc}
                   </div>
                 </button>
@@ -132,8 +161,8 @@ const AuditCreate = () => {
           <h3>Workflow Type</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
             {[
-              { id: 'quick',   emoji: '⚡', label: 'Quick',   time: '5–15 min',  hint: 'All questions in one form' },
-              { id: 'guided',  emoji: '🎓', label: 'Guided',  time: '30–60 min', hint: 'Listen → Sketch → Translate → Recreate → Log' },
+              { id: 'quick',   emoji: '⚡', label: 'Quick',   time: '5–15 MIN',  hint: 'All questions unified on a single screen' },
+              { id: 'guided',  emoji: '🎓', label: 'Guided',  time: '30–60 MIN', hint: 'Listen → Sketch → Translate → Recreate → Log' },
             ].map((w) => {
               const active = workflowType === w.id;
               return (
@@ -142,20 +171,31 @@ const AuditCreate = () => {
                   id={`workflow-${w.id}`}
                   onClick={() => setWorkflowType(w.id)}
                   style={{
-                    background: active ? '#1976d2' : '#e0e0e0',
-                    color: active ? 'white' : '#333',
+                    background: active ? '#d08f60' : '#1c1c22',
+                    color: active ? '#0c0c0e' : '#d08f60',
                     padding: '15px',
                     textAlign: 'center',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    border: active ? '2px solid #1565c0' : '2px solid transparent',
-                    borderRadius: '8px',
-                    transition: 'all 0.2s',
+                    border: `1px solid ${active ? '#d08f60' : 'rgba(208, 143, 96, 0.3)'}`,
+                    borderRadius: '2px',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  <div style={{ fontSize: '24px', marginBottom: '4px' }}>{w.emoji} {w.label}</div>
-                  <div style={{ fontSize: '12px', fontWeight: 'normal', opacity: 0.85 }}>{w.time}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 'normal', marginTop: '4px', opacity: 0.7 }}>{w.hint}</div>
+                  <div style={{ fontSize: '14px', fontFamily: 'Roboto Mono', textTransform: 'uppercase' }}>{w.emoji} {w.label}</div>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: active ? '#0c0c0e' : 'rgba(255, 255, 255, 0.65)' }}>{w.time}</div>
+                  <div style={{ 
+                    fontSize: '9px', 
+                    fontFamily: 'Inter',
+                    fontWeight: 'normal', 
+                    marginTop: '4px', 
+                    opacity: 0.8,
+                    lineHeight: '1.3'
+                  }}>{w.hint}</div>
                 </button>
               );
             })}
@@ -167,14 +207,27 @@ const AuditCreate = () => {
           id="start-audit-btn"
           onClick={handleStartAudit}
           disabled={selectedLenses.length === 0 || creating}
-          style={{ width: '100%', fontSize: '16px', padding: '15px' }}
+          style={{ 
+            width: '100%', 
+            fontSize: '12px', 
+            padding: '12px',
+            background: (selectedLenses.length === 0 || creating) ? '#1c1c22' : '#d08f60',
+            color: (selectedLenses.length === 0 || creating) ? 'rgba(255,255,255,0.4)' : '#0c0c0e',
+            fontWeight: 'bold'
+          }}
         >
-          {creating ? 'Creating Audit…' : 'Start Audit →'}
+          {creating ? 'SYNTHESIZING QUESTIONS...' : 'START AUDIT SEQUENCE →'}
         </button>
 
         {creating && (
-          <p style={{ textAlign: 'center', color: '#666', marginTop: '12px', fontSize: '13px' }}>
-            Generating your custom questions…
+          <p style={{ 
+            textAlign: 'center', 
+            color: 'rgba(255, 255, 255, 0.45)', 
+            marginTop: '12px', 
+            fontSize: '11px',
+            fontFamily: 'Roboto Mono'
+          }}>
+            CONTACTING GPT CORE MODULE FOR CUSTOM SYNTHESIS GENERATION...
           </p>
         )}
       </div>

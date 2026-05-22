@@ -42,7 +42,7 @@ const ImportSong = () => {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <div className="card">
+      <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
         <h1>Import Song from YouTube</h1>
         <p className="card-subtitle">Paste a YouTube URL to import a song for analysis</p>
 
@@ -50,17 +50,18 @@ const ImportSong = () => {
         {success && <div className="success">{success}</div>}
 
         <form onSubmit={handleImport}>
-          <div className="form-group">
-            <label>YouTube URL</label>
+          <div className="form-group" style={{ marginBottom: '20px' }}>
+            <label style={{ marginBottom: '6px' }}>YouTube URL</label>
             <input
               type="text"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=..."
               disabled={loading}
+              style={{ background: '#0a0a0c', borderColor: 'rgba(255, 255, 255, 0.12)' }}
             />
-            <small style={{ color: '#666' }}>
-              Supported: youtube.com, youtu.be, or any standard YouTube video link
+            <small style={{ color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'Roboto Mono', fontSize: '9px', marginTop: '6px', display: 'block' }}>
+              SUPPORTED: youtube.com, youtu.be, or any standard YouTube video link
             </small>
           </div>
 
@@ -69,14 +70,16 @@ const ImportSong = () => {
           </button>
         </form>
 
-        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #e0e0e0' }}>
-          <h3>What happens next?</h3>
-          <ol style={{ marginLeft: '20px', lineHeight: '1.8' }}>
-            <li>We'll extract the song title and artist from YouTube</li>
-            <li>Tavily will research the song to provide context and production info</li>
-            <li>You'll create an audit and choose which lenses to study (rhythm, texture, harmony, arrangement)</li>
-            <li>GPT-4 will generate customized audit questions based on the song</li>
-            <li>You'll fill out the audit while listening and capture techniques you discover</li>
+        <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <h3 style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#d08f60', marginBottom: '10px' }}>
+            SIGNAL EXTRACTION SEQUENCE
+          </h3>
+          <ol style={{ marginLeft: '18px', lineHeight: '1.8', fontSize: '12px', color: 'rgba(255, 255, 255, 0.65)' }}>
+            <li>Extract song metadata from the video signal source</li>
+            <li>Deploy Tavily researcher to index historical production details</li>
+            <li>Initiate audit worksheet configuration across selected lenses</li>
+            <li>Generate customized GPT synthesis questions for the track</li>
+            <li>Log reference observations and export portable production techniques</li>
           </ol>
         </div>
       </div>

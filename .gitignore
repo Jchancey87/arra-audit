@@ -29,3 +29,6 @@ Thumbs.db
 # Client
 client/build/
 client/.env.local
+
+# CLI Tool
+.antigravitycli/

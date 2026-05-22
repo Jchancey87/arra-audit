@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
-import AudioPlayer from '../components/AudioPlayer';
+import { useAudio } from '../context/AudioContext';
 
 // ── Autosave hook ────────────────────────────────────────────────────────────
 function useAutosave(auditId, data, backend, delay = 3000) {
@@ -53,16 +53,16 @@ function formatTime(seconds) {
 }
 
 const SAVE_LABEL = {
-  saved:  '✓ Saved',
-  saving: 'Saving…',
-  dirty:  '● Unsaved',
-  error:  '✗ Save failed',
+  saved:  '✓ SYNCHRONIZED',
+  saving: 'SAVING SIGNAL...',
+  dirty:  '● DIRTY BUFFERS',
+  error:  '✗ TRANSMISSION ERROR',
 };
 const SAVE_COLOR = {
-  saved:  '#388e3c',
-  saving: '#888',
-  dirty:  '#b26a00',
-  error:  '#c62828',
+  saved:  '#4ade80',
+  saving: 'rgba(255, 255, 255, 0.45)',
+  dirty:  '#d08f60',
+  error:  '#f87171',
 };
 
 // ── AuditForm ────────────────────────────────────────────────────────────────
@@ -70,14 +70,19 @@ const AuditForm = () => {
   const { auditId } = useParams();   // route is now /audit/form/:auditId
   const navigate = useNavigate();
   const backend = useBackend();
+  
+  const { 
+    loadSong,
+    setActiveAudit,
+    bookmarks: globalBookmarks,
+    seekTo
+  } = useAudio();
 
   const [audit, setAudit]           = useState(null);
   const [song, setSong]             = useState(null);
   const [responses, setResponses]   = useState({});
-  const [bookmarks, setBookmarks]   = useState([]);
   const [techniques, setTechniques] = useState([]);
   const [currentTechnique, setCurrentTechnique] = useState({ description: '', lens: 'rhythm' });
-  const [playerReady, setPlayerReady] = useState(false);
   const [error, setError]   = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
@@ -100,14 +105,14 @@ const AuditForm = () => {
         }
         setAudit(auditData);
         setResponses(auditData.responses || {});
-        setBookmarks(auditData.bookmarks || []);
         setTechniques(auditData.techniques || []);
 
         const songData = await backend.getSong(
           auditData.songId?._id ?? auditData.songId
         );
         setSong(songData);
-      } catch {
+        loadSong(songData); // load song into global transport
+      } catch (err) {
         setError('Failed to load audit');
       } finally {
         setLoading(false);
@@ -116,6 +121,16 @@ const AuditForm = () => {
     load();
   }, [auditId]);
 
+  // ── Sync activeAudit to global context ─────────────────────────────────────
+  useEffect(() => {
+    if (audit) {
+      setActiveAudit(audit);
+    }
+    return () => {
+      setActiveAudit(null);
+    };
+  }, [audit, setActiveAudit]);
+
   // ── Responses ──────────────────────────────────────────────────────────────
   const handleResponseChange = (key, value) => {
     setResponses((prev) => {
@@ -123,25 +138,6 @@ const AuditForm = () => {
       return next;
     });
     markDirty();
-  };
-
-  // ── Bookmarks ──────────────────────────────────────────────────────────────
-  const addBookmark = async (bookmark) => {
-    if (!playerReady) return;
-    const ts = bookmark.timestampSeconds ?? bookmark.timestamp ?? 0;
-    try {
-      const updated = await backend.addBookmark(auditId, {
-        timestampSeconds: Math.max(0, ts),
-        label: '',
-        note: bookmark.note || '',
-        lens: null,
-      });
-      const newBookmarks = updated.bookmarks || updated?.audit?.bookmarks || bookmarks;
-      setBookmarks(newBookmarks);
-      flash(`Bookmarked at ${formatTime(ts)}`);
-    } catch {
-      setError('Failed to save bookmark');
-    }
   };
 
   // ── Techniques ─────────────────────────────────────────────────────────────
@@ -208,9 +204,9 @@ const AuditForm = () => {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (loading) return <div className="loading">Loading audit…</div>;
+  if (loading) return <div className="loading">LOADING AUDIT WORKSPACE...</div>;
   if (error && !audit) return <div className="error">{error}</div>;
-  if (!audit) return <div className="loading">Loading audit…</div>;
+  if (!audit) return <div className="loading">LOADING AUDIT WORKSPACE...</div>;
 
   const template = audit.templateQuestions;
   const lenses = template?.lenses ? Object.keys(template.lenses) : audit.lensSelection || [];
@@ -220,61 +216,90 @@ const AuditForm = () => {
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-      <div className="card">
+      <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
 
         {/* Save status indicator */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-          <span style={{ fontSize: '13px', color: SAVE_COLOR[saveStatus] }}>
+          <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', fontWeight: 'bold', color: SAVE_COLOR[saveStatus] }}>
             {SAVE_LABEL[saveStatus]}
           </span>
         </div>
 
-        {/* Audio Player */}
-        {song?.youtubeId && (
-          <div style={{ position: 'sticky', top: '20px', zIndex: 100, marginBottom: '30px' }}>
-            <AudioPlayer
-              youtubeId={song.sourceId || song.youtubeId}
-              onBookmark={addBookmark}
-              onReady={() => setPlayerReady(true)}
-            />
-          </div>
-        )}
-
         <h1>{template?.title || `${song?.title} DNA Audit`}</h1>
-        <p className="card-subtitle">{song?.artistName || song?.artist}</p>
+        <p className="card-subtitle" style={{ margin: 0 }}>{song?.artistName || song?.artist}</p>
 
         {error   && <div className="error">{error}</div>}
         {success && <div className="success">{success}</div>}
 
-        {/* Guided Workflow Progress Tracker */}
+        {/* Guided Workflow Progress Tracker (Analog LED hardware selector style) */}
         {isGuided && (
-          <div style={{ marginBottom: '30px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              {audit.guidedSteps.map((step, idx) => (
-                <div 
-                  key={step.name} 
-                  style={{ 
-                    flex: 1, 
-                    textAlign: 'center', 
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    color: step.status === 'complete' ? '#388e3c' : step.status === 'active' ? '#1976d2' : '#999',
-                    borderBottom: `4px solid ${step.status === 'complete' ? '#388e3c' : step.status === 'active' ? '#1976d2' : '#eee'}`,
-                    paddingBottom: '8px',
-                    margin: '0 2px'
-                  }}
-                >
-                  {idx + 1}. {step.name}
-                </div>
-              ))}
+          <div style={{ marginBottom: '30px', marginTop: '20px' }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              background: '#0c0c0e',
+              padding: '6px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '2px',
+              marginBottom: '15px'
+            }}>
+              {audit.guidedSteps.map((step, idx) => {
+                const isActive = step.status === 'active';
+                const isComplete = step.status === 'complete';
+                let indicatorColor = 'rgba(255, 255, 255, 0.15)';
+                let textColor = 'rgba(255, 255, 255, 0.4)';
+                if (isActive) {
+                  indicatorColor = '#d08f60';
+                  textColor = '#d08f60';
+                } else if (isComplete) {
+                  indicatorColor = '#4ade80';
+                  textColor = 'rgba(255, 255, 255, 0.7)';
+                }
+                return (
+                  <div 
+                    key={step.name} 
+                    style={{ 
+                      flex: 1, 
+                      textAlign: 'center', 
+                      fontSize: '10px',
+                      fontFamily: 'Roboto Mono',
+                      fontWeight: 'bold',
+                      color: textColor,
+                      padding: '8px 4px',
+                      margin: '0 4px',
+                      background: isActive ? 'rgba(208, 143, 96, 0.08)' : 'transparent',
+                      border: isActive ? '1px solid rgba(208, 143, 96, 0.3)' : '1px solid transparent',
+                      borderRadius: '1px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span style={{ 
+                      width: '6px', 
+                      height: '6px', 
+                      borderRadius: '50%', 
+                      background: indicatorColor,
+                      boxShadow: isActive ? '0 0 8px #d08f60' : isComplete ? '0 0 6px #4ade80' : 'none'
+                    }} />
+                    {idx + 1} // {step.name.toUpperCase()}
+                  </div>
+                );
+              })}
             </div>
 
             {currentStep && (
-              <div style={{ background: '#f0f7ff', padding: '20px', borderRadius: '8px', borderLeft: '4px solid #1976d2' }}>
-                <h3 style={{ marginBottom: '5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  Step {currentStep.stepNumber}: {currentStep.name}
+              <div style={{ 
+                background: '#1c1c22', 
+                padding: '15px', 
+                borderLeft: '3px solid #d08f60',
+                borderRadius: '2px'
+              }}>
+                <h3 style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', color: '#d08f60' }}>
+                  STEP 0{currentStep.stepNumber} // {currentStep.name.toUpperCase()}
                 </h3>
-                <p style={{ fontSize: '14px', lineHeight: '1.5' }}>{currentStep.instructions}</p>
+                <p style={{ fontSize: '12px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.8)' }}>{currentStep.instructions}</p>
               </div>
             )}
           </div>
@@ -282,8 +307,17 @@ const AuditForm = () => {
 
         {/* Template banner: fallback notice */}
         {audit.templateVersion?.startsWith('fallback') && (
-          <div style={{ background: '#fff8e1', border: '1px solid #ffe082', padding: '12px', borderRadius: '6px', marginBottom: '20px', fontSize: '13px' }}>
-            ℹ Using a standard template — custom AI questions were unavailable.
+          <div style={{ 
+            background: 'rgba(245, 158, 11, 0.08)', 
+            border: '1px solid rgba(245, 158, 11, 0.2)', 
+            color: '#f59e0b',
+            padding: '12px', 
+            borderRadius: '2px', 
+            marginBottom: '20px', 
+            fontSize: '11px',
+            fontFamily: 'Roboto Mono'
+          }}>
+            ℹ USING STANDARD REFERENCE TEMPLATE — CUSTOM SONIC SYNTHESIS UNAVAILABLE.
           </div>
         )}
 
@@ -293,9 +327,9 @@ const AuditForm = () => {
           {/* STEP 1: LISTEN */}
           {isGuided && currentStep?.name === 'Listen' && (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: '64px', marginBottom: '20px' }}>🎧</div>
-              <p style={{ fontSize: '18px', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6' }}>
-                Full focus. Close your eyes. Don't take notes yet. Just experience the track from start to finish.
+              <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎧</div>
+              <p style={{ fontSize: '14px', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.7)' }}>
+                FULL AUDIT FOCUS. CONCENTRATE ON TRANSITIONS. DO NOT LOG NOTES YET. EXPERIANCE THE SIGNAL SPECTRUM FROM START TO FINISH.
               </p>
             </div>
           )}
@@ -305,7 +339,7 @@ const AuditForm = () => {
             <div className="form-group">
               <label>Raw Impressions & Sketches</label>
               <textarea
-                placeholder="What sonics surprised you? What's the mood? Note any 'wow' moments here. Use the bookmark button in the player to mark exact timestamps."
+                placeholder="What sonics surprised you? What's the mood? Note any 'wow' moments here. Use the bookmark button in the tape deck during playback to mark exact timestamps."
                 style={{ height: '200px' }}
                 value={responses['sketch'] || ''}
                 onChange={(e) => handleResponseChange('sketch', e.target.value)}
@@ -317,9 +351,15 @@ const AuditForm = () => {
           {(!isGuided || currentStep?.name === 'Translate') && (
             <>
               {template?.workflow_guidance && !isGuided && (
-                <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '6px', marginBottom: '30px' }}>
-                  <strong>💡 How to approach this audit:</strong>
-                  <p style={{ marginTop: '8px', fontSize: '14px' }}>{template.workflow_guidance}</p>
+                <div style={{ 
+                  background: 'rgba(208, 143, 96, 0.05)', 
+                  border: '1px solid rgba(208, 143, 96, 0.15)', 
+                  padding: '15px', 
+                  borderRadius: '2px', 
+                  marginBottom: '30px' 
+                }}>
+                  <strong style={{ fontFamily: 'Roboto Mono', fontSize: '11px', color: '#d08f60' }}>💡 WORKSPACE SIGNAL ANALYSIS MATRIX:</strong>
+                  <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>{template.workflow_guidance}</p>
                 </div>
               )}
 
@@ -327,12 +367,12 @@ const AuditForm = () => {
                 const lensData = template?.lenses?.[lens];
                 const questions = lensData?.questions || [];
                 return (
-                  <div key={lens} style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #e0e0e0' }}>
-                    <h2 style={{ textTransform: 'capitalize', color: '#1976d2', marginBottom: '8px' }}>
+                  <div key={lens} style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <h2 style={{ textTransform: 'uppercase', color: '#d08f60', marginBottom: '8px' }}>
                       {lens} Lens
                     </h2>
                     {lensData?.description && (
-                      <p style={{ color: '#666', marginBottom: '20px', fontSize: '14px' }}>
+                      <p style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '20px', fontSize: '12px' }}>
                         {lensData.description}
                       </p>
                     )}
@@ -340,7 +380,7 @@ const AuditForm = () => {
                       const key = `${lens}-q${idx}`;
                       return (
                         <div key={key} className="form-group" style={{ marginBottom: '20px' }}>
-                          <label style={{ fontWeight: '600', marginBottom: '8px' }}>
+                          <label style={{ fontWeight: '600', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>
                             {question}
                           </label>
                           <textarea
@@ -348,7 +388,7 @@ const AuditForm = () => {
                             value={responses[key] || ''}
                             onChange={(e) => handleResponseChange(key, e.target.value)}
                             onBlur={saveNow}
-                            placeholder="Your technical observations…"
+                            placeholder="Type technical observations..."
                           />
                         </div>
                       );
@@ -376,8 +416,8 @@ const AuditForm = () => {
           {(!isGuided || currentStep?.name === 'Log') && (
             <div style={{ marginTop: '30px', paddingTop: '20px' }}>
               <h2>📝 Technique Log</h2>
-              <p style={{ color: '#666', marginBottom: '20px' }}>
-                Distill your observations into portable techniques for your notebook.
+              <p style={{ color: 'rgba(255, 255, 255, 0.45)', marginBottom: '20px' }}>
+                Distill observations into portable techniques for your notebook repository.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -422,26 +462,30 @@ const AuditForm = () => {
 
               {techniques.length > 0 && (
                 <div style={{ marginTop: '20px' }}>
-                  <h3>Logged in this session ({techniques.length})</h3>
+                  <h3 style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Roboto Mono', marginBottom: '10px' }}>
+                    LOGGED IN THIS SESSION ({techniques.length})
+                  </h3>
                   <div style={{ display: 'grid', gap: '10px' }}>
                     {techniques.map((tech) => (
                       <div
                         key={tech._tempId || tech._id}
                         style={{
-                          background: '#f9f9f9',
+                          background: '#0c0c0e',
                           padding: '12px',
-                          borderRadius: '8px',
+                          borderRadius: '2px',
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
-                          border: '1px solid #eee'
+                          border: '1px solid rgba(255,255,255,0.06)'
                         }}
                       >
                         <div>
-                          <strong>{tech.techniqueName || 'Untitled Technique'}</strong>
-                          <div style={{ fontSize: '13px', color: '#666' }}>{tech.description}</div>
+                          <strong style={{ fontSize: '12px', color: '#d08f60', fontFamily: 'Roboto Mono' }}>
+                            {tech.techniqueName || 'Untitled Technique'}
+                          </strong>
+                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>{tech.description}</div>
                         </div>
-                        <span className="badge">{tech.lens}</span>
+                        <span className="badge" style={{ textTransform: 'uppercase' }}>{tech.lens}</span>
                       </div>
                     ))}
                   </div>
@@ -452,20 +496,43 @@ const AuditForm = () => {
         </div>
 
         {/* Bookmarks: Always visible but minimized in guided mode if not relevant */}
-        <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #e0e0e0' }}>
-          <h3>🔖 Session Bookmarks ({bookmarks.length})</h3>
+        <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <h3 style={{ marginBottom: '12px' }}>🔖 Session Bookmarks ({globalBookmarks.length})</h3>
           <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '10px 0' }}>
-            {bookmarks.map((bm, idx) => (
-              <div key={bm._id || idx} style={{ background: '#eee', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                {formatTime(bm.timestampSeconds || bm.timestamp)}
+            {globalBookmarks.map((bm, idx) => (
+              <div 
+                key={bm._id || idx} 
+                onClick={() => seekTo(bm.timestampSeconds || bm.timestamp)}
+                style={{ 
+                  background: '#1c1c22', 
+                  border: '1px solid rgba(208, 143, 96, 0.3)',
+                  color: '#d08f60',
+                  padding: '5px 12px', 
+                  borderRadius: '2px', 
+                  fontSize: '11px', 
+                  fontFamily: 'Roboto Mono',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#d08f60';
+                  e.currentTarget.style.color = '#0c0c0e';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#1c1c22';
+                  e.currentTarget.style.color = '#d08f60';
+                }}
+              >
+                {formatTime(bm.timestampSeconds || bm.timestamp)} {bm.note ? `- ${bm.note}` : ''}
               </div>
             ))}
-            {bookmarks.length === 0 && <span style={{ color: '#999', fontSize: '13px' }}>No bookmarks yet.</span>}
+            {globalBookmarks.length === 0 && <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: '11px', fontFamily: 'Roboto Mono' }}>NO BOOKMARKS LOGGED IN THIS SESSION.</span>}
           </div>
         </div>
 
         {/* Navigation / Save Footer */}
-        <div style={{ marginTop: '40px', display: 'flex', gap: '10px', pt: '20px', borderTop: '2px solid #eee' }}>
+        <div style={{ marginTop: '40px', display: 'flex', gap: '10px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           {isGuided ? (
             <>
               {stepIndex > 0 && (
@@ -482,10 +549,10 @@ const AuditForm = () => {
             </>
           ) : (
             <>
-              <button onClick={saveAudit} style={{ flex: 1, fontSize: '16px', padding: '15px' }}>
+              <button onClick={saveAudit} style={{ flex: 1, fontSize: '12px' }}>
                 ✓ Complete Audit
               </button>
-              <button onClick={saveNow} className="secondary" style={{ padding: '15px' }}>
+              <button onClick={saveNow} className="secondary">
                 Save Draft
               </button>
             </>

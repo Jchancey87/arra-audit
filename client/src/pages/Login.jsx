@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useBackend } from '../context/BackendContext';
 
@@ -37,8 +37,10 @@ const Login = () => {
 
   return (
     <div style={{ maxWidth: '400px', margin: '0 auto', padding: '40px 20px' }}>
-      <div className="card">
-        <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>🎵 Sonic DNA Audit</h1>
+      <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
+        <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#d08f60', fontSize: '16px', letterSpacing: '0.05em' }}>
+          🎵 SONIC DNA // ACCESS PORT
+        </h1>
 
         {error && <div className="error">{error}</div>}
 
@@ -51,19 +53,21 @@ const Login = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required={!isLogin}
-                placeholder="Your name"
+                placeholder="YOUR NAME"
+                style={{ background: '#0a0a0c', borderColor: 'rgba(255, 255, 255, 0.12)' }}
               />
             </div>
           )}
 
           <div className="form-group">
-            <label>Email</label>
+            <label>Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="your@email.com"
+              placeholder="YOUR@EMAIL.COM"
+              style={{ background: '#0a0a0c', borderColor: 'rgba(255, 255, 255, 0.12)' }}
             />
           </div>
 
@@ -75,18 +79,19 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••••"
+              style={{ background: '#0a0a0c', borderColor: 'rgba(255, 255, 255, 0.12)' }}
             />
           </div>
 
-          <button type="submit" disabled={loading} style={{ width: '100%' }}>
-            {loading ? 'Loading...' : isLogin ? 'Login' : 'Register'}
+          <button type="submit" disabled={loading} style={{ width: '100%', marginTop: '10px' }}>
+            {loading ? 'AUTHENTICATING...' : isLogin ? 'SIGN IN' : 'REGISTER'}
           </button>
         </form>
 
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '11px', fontFamily: 'Roboto Mono', color: 'rgba(255, 255, 255, 0.45)' }}>
           {isLogin ? (
             <>
-              Don't have an account?{' '}
+              NO ACCOUNT ASSIGNED?{' '}
               <button
                 type="button"
                 onClick={() => {
@@ -95,19 +100,21 @@ const Login = () => {
                 }}
                 style={{
                   background: 'none',
-                  color: '#1976d2',
+                  color: '#d08f60',
                   border: 'none',
                   textDecoration: 'underline',
                   cursor: 'pointer',
                   padding: 0,
+                  fontSize: '11px',
+                  fontFamily: 'Roboto Mono'
                 }}
               >
-                Register
+                REGISTER
               </button>
             </>
           ) : (
             <>
-              Already have an account?{' '}
+              EXISTING SYSTEM ACCOUNT?{' '}
               <button
                 type="button"
                 onClick={() => {
@@ -116,14 +123,16 @@ const Login = () => {
                 }}
                 style={{
                   background: 'none',
-                  color: '#1976d2',
+                  color: '#d08f60',
                   border: 'none',
                   textDecoration: 'underline',
                   cursor: 'pointer',
                   padding: 0,
+                  fontSize: '11px',
+                  fontFamily: 'Roboto Mono'
                 }}
               >
-                Login
+                SIGN IN
               </button>
             </>
           )}
