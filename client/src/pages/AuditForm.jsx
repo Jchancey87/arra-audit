@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
+import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
 
 // ── Autosave hook ────────────────────────────────────────────────────────────
 function useAutosave(auditId, data, backend, delay = 3000) {
@@ -463,6 +464,13 @@ const AuditForm = () => {
                       <p style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '20px', fontSize: '12px' }}>
                         {lensData.description}
                       </p>
+                    )}
+                    {lens === 'arrangement' && (
+                      <ArrangementTimelineWidget
+                        responses={responses}
+                        onChange={handleResponseChange}
+                        song={song}
+                      />
                     )}
                     {questions.map((question, idx) => {
                       const key = `${lens}-q${idx}`;

@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
+import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
+
 
 const AuditDetail = () => {
   const { id } = useParams();
@@ -178,6 +180,13 @@ const AuditDetail = () => {
                       <h3 style={{ textTransform: 'capitalize', color: '#d08f60', fontSize: '12px', fontFamily: 'Roboto Mono', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '4px', marginBottom: '12px' }}>
                         {lens} Lens
                       </h3>
+                      {lens === 'arrangement' && (
+                        <ArrangementTimelineWidget
+                          responses={audit.responses}
+                          song={song}
+                          readOnly={true}
+                        />
+                      )}
                       {questions.map((question, idx) => {
                         const answer = audit.responses[`${lens}-q${idx}`];
                         if (!answer) return null;
