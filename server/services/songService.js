@@ -9,10 +9,11 @@
  */
 
 export class SongService {
-  constructor(songRepository, searchService) {
+  constructor(songRepository, searchService, aiService) {
     if (!songRepository) throw new Error('SongService requires a song repository');
     this.songRepository = songRepository;
     this.searchService = searchService;
+    this.aiService = aiService;
   }
 
   // ─── Import ───────────────────────────────────────────────────────────────
@@ -70,7 +71,51 @@ export class SongService {
       throw err;
     }
 
-    const researchStatus = research ? 'success' : 'skipped';
+    let finalResearch = research;
+    if (research && research.results?.length > 0 && this.aiService) {
+      try {
+        console.log(`[SongService] Generating AI production summary for: "${title}"`);
+        const rawSearchData = research.results.map(s => `[Source: ${s.title}]: ${s.content}`).join('\n\n');
+        
+        const aiPrompt = `You are a music production expert and research assistant.
+We have conducted web searches about the song "${title}" by ${resolvedArtist}.
+
+Here is the raw search data:
+${rawSearchData}
+
+Based on this search data, generate a production summary structured by musical lenses. If the search data is thin or lacks specific details for a lens, use your general knowledge of the song/artist/genre to provide helpful context.
+
+You MUST respond with a JSON object in this exact format (do not include markdown headers or backticks, just the raw JSON object):
+{
+  "overview": "A 2-3 sentence overview of the song's production history and release context.",
+  "rhythm": "Details about the drums, groove, bass, and pocket (devices, techniques, feel).",
+  "texture": "Details about the textures, synths, instruments, spatial effects (reverbs, delays), and vocal processing.",
+  "harmony": "Details about key, chord progressions, harmonic changes, or key signature.",
+  "arrangement": "Details about the song structure, sections, key transitions, and dynamic build-ups."
+}`;
+
+        const aiResponse = await this.aiService.generateTemplate(aiPrompt);
+        const aiSummary = JSON.parse(aiResponse);
+        
+        if (aiSummary && aiSummary.overview) {
+          const compiledSummary = `### 💿 Production Overview\n${aiSummary.overview}\n\n` +
+            `### 🥁 Rhythm Lens\n${aiSummary.rhythm}\n\n` +
+            `### 🎛️ Texture Lens\n${aiSummary.texture}\n\n` +
+            `### 🎹 Harmony Lens\n${aiSummary.harmony}\n\n` +
+            `### 🎼 Arrangement Lens\n${aiSummary.arrangement}`;
+            
+          finalResearch = {
+            ...research,
+            summary: compiledSummary,
+            lensSummary: aiSummary
+          };
+        }
+      } catch (aiErr) {
+        console.warn('[SongService] AI production summary generation failed:', aiErr.message);
+      }
+    }
+
+    const researchStatus = finalResearch ? 'success' : 'skipped';
 
     const song = await this.songRepository.create({
       sourceType,
@@ -88,7 +133,7 @@ export class SongService {
       publishedAt,
       metadataFetchStatus: 'success',
       researchStatus,
-      researchSummary: research || { query: `${title} by ${resolvedArtist}`, summary: '' },
+      researchSummary: finalResearch || { query: `${title} by ${resolvedArtist}`, summary: '' },
       importErrors: [],
       userId,
       deletedAt: null,

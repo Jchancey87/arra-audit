@@ -58,7 +58,7 @@ const auditRepository = new MongooseRepository(Audit);
 const techniqueRepository = new MongooseRepository(TechniqueEntry);
 
 const authService = new AuthService(userRepository);
-const songService = new SongService(songRepository, searchAdapter);
+const songService = new SongService(songRepository, searchAdapter, aiAdapter);
 const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
 const techniqueService = new TechniqueService(techniqueRepository);
 const templateComposer = new TemplateComposer(aiAdapter);

@@ -99,7 +99,7 @@ const AuditCreate = () => {
               border: '1px solid rgba(255, 255, 255, 0.06)'
             }}>
               <strong style={{ fontFamily: 'Roboto Mono', fontSize: '11px', color: '#d08f60' }}>Research Intelligence Log:</strong>
-              <p style={{ fontSize: '12px', lineHeight: '1.6', marginTop: '8px', color: 'rgba(255, 255, 255, 0.75)' }}>
+              <p style={{ fontSize: '12px', lineHeight: '1.6', marginTop: '8px', color: 'rgba(255, 255, 255, 0.75)', whiteSpace: 'pre-wrap' }}>
                 {song.researchSummary.summary}
               </p>
             </div>
