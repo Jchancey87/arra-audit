@@ -74,7 +74,7 @@ export class MongooseRepository extends IRepository {
   async updateById(id, data) {
     try {
       const doc = await this.model.findByIdAndUpdate(id, data, {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       });
 
