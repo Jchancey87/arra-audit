@@ -175,4 +175,25 @@ Check status:
 - **Modals & Filter Search**: Added Change Password and Delete Account modals in Settings, along with a timezone filter search input.
 - **Backend Endpoints**: Added PUT `/me/profile`, PUT `/me/change-password`, DELETE `/me/delete-account`, DELETE `/songs/trash/purge-all`, and DELETE `/audits/trash/purge-all` routes. Integrated document-saving middleware on Mongoose to trigger password hashing during password edits.
 
+---
+
+### 2026-05-25: Interactive Song Arrangement Timeline & Text-Only Research Filtering
+
+#### 1. Interactive Song Arrangement Timeline Sketchpad
+- **Goal**: Implement a visual song structure sketching widget that functions like a DAW arrangement timeline.
+- **Implementation**:
+  - Created [ArrangementTimelineWidget.jsx](file:///home/jackc/projects/sonic-dna/client/src/components/ArrangementTimelineWidget.jsx) with a contiguous colored block layout mapping sections (Intro, Verse, Chorus, Bridge, Outro, Solo, Pre-Chorus, Custom) proportional to duration.
+  - Features include: Click-to-seek, drag-free reordering, inline editing drawer/form, auto-saving responses integration, and real-time red playhead sync.
+  - Integrated into `AuditForm.jsx` for active editing and `AuditDetail.jsx` for read-only history review.
+
+#### 2. Text-Only Tavily Search Domain Exclusion
+- **Goal**: Filter out non-textual streaming media and video URLs (e.g. Spotify, YouTube) from Tavily web search results, so the OpenRouter LLM gets rich articles to analyze.
+- **Implementation**:
+  - Updated [TavilyAdapter.js](file:///home/jackc/projects/sonic-dna/server/adapters/TavilyAdapter.js) and [tavilySearch.js](file:///home/jackc/projects/sonic-dna/server/services/tavilySearch.js) to pass `exclude_domains` array:
+    - Excludes video/audio streaming: `spotify.com`, `open.spotify.com`, `youtube.com`, `youtu.be`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `deezer.com`, `tidal.com`, `bandcamp.com`, `vimeo.com`, `dailymotion.com`.
+    - Excludes social/storefront: `amazon.com`, `instagram.com`, `facebook.com`, `tiktok.com`, `pinterest.com`, `twitter.com`, `x.com`.
+  - Removed the invalid `topic: 'music'` configuration in [tavilySearch.js](file:///home/jackc/projects/sonic-dna/server/services/tavilySearch.js) that caused Tavily API 400 errors.
+  - Verified tests pass successfully and ran `deploy.sh` to restart server/client PM2 instances.
+
+
 
