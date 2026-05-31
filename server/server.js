@@ -69,6 +69,34 @@ const templateComposer = new TemplateComposer(aiAdapter);
 const tasteService = new TasteService(tasteProfileRepository, searchAdapter, aiAdapter);
 
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
+app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, analysis, error } = req.body;
+    console.log(`[Webhook] Received analysis callback for song ${id}. Status: ${status}`);
+
+    const song = await Song.findById(id);
+    if (!song) {
+      return res.status(404).json({ error: 'Song not found' });
+    }
+
+    if (status === 'success') {
+      song.audioAnalysisStatus = 'success';
+      song.audioAnalysis = analysis;
+    } else {
+      song.audioAnalysisStatus = 'failed';
+      song.importErrors = song.importErrors || [];
+      song.importErrors.push(`Audio analysis error: ${error || 'Unknown error'}`);
+    }
+
+    await song.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Webhook] Analysis callback error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer));

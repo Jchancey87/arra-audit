@@ -351,6 +351,52 @@ export class InMemoryBackendAdapter extends IBackendService {
     return { success: true, count: deleted.length };
   }
 
+  async triggerSongAnalysis(songId) {
+    const song = this.songs.find((s) => s._id === songId);
+    if (!song) throw new Error('Song not found');
+    
+    song.audioAnalysisStatus = 'success';
+    song.audioAnalysis = {
+      tempo_bpm: 120.00,
+      tempo_confidence: 0.950,
+      tempo_curve: [
+        { time_seconds: 0.0, bpm: 120.00 },
+        { time_seconds: 15.0, bpm: 120.00 },
+        { time_seconds: 30.0, bpm: 120.00 }
+      ],
+      beat_times: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
+      downbeat_times: [0.5, 2.5, 4.5],
+      estimated_meter: "4/4",
+      meter_confidence: 0.910,
+      key: "C",
+      scale: "major",
+      key_confidence: 0.890,
+      tuning_reference: 440.0,
+      sectional_key_candidates: [
+        { section: "Intro", key: "C", scale: "major", confidence: 0.92 },
+        { section: "Verse 1", key: "C", scale: "major", confidence: 0.90 },
+        { section: "Chorus 1", key: "C", scale: "major", confidence: 0.95 }
+      ],
+      loudness_integrated: -14.20,
+      dynamic_range: 8.50,
+      energy_curve: [0.3, 0.4, 0.6, 0.7, 0.5, 0.8, 0.4],
+      spectral_centroid_summary: {
+        mean_hz: 1850.5,
+        std_hz: 320.0
+      },
+      danceability_or_pulse_strength: 0.75,
+      analysis_notes: "Mock pipeline execution completed successfully."
+    };
+    return { success: true };
+  }
+
+  async saveAudioOverrides(songId, overrides) {
+    const song = this.songs.find((s) => s._id === songId);
+    if (!song) throw new Error('Song not found');
+    song.audioOverrides = overrides;
+    return { song };
+  }
+
   async getDeletedAudits() {
     // Return deleted audits whose parent song is active
     const deleted = this.audits.filter((a) => {

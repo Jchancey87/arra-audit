@@ -14,7 +14,10 @@ const AuditDetail = () => {
   const {
     loadSong,
     setActiveAudit,
-    seekTo
+    seekTo,
+    isPlaying,
+    currentTime,
+    duration,
   } = useAudio();
 
   const [audit, setAudit] = useState(null);
@@ -22,6 +25,7 @@ const AuditDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -109,6 +113,179 @@ const AuditDetail = () => {
         </div>
 
         {error && <div className="error">{error}</div>}
+
+        {/* 🧬 SIGNAL AUDIO ANALYSIS MATRIX (READ-ONLY) */}
+        {song && song.audioAnalysisStatus === 'success' && song.audioAnalysis && (
+          <div className="panel" style={{ background: '#141418', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '2px', padding: '20px', marginBottom: '25px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#d08f60', fontSize: '14px' }}>🧬</span>
+                <h3 style={{ margin: 0, fontFamily: 'Roboto Mono', fontSize: '13px', color: '#d08f60' }}>
+                  SIGNAL ANALYSIS MATRIX // CANONICAL DESCRIPTORS
+                </h3>
+              </div>
+              <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '10px', fontFamily: 'Roboto Mono' }}>
+                {showAnalysis ? 'COLLAPSE' : 'EXPAND'}
+              </button>
+            </div>
+
+            {showAnalysis && (
+              <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '15px' }}>
+                {/* Active Values Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+                  {[
+                    {
+                      label: 'TEMPO / BPM',
+                      value: song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm,
+                      conf: song.audioAnalysis.tempo_confidence,
+                      isOverridden: !!song.audioOverrides?.tempo_bpm
+                    },
+                    {
+                      label: 'TONAL KEY',
+                      value: `${song.audioOverrides?.key || song.audioAnalysis.key} ${song.audioOverrides?.scale || song.audioAnalysis.scale || ''}`,
+                      conf: song.audioAnalysis.key_confidence,
+                      isOverridden: !!song.audioOverrides?.key
+                    },
+                    {
+                      label: 'METER / TIME',
+                      value: song.audioOverrides?.estimated_meter || song.audioAnalysis.estimated_meter,
+                      conf: song.audioAnalysis.meter_confidence,
+                      isOverridden: !!song.audioOverrides?.estimated_meter
+                    },
+                    {
+                      label: 'LOUDNESS (INTEG)',
+                      value: `${song.audioAnalysis.loudness_integrated} LUFS`,
+                      conf: 0.99,
+                      isReadOnly: true
+                    }
+                  ].map((item, idx) => {
+                    const valNum = parseFloat(item.conf);
+                    const isHigh = valNum > 0.8;
+                    const isMed = valNum >= 0.5 && valNum <= 0.8;
+                    const badgeColor = isHigh ? '#4ade80' : isMed ? '#fbbf24' : '#f87171';
+                    const badgeText = isHigh ? 'CONFIDENT' : isMed ? 'PROBABLE' : 'REVIEW NEEDED';
+
+                    return (
+                      <div key={idx} style={{ background: '#0a0a0c', border: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px', borderRadius: '1px' }}>
+                        <div style={{ fontSize: '9px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#d08f60', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                          {item.value}
+                          {item.isOverridden && (
+                            <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', fontWeight: 'normal' }}>(override)</span>
+                          )}
+                        </div>
+                        {!item.isReadOnly && (
+                          <div style={{ fontSize: '9px', fontFamily: 'Roboto Mono', color: badgeColor, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: badgeColor }} />
+                            {badgeText} ({Math.round(item.conf * 100)}%)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Timeline lanes */}
+                {duration > 0 && (
+                  <div style={{ background: '#0a0a0c', padding: '15px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>⏱️ REAL-TIME TEMPORAL LANES</span>
+                      <span>{formatTimestamp(currentTime)} / {formatTimestamp(duration)}</span>
+                    </div>
+                    
+                    {/* Interactive Playhead Lane */}
+                    <div 
+                      style={{ position: 'relative', height: '28px', background: '#101014', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const pct = (e.clientX - rect.left) / rect.width;
+                        seekTo(pct * duration);
+                      }}
+                    >
+                      {/* Beat Ticks */}
+                      {(song.audioAnalysis.beat_times || []).map((t, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            position: 'absolute',
+                            left: `${(t / duration) * 100}%`,
+                            top: '16px',
+                            width: '1px',
+                            height: '6px',
+                            background: 'rgba(255, 255, 255, 0.12)'
+                          }}
+                        />
+                      ))}
+
+                      {/* Downbeat Ticks */}
+                      {(song.audioAnalysis.downbeat_times || []).map((t, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            position: 'absolute',
+                            left: `${(t / duration) * 100}%`,
+                            top: '10px',
+                            width: '1.5px',
+                            height: '12px',
+                            background: 'rgba(208, 143, 96, 0.4)'
+                          }}
+                        />
+                      ))}
+
+                      {/* Playhead */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: `${(currentTime / duration) * 100}%`,
+                          top: 0,
+                          width: '2px',
+                          height: '100%',
+                          background: '#f87171',
+                          boxShadow: '0 0 8px #f87171',
+                          zIndex: 10
+                        }}
+                      >
+                        <div style={{ position: 'absolute', top: '-3px', left: '-3px', width: '8px', height: '8px', borderRadius: '50%', background: '#f87171' }} />
+                      </div>
+                    </div>
+
+                    {/* Tonal lane (Sections) */}
+                    <div style={{ position: 'relative', height: '24px', background: '#0a0a0c', marginTop: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+                      {(song.audioAnalysis.sectional_key_candidates || []).map((sect, i, arr) => {
+                        const pctWidth = 100 / arr.length;
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              width: `${pctWidth}%`,
+                              height: '100%',
+                              borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                              padding: '4px',
+                              boxSizing: 'border-box',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'center',
+                              background: Math.abs(currentTime - (duration / arr.length) * (i + 0.5)) < (duration / arr.length / 2) && isPlaying ? 'rgba(208,143,96,0.05)' : 'transparent'
+                            }}
+                          >
+                            <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {sect.section}
+                            </span>
+                            <span style={{ fontSize: '9px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#d08f60' }}>
+                              {sect.key} {sect.scale === 'minor' ? 'm' : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Research Intelligence Log */}
         {song?.researchSummary?.summary && (

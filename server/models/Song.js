@@ -73,6 +73,24 @@ const songSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    audioAnalysisStatus: {
+      type: String,
+      enum: ['not_started', 'pending', 'success', 'failed'],
+      default: 'not_started',
+    },
+    audioAnalysis: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    audioOverrides: {
+      type: {
+        tempo_bpm: Number,
+        key: String,
+        scale: String,
+        estimated_meter: String,
+      },
+      default: null,
+    },
     importErrors: {
       type: [String],
       default: [],

@@ -223,6 +223,28 @@ export default function createSongRoutes(songService, auditRepository, technique
     }
   });
 
+  // ── Trigger audio analysis ────────────────────────────────────────────────
+  router.post('/:id/analyze', async (req, res) => {
+    try {
+      await songService.triggerAnalysis(req.params.id, req.userId);
+      res.json({ message: 'Analysis triggered successfully' });
+    } catch (error) {
+      console.error('Trigger analysis error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Save audio overrides ──────────────────────────────────────────────────
+  router.put('/:id/audio-overrides', async (req, res) => {
+    try {
+      const song = await songService.saveAudioOverrides(req.params.id, req.userId, req.body);
+      res.json({ song: _sanitizeSong(song) });
+    } catch (error) {
+      console.error('Save audio overrides error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }
 
@@ -246,6 +268,9 @@ function _sanitizeSong(song) {
     researchSummary: song.researchSummary,
     researchStatus: song.researchStatus,
     metadataFetchStatus: song.metadataFetchStatus,
+    audioAnalysisStatus: song.audioAnalysisStatus || 'not_started',
+    audioAnalysis: song.audioAnalysis,
+    audioOverrides: song.audioOverrides,
     deletedAt: song.deletedAt,
     createdAt: song.createdAt,
     updatedAt: song.updatedAt,

@@ -103,6 +103,16 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async triggerSongAnalysis(songId) {
+    const res = await this.api.post(`/songs/${songId}/analyze`);
+    return res.data;
+  }
+
+  async saveAudioOverrides(songId, overrides) {
+    const res = await this.api.put(`/songs/${songId}/audio-overrides`, overrides);
+    return res.data;
+  }
+
   // ── Audits ────────────────────────────────────────────────────────────────
   async getAudits() {
     const res = await this.api.get('/audits');

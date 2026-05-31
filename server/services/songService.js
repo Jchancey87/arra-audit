@@ -139,6 +139,13 @@ You MUST respond with a JSON object in this exact format (do not include markdow
       deletedAt: null,
     });
 
+    // Trigger analysis asynchronously in the background
+    if (process.env.NODE_ENV !== 'test') {
+      this.triggerAnalysis(song._id, userId).catch(err => {
+        console.error('[SongService] Background audio analysis trigger failed:', err.message);
+      });
+    }
+
     return song;
   }
 
@@ -300,5 +307,43 @@ You MUST respond with a JSON object in this exact format (do not include markdow
 
     await this.songRepository.deleteById(songId);
     return true;
+  }
+
+  async triggerAnalysis(songId, userId) {
+    const song = await this.getSong(songId, userId);
+    if (!song) throw new Error('Song not found');
+
+    // Update status to pending
+    await this.songRepository.updateById(songId, { audioAnalysisStatus: 'pending' });
+
+    // Call Python FastAPI service asynchronously
+    const analysisServiceUrl = process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8080';
+    const callbackUrl = `${process.env.BACKEND_CALLBACK_URL || 'http://localhost:5050'}/api/public/songs/${songId}/analysis-completed`;
+
+    const payload = {
+      song_id: songId.toString(),
+      youtube_url: song.originalUrl || song.youtubeUrl,
+      yt_id: song.sourceId || song.youtubeId,
+      callback_url: callbackUrl
+    };
+
+    try {
+      console.log(`[SongService] Triggering audio analysis for song ${songId} at ${analysisServiceUrl}/analyze`);
+      const axios = (await import('axios')).default;
+      await axios.post(`${analysisServiceUrl}/analyze`, payload, { timeout: 5000 });
+      console.log(`[SongService] Audio analysis triggered successfully for song ${songId}`);
+    } catch (error) {
+      console.error(`[SongService] Failed to trigger audio analysis: ${error.message}`);
+      // Fallback: If python service is offline/errored, update database to 'failed'
+      await this.songRepository.updateById(songId, { audioAnalysisStatus: 'failed' });
+    }
+  }
+
+  async saveAudioOverrides(songId, userId, overrides) {
+    const song = await this.getSong(songId, userId);
+    if (!song) throw new Error('Song not found');
+
+    await this.songRepository.updateById(songId, { audioOverrides: overrides });
+    return this.getSong(songId, userId);
   }
 }
