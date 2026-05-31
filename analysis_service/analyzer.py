@@ -216,11 +216,16 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
     final_output_file = os.path.join(temp_dir, f"sonic_dna_temp_{yt_id}.mp3")
     
     try:
+        # Resolve path to yt-dlp binary (checks same bin/ folder as current python interpreter)
+        ytdlp_bin = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+        if not os.path.exists(ytdlp_bin):
+            ytdlp_bin = "yt-dlp"
+
         # Download audio using yt-dlp.
         # Uses --extract-audio and --audio-format mp3.
         # Fallback to general mp4 download if ffmpeg is missing.
         download_cmd = [
-            "yt-dlp",
+            ytdlp_bin,
             "-x",
             "--audio-format", "mp3",
             "--audio-quality", "5", # low quality/small size for faster speed
@@ -235,7 +240,7 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
             print(f"[Analyzer] yt-dlp warning/error: {result.stderr}", file=sys.stderr)
             # Try downloading without -x format conversion as fallback
             download_cmd_fallback = [
-                "yt-dlp",
+                ytdlp_bin,
                 "-f", "ba", # best audio directly without transcoding
                 "-o", output_template,
                 youtube_url
