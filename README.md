@@ -1,252 +1,118 @@
 # 🎵 Sonic DNA Audit App
 
-A full-stack web application for studying songs through four different lenses: **rhythm**, **texture**, **harmony**, and **arrangement**. Learn to reverse-engineer and internalize music production techniques from your favorite artists.
+Sonic DNA is a full-stack music production analysis workspace designed to help music producers, educators, and musicians reverse-engineer song structures, track arrangement dynamics, study composition techniques, and build a personalized vocabulary of production concepts.
 
-## Features
+The application leverages a clean **Hexagonal Architecture (Ports & Adapters)** to decouple external infrastructure dependencies from core business logic.
 
-✨ **Song Import from YouTube** - Easily import tracks from YouTube URLs
-🔍 **Automatic Research** - Tavily web search provides context and background on songs
-🤖 **AI-Customized Audits** - GPT-4 generates tailored audit questions based on song characteristics
-📐 **Four Lenses** - Analyze rhythm, texture, harmony, and arrangement systematically
-🎧 **Interactive Audio Player** - Built-in YouTube playback with bookmarking
-📝 **Technique Notebook** - Build a personal library of borrowed techniques and musical vocabulary
-🎯 **Flexible Workflows** - Choose between quick audits (5-15 min) or guided deep-dives (30-60 min)
-💾 **Persistent Storage** - Save all audits and techniques for future reference
+---
 
-## Tech Stack
+## 🏗️ Technical Architecture & Stack
 
-**Backend:**
-- Node.js + Express
-- MongoDB for data persistence
-- JWT authentication
-- Tavily API for research
-- OpenAI GPT-4 for template generation
+### Ports & Adapters Design
+- **Core Domain Services**: All business actions (Songs, Audits, Techniques, Style Tastes) are driven by isolated services (`SongService`, `AuditService`, `TechniqueService`, `TemplateComposer`) containing zero external library leakage.
+- **Backend Infrastructure Adapters**:
+  - `MongooseRepository` implements persistence ports.
+  - `OpenAIAdapter` handles AI-generated adaptive audit templates (supports OpenRouter fallback).
+  - `TavilyAdapter` handles search-based background artist research with bearer authentication limits.
+- **Frontend Ports**: The React app communicates with services using the `useBackend()` context hook, allowing instant swapping between an `HttpBackendAdapter` and a mock/testing harness.
 
-**Frontend:**
-- React 18
-- React Router for navigation
-- Axios for API calls
-- React YouTube for embedded playback
+### Technology Stack
+- **Backend API**: Node.js, Express, Nodemon (development), Jest (unit & integration testing).
+- **Frontend SPA**: React 19, Vite, Axios, React YouTube (embedded player API).
+- **Database**: Proxmox hosted MongoDB (`192.168.0.205:27017`).
+- **Process Orchestration**: PM2 for background process execution in containerized environments.
 
-## Quick Start
+---
 
-### Prerequisites
+## 💎 Core Features & Workspaces
 
-- Node.js 24+ and npm 11+
-- MongoDB Atlas account (or local MongoDB)
-- OpenAI API key
-- Tavily API key
-- YouTube URL access
+### 1. Workstation-Grade Arrangement Workspace
+The **Arrangement Lens** features a workstation-style visual editor mimicking digital audio workstation (DAW) patterns:
+- **Timeline Ruler**: Dedicated time marker ruler above blocks to map out song durations.
+- **Drag-to-Resize Blocks**: Click and drag the right edge handle of any section block to dynamically modify its duration in seconds.
+- **Playhead Synced Progress**: Tracks global player progress and displays active segment progress bars on the blocks.
+- **Contextual Inspector**: Interactive side-panel inspector replacing forms:
+  - Quick-select category swatches (Intro, Verse, Chorus, Bridge, Solo, Outro, Custom, Pre-Chorus).
+  - Fast start-time **Sync** action locking boundary timings to the player's playhead.
+  - Progressive disclosure separating metadata coordinates from advanced observations.
+  - Auto-growing textareas for detailed production notes.
+- **Keyboard Shortcuts**:
+  - `Space` -> Plays/pauses the active timeline section.
+  - `ArrowLeft` / `ArrowRight` -> Switches inspection focus between adjacent sections.
+  - `A` -> Adds a new timeline section at the end.
+  - *Shortcuts are automatically bypassed when typing inside inputs and textareas.*
 
-### 1. Clone & Install Dependencies
+### 2. Signal Spectrum & YouTube Import
+- **Automated Research Dives**: Importing a YouTube URL kicks off metadata extraction and background Tavily research indexing the artist's structural style.
+- **AI Audit Prompting**: GPT-4 synthesizes research findings and user style preferences to compile 4-6 tailored analytical exercises per lens.
 
-```bash
-cd "c:\Users\jchancey\Documents\Homma Research"
-npm run install-all
-```
+### 3. Practice Room & Notebooks
+- **Kanban Board**: Drag-and-drop technique cards across custom practice states with compact views.
+- **Notebook Registry**: Distill observations into portable rules searchable by lens, artist, and keyword.
 
-### 2. Configure Environment Variables
+### 4. System Hardening & Settings
+- **Collapsible Archives**: Accordion-grouped Deleted Songs and Deleted Audits under Trash with a bulk empty purge action.
+- **Mutations & Security**: Supports display name updates, security password rotations, and account deletions.
+- **Timezone Search**: Fast text-based filtering across global IANA timezone formats.
 
-Create a `.env` file in the root directory (copy from `.env.example`):
+---
 
-```
-# Server
+## 🚀 Environment Setup & Deployment
+
+### Prerequisite Environment Variables
+Create a `.env` file in the repository root:
+```env
 PORT=5050
 NODE_ENV=development
 
 # Database
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/sonic_dna?retryWrites=true&w=majority
+MONGODB_URI=mongodb://192.168.0.205:27017/sonic_dna
 
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
+# JWT Authenticator
+JWT_SECRET=your-super-secret-auth-token-key
 
-# APIs
+# External Keys
 OPENAI_API_KEY=sk-your-openai-key
-TAVILY_API_KEY=your-tavily-api-key
-YOUTUBE_API_KEY=your-youtube-api-key (optional for oembed)
-
-# Client
-REACT_APP_API_URL=http://localhost:5050
+TAVILY_API_KEY=tvly-your-tavily-search-key
 ```
 
-**Getting your API keys:**
+### Local Development Workflow
+1. **Sync Dependencies**: Install npm packages across client and server packages.
+   ```bash
+   npm run install-all
+   ```
+2. **Execute Dev Servers**: Spin up Vite and Express under a unified runner.
+   ```bash
+   npm run dev
+   ```
+   - Frontend client loads at: `http://localhost:3050`
+   - Express server loads at: `http://localhost:5050/api`
 
-- **OpenAI**: https://platform.openai.com/api-keys
-- **Tavily**: https://tavily.com/api
-- **MongoDB**: https://www.mongodb.com/cloud/atlas
-- **YouTube**: Not strictly required (using oembed fallback)
-
-### 3. Start Development Servers
-
+### Running Test Suites
+Run backend Jest integration/unit test runners:
 ```bash
-npm run dev
+npm --prefix server test
 ```
 
-This runs both the backend (port 5050) and frontend (port 3050) concurrently.
-
-Alternatively, run them separately:
-```bash
-npm run server    # Terminal 1
-npm run client    # Terminal 2
-```
-
-### 4. Access the App
-
-- **Frontend**: http://localhost:3050
-- **API**: http://localhost:5050
-- **Health Check**: http://localhost:5050/health
-
-## Usage Workflow
-
-### 1. Register / Login
-Create an account or log in with existing credentials.
-
-### 2. Import a Song
-- Go to "Import Song"
-- Paste a YouTube URL
-- The app fetches metadata and auto-researches via Tavily
-- Research summary displayed for context
-
-### 3. Create an Audit
-- Click "New Audit" on any song
-- Select 1-4 lenses (rhythm, texture, harmony, arrangement)
-- Choose workflow type:
-  - **Quick**: See all questions in one form (5-15 min)
-  - **Guided**: Step through Listen → Sketch → Recreate → Translate → Log (30-60 min)
-
-### 4. Fill the Audit
-- Answer customized questions generated by GPT-4
-- Listen to the song with embedded YouTube player
-- Bookmark key moments as you listen
-- Log techniques you discover and want to study further
-
-### 5. Review & Grow
-- View completed audits in your library
-- Browse your Technique Notebook (organized by lens and artist)
-- Search and filter techniques you've collected
-- Build a personal vocabulary of production moves
-
-## Project Structure
-
-```
-sonic-dna-audit/
-├── server/
-│   ├── adapters/           # Infrastructure Layer (Mongoose, OpenAI, Tavily)
-│   │   ├── MongooseRepository.js
-│   │   ├── OpenAIAdapter.js
-│   │   └── TavilyAdapter.js
-│   ├── ports/              # Interface definitions (Service contracts)
-│   ├── services/           # Domain Layer (Business Logic)
-│   │   ├── authService.js
-│   │   ├── songService.js
-│   │   ├── auditService.js
-│   │   └── techniqueService.js
-│   ├── models/             # Mongoose Models
-│   ├── routes/             # Factory functions for Express routers
-│   ├── middleware/
-│   ├── server.js           # DI Container and Entry Point
-│   └── package.json
-├── client/
-│   ├── src/
-│   │   ├── ports/          # Frontend service interfaces
-│   │   ├── adapters/       # Implementation (HttpBackend, InMemory)
-│   │   ├── context/        # BackendContext for DI
-│   │   ├── pages/          # React Components (UI Layer)
-│   │   ├── components/
-│   │   ├── App.jsx
-│   │   └── index.js
-│   └── package.json
-├── .env.example
-├── README.md
-└── setup-proxmox.sh
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Create new account
-- `POST /api/auth/login` - Login and get JWT token
-
-### Songs
-- `POST /api/songs/import` - Import song from YouTube URL
-- `GET /api/songs` - Get all user's songs (with filters)
-- `GET /api/songs/:id` - Get song details
-- `DELETE /api/songs/:id` - Delete song
-
-### Audits
-- `POST /api/audits/generate-template` - Generate customized audit template
-- `POST /api/audits` - Create/save new audit
-- `GET /api/audits/:id` - Get audit details
-- `GET /api/audits/song/:songId` - Get all audits for a song
-- `GET /api/audits` - Get all user's audits
-- `PATCH /api/audits/:id` - Update audit
-- `DELETE /api/audits/:id` - Delete audit
-
-### Techniques
-- `GET /api/techniques` - Get all techniques (with filters)
-- `GET /api/techniques/category/:category` - Get techniques by category
-- `POST /api/techniques` - Add new technique entry
-- `PATCH /api/techniques/:id` - Update technique
-- `DELETE /api/techniques/:id` - Delete technique
-
-## Customization & Extension
-
-### Adding More Artists
-Update the `generateAuditTemplate` prompt in `server/services/auditGenerator.js` to include artist-specific guidance.
-
-### Different Audio Sources
-The `Song` model is designed to support multiple sources. Extend the import routes to support Spotify, Apple Music, or SoundCloud URLs.
-
-### PDF Export
-The app is set up to support PDF export (see Phase 7 in plan). Install `pdfkit` and add export endpoints.
-
-### Guided Workflow Steps
-Currently "guided" mode uses the same form with hints. Implement step-by-step UI with progress tracking for full Sonic DNA methodology.
-
-## Troubleshooting
-
-**"MongoDB connection error"**
-- Verify MONGODB_URI is correct
-- Check IP whitelist in MongoDB Atlas
-- Test connection string in MongoDB Compass
-
-**"OpenAI API error"**
-- Verify API key is valid
-- Check account has API credits
-- Ensure model name is correct (gpt-4-turbo)
-
-**"Tavily search failed"**
-- Verify API key is valid
-- Check rate limits
-- Fallback to default template should still work
-
-**Port already in use**
-- Change PORT in .env
-- Or kill process: `lsof -ti:5050 | xargs kill -9`
-
-## Future Enhancements
-
-- [ ] Audio file upload (instead of just YouTube)
-- [ ] Multi-user collaboration on audits
-- [ ] AI-powered transcription for Jamerson-style bass analysis
-- [ ] PDF export with full audit + research
-- [ ] Mobile app with offline mode
-- [ ] Advanced waveform visualization
-- [ ] Community technique database
-- [ ] Spaced repetition for technique memorization
-
-## Contributing
-
-This is a personal research project. Feel free to fork and customize for your own music study.
-
-## License
-
-MIT (Personal use)
-
-## Attribution
-
-Inspired by the "Study Records Like a Painter" methodology and interviews with music production educators.
+### Proxmox LXC Container Deployment
+Production deployment uses process separation managed by **PM2**:
+1. Commit and push updates to your origin branch.
+2. Log into the Proxmox container shell and navigate to the project directory `/home/jackc/projects/sonic-dna`.
+3. Execute the deployment script:
+   ```bash
+   ./deploy.sh
+   ```
+   This script handles:
+   - Pulling commits from remote origin.
+   - Syncing npm packages.
+   - Restoring port configurations.
+   - Launching PM2 process instances (`sonic-dna-server` and `sonic-dna-client`).
 
 ---
 
-**Happy studying!** 🎵 Start with one hero track from your favorite artist, run through the Sonic DNA audit, and start building your production vocabulary.
+## 📞 PM2 Process Administration
+Inspect status logs inside the container shell:
+- View active instances: `pm2 status`
+- Monitor processes: `pm2 monit`
+- View logs: `pm2 logs`
+- Service restarts: `pm2 restart all`
