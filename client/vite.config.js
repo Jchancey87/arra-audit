@@ -13,6 +13,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    allowedHosts: [
+      'sonic-dna.homma.casa'
+     ]
   },
   build: {
     outDir: 'build',
