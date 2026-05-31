@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useBackend } from '../context/BackendContext';
 
 const LENS_META = {
   rhythm:      { emoji: '🥁', label: 'Rhythm',      desc: 'Groove, pocket, and timing' },
@@ -22,12 +23,125 @@ const TIMEZONES = [
 
 const Settings = () => {
   const { user, updateUserPreferences, updateUserProfile, changePassword, deleteAccount } = useAuth();
+  const backend = useBackend();
 
   const currentPrefs = user?.preferences || {};
   const [defaultWorkflow, setDefaultWorkflow] = useState(currentPrefs.defaultWorkflow || 'quick');
   const [preferredLenses, setPreferredLenses] = useState(currentPrefs.preferredLenses || []);
   const [timezone, setTimezone] = useState(currentPrefs.timezone || 'UTC');
   const [name, setName] = useState('');
+
+  const currentTastes = currentPrefs.tastes || {};
+  const [rhythmTaste, setRhythmTaste] = useState(currentTastes.rhythm || 'Jamerson, Radiohead');
+  const [textureTaste, setTextureTaste] = useState(currentTastes.texture || 'Flaming Lips, Pink Floyd');
+  const [harmonyTaste, setHarmonyTaste] = useState(currentTastes.harmony || 'Jimmy Webb, Beach Boys, Radiohead');
+  const [arrangementTaste, setArrangementTaste] = useState(currentTastes.arrangement || 'Jimmy Webb, Beach Boys, Pink Floyd, Radiohead');
+
+  const [tasteProfiles, setTasteProfiles] = useState([]);
+  const [researching, setResearching] = useState({});
+
+  useEffect(() => {
+    const loadTastes = async () => {
+      try {
+        const profiles = await backend.getTasteProfiles();
+        setTasteProfiles(profiles || []);
+      } catch (err) {
+        console.error('Failed to load taste profiles:', err);
+      }
+    };
+    loadTastes();
+  }, [backend]);
+
+  const handleResearchTaste = async (lens, artistName) => {
+    if (!artistName) return;
+    const key = `${lens}-${artistName}`;
+    setResearching(prev => ({ ...prev, [key]: true }));
+    try {
+      const response = await backend.researchTasteProfile(lens, artistName);
+      if (response && response.profile) {
+        setTasteProfiles(prev => {
+          const idx = prev.findIndex(p => p.lens === lens && p.name.toLowerCase() === artistName.toLowerCase());
+          if (idx !== -1) {
+            const updated = [...prev];
+            updated[idx] = response.profile;
+            return updated;
+          }
+          return [...prev, response.profile];
+        });
+      }
+    } catch (err) {
+      alert(`Research failed: ${err.message}`);
+    } finally {
+      setResearching(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const renderTasteStatus = (lens, value) => {
+    if (!value || typeof value !== 'string') return null;
+    const artists = value.split(',').map(name => name.trim()).filter(Boolean);
+    if (artists.length === 0) return null;
+
+    return (
+      <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        {artists.map((artist) => {
+          const matched = tasteProfiles.find(
+            p => p.lens === lens && p.name.toLowerCase() === artist.toLowerCase()
+          );
+          const key = `${lens}-${artist}`;
+          const isLoading = researching[key];
+          
+          return (
+            <div 
+              key={artist}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#0c0c0e',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '4px 8px',
+                borderRadius: '2px',
+                fontSize: '11px',
+                fontFamily: 'Roboto Mono',
+              }}
+            >
+              <span style={{ color: 'rgba(255,255,255,0.85)' }}>{artist}</span>
+              {matched && matched.summary ? (
+                <span 
+                  style={{ color: '#4ade80', fontSize: '9px', fontWeight: 'bold', cursor: 'help' }}
+                  title={matched.summary}
+                >
+                  ✓ RESEARCHED
+                </span>
+              ) : (
+                <span style={{ color: 'rgba(255, 255, 255, 0.35)', fontSize: '9px' }}>
+                  AWAITING DEEP DIVE
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleResearchTaste(lens, artist)}
+                style={{
+                  background: isLoading ? 'rgba(208, 143, 96, 0.1)' : '#d08f60',
+                  color: isLoading ? '#d08f60' : '#0c0c0e',
+                  border: 'none',
+                  padding: '2px 6px',
+                  borderRadius: '1px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  marginLeft: '4px',
+                }}
+              >
+                {isLoading ? 'RESEARCHING...' : matched && matched.summary ? 'RE-RUN DIVE' : '🔬 DEEP DIVE (10 SOURCES)'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
@@ -54,6 +168,15 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       setName(user.name || user.displayName || '');
+      const prefs = user.preferences || {};
+      setDefaultWorkflow(prefs.defaultWorkflow || 'quick');
+      setPreferredLenses(prefs.preferredLenses || []);
+      setTimezone(prefs.timezone || 'UTC');
+      const tastes = prefs.tastes || {};
+      setRhythmTaste(tastes.rhythm || 'Jamerson, Radiohead');
+      setTextureTaste(tastes.texture || 'Flaming Lips, Pink Floyd');
+      setHarmonyTaste(tastes.harmony || 'Jimmy Webb, Beach Boys, Radiohead');
+      setArrangementTaste(tastes.arrangement || 'Jimmy Webb, Beach Boys, Pink Floyd, Radiohead');
     }
   }, [user]);
 
@@ -78,6 +201,12 @@ const Settings = () => {
         defaultWorkflow,
         preferredLenses,
         timezone,
+        tastes: {
+          rhythm: rhythmTaste,
+          texture: textureTaste,
+          harmony: harmonyTaste,
+          arrangement: arrangementTaste
+        }
       });
       setSuccess('Preferences saved successfully!');
       setTimeout(() => setSuccess(''), 3000);
@@ -288,6 +417,60 @@ const Settings = () => {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Reference Tastes setting */}
+          <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <h3 style={{ marginBottom: '10px' }}>Reference Tastes (Concrete Exercises)</h3>
+            <p style={{ color: 'rgba(255, 255, 255, 0.45)', marginBottom: '15px', fontSize: '12px' }}>
+              Specify reference artists, producers, or styles for each lens to tailor the concrete study exercises generated for your audits:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#d08f60' }}>🥁 Rhythm Tastes</label>
+                <input
+                  type="text"
+                  value={rhythmTaste}
+                  onChange={(e) => setRhythmTaste(e.target.value)}
+                  placeholder="e.g. Jamerson, Radiohead"
+                  style={{ background: '#0c0c0e', borderColor: 'rgba(255,255,255,0.12)' }}
+                />
+                {renderTasteStatus('rhythm', rhythmTaste)}
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#d08f60' }}>🎛️ Texture Tastes</label>
+                <input
+                  type="text"
+                  value={textureTaste}
+                  onChange={(e) => setTextureTaste(e.target.value)}
+                  placeholder="e.g. Flaming Lips, Pink Floyd"
+                  style={{ background: '#0c0c0e', borderColor: 'rgba(255,255,255,0.12)' }}
+                />
+                {renderTasteStatus('texture', textureTaste)}
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#d08f60' }}>🎹 Harmony Tastes</label>
+                <input
+                  type="text"
+                  value={harmonyTaste}
+                  onChange={(e) => setHarmonyTaste(e.target.value)}
+                  placeholder="e.g. Jimmy Webb, Beach Boys, Radiohead"
+                  style={{ background: '#0c0c0e', borderColor: 'rgba(255,255,255,0.12)' }}
+                />
+                {renderTasteStatus('harmony', harmonyTaste)}
+              </div>
+              <div className="form-group">
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#d08f60' }}>🎼 Arrangement Tastes</label>
+                <input
+                  type="text"
+                  value={arrangementTaste}
+                  onChange={(e) => setArrangementTaste(e.target.value)}
+                  placeholder="e.g. Jimmy Webb, Beach Boys, Pink Floyd, Radiohead"
+                  style={{ background: '#0c0c0e', borderColor: 'rgba(255,255,255,0.12)' }}
+                />
+                {renderTasteStatus('arrangement', arrangementTaste)}
+              </div>
             </div>
           </div>
 

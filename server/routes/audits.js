@@ -1,4 +1,6 @@
 import express from 'express';
+import User from '../models/User.js';
+import TasteProfile from '../models/TasteProfile.js';
 
 /**
  * Audit routes — single-step creation (Issue 4 clean cutover).
@@ -30,6 +32,47 @@ export default function createAuditRoutes(auditService, templateComposer) {
         return res.status(400).json({ error: 'songId and lenses (array) are required' });
       }
 
+      // Fetch user's tastes/influences for personalized exercises
+      let tastes = null;
+      let enrichedTastes = null;
+      try {
+        const user = await User.findById(userId);
+        if (user && user.preferences && user.preferences.tastes) {
+          tastes = user.preferences.tastes;
+
+          // Fetch any synthesized TasteProfiles to enrich the prompt context
+          let tasteProfiles = [];
+          try {
+            tasteProfiles = await TasteProfile.find({ userId });
+          } catch (profileErr) {
+            console.warn('[Audit Create] Failed to fetch TasteProfiles:', profileErr.message);
+          }
+
+          enrichedTastes = {};
+          for (const lens of ['rhythm', 'texture', 'harmony', 'arrangement']) {
+            const rawArtists = tastes[lens] || '';
+            const artistNames = rawArtists.split(',').map(name => name.trim()).filter(Boolean);
+            const summaries = [];
+            for (const name of artistNames) {
+              const matchedProfile = tasteProfiles.find(
+                p => p.lens === lens && p.name.toLowerCase() === name.toLowerCase()
+              );
+              if (matchedProfile && matchedProfile.summary) {
+                summaries.push(`[Style: ${matchedProfile.name}]: ${matchedProfile.summary}`);
+              } else {
+                summaries.push(`[Style: ${name}]: (Awaiting deep‑dive research; use general stylistic traits)`);
+              }
+            }
+            enrichedTastes[lens] = {
+              raw: rawArtists,
+              rich: summaries.join('\n\n')
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[Audit Create] Failed to fetch user tastes, proceeding with defaults:', err.message);
+      }
+
       // Generate template (with fallback if AI fails)
       let templateQuestions = null;
       let templateVersion = 'fallback-v1';
@@ -57,12 +100,13 @@ export default function createAuditRoutes(auditService, templateComposer) {
         console.log(`[Audit Create] Song: "${song?.title}" | Research sources: ${researchSources.length} | Context chars: ${richContext.length}`);
 
         try {
-          console.log('[Audit Create] Calling AI to generate template...');
+          console.log('[Audit Create] Calling AI to generate template with user tastes...');
           templateQuestions = await templateComposer.generateTemplate(
             song?.title || 'Unknown',
             song?.artistName || song?.artist || 'Unknown',
             resolvedLenses,
-            richContext
+            richContext,
+            enrichedTastes || tastes
           );
           templateVersion = 'ai-v1';
           modelUsed = process.env.OPENAI_MODEL || 'gpt-4-turbo';
@@ -72,7 +116,8 @@ export default function createAuditRoutes(auditService, templateComposer) {
           templateQuestions = templateComposer._buildFallbackTemplate?.(
             song?.title || 'Unknown',
             song?.artistName || song?.artist || 'Unknown',
-            resolvedLenses
+            resolvedLenses,
+            enrichedTastes || tastes
           ) || null;
         }
       }

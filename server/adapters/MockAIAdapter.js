@@ -69,4 +69,11 @@ export class MockAIAdapter extends IAIModelService {
       workflow_guidance: 'Work through each lens systematically, taking notes on specific moments.',
     });
   }
+
+  async generateCompletion(prompt) {
+    if (this.responseOverride) {
+      return this.responseOverride;
+    }
+    return "Mock synthesized taste analysis profile summary content for testing.";
+  }
 }

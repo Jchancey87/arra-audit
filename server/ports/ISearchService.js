@@ -20,4 +20,14 @@ export class ISearchService {
   async searchSongInfo(title, artist) {
     throw new Error('searchSongInfo() not implemented');
   }
+
+  /**
+   * General search query
+   * @param {string} query - Search query
+   * @param {number} maxResults - Max results to fetch
+   * @returns {Promise<{query: string, results: Array}>}
+   */
+  async search(query, maxResults = 10) {
+    throw new Error('search() not implemented');
+  }
 }

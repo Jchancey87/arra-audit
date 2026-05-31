@@ -187,6 +187,27 @@ const AuditDetail = () => {
                           readOnly={true}
                         />
                       )}
+                      {lensData.exercises && lensData.exercises.length > 0 && (
+                        <div style={{
+                          marginBottom: '15px',
+                          padding: '12px',
+                          background: 'rgba(208, 143, 96, 0.02)',
+                          border: '1px dashed rgba(208, 143, 96, 0.15)',
+                          borderRadius: '2px',
+                        }}>
+                          <strong style={{ display: 'block', fontSize: '10px', fontFamily: 'Roboto Mono', color: '#d08f60', marginBottom: '8px' }}>
+                            🔬 CONCRETE EXERCISES (TAILORED)
+                          </strong>
+                          <div style={{ display: 'grid', gap: '8px' }}>
+                            {lensData.exercises.map((ex, idx) => (
+                              <div key={idx} style={{ background: '#070709', padding: '10px', borderLeft: '2px solid #d08f60', borderRadius: '1px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>{ex.name}</div>
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' }}>{ex.description}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {questions.map((question, idx) => {
                         const answer = audit.responses[`${lens}-q${idx}`];
                         if (!answer) return null;

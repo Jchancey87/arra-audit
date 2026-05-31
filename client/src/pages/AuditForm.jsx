@@ -472,6 +472,42 @@ const AuditForm = () => {
                         song={song}
                       />
                     )}
+                    {/* Render Concrete Exercises if available */}
+                    {lensData?.exercises && lensData.exercises.length > 0 && (
+                      <div style={{
+                        marginTop: '15px',
+                        marginBottom: '25px',
+                        padding: '15px',
+                        background: 'rgba(208, 143, 96, 0.03)',
+                        border: '1px dashed rgba(208, 143, 96, 0.25)',
+                        borderRadius: '2px',
+                      }}>
+                        <h4 style={{
+                          fontFamily: 'Roboto Mono',
+                          fontSize: '11px',
+                          color: '#d08f60',
+                          marginTop: 0,
+                          marginBottom: '10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          🔬 CONCRETE EXERCISES (TAILORED)
+                        </h4>
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                          {lensData.exercises.map((ex, idx) => (
+                            <div key={idx} style={{ background: '#0a0a0c', padding: '12px', borderLeft: '2px solid #d08f60', borderRadius: '1px' }}>
+                              <strong style={{ fontSize: '12px', color: 'rgba(255,255,255,0.95)', display: 'block', marginBottom: '4px' }}>
+                                {ex.name}
+                              </strong>
+                              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: '1.4' }}>
+                                {ex.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {questions.map((question, idx) => {
                       const key = `${lens}-q${idx}`;
                       return (
@@ -497,14 +533,41 @@ const AuditForm = () => {
 
           {/* STEP 4: RECREATE */}
           {isGuided && currentStep?.name === 'Recreate' && (
-            <div className="form-group">
-              <label>Recreation Notes</label>
-              <textarea
-                placeholder="If you were to transcribe or recreate a part of this, what would it be? Describe the tools, settings, or performance choices needed."
-                style={{ height: '200px' }}
-                value={responses['recreation'] || ''}
-                onChange={(e) => handleResponseChange('recreation', e.target.value)}
-              />
+            <div>
+              <div style={{ marginBottom: '25px' }}>
+                <h3 style={{ color: '#d08f60', fontSize: '12px', fontFamily: 'Roboto Mono', marginBottom: '12px' }}>
+                  🎯 TAILORED RECREATION EXERCISES
+                </h3>
+                {lenses.map((lens) => {
+                  const lensData = template?.lenses?.[lens];
+                  if (!lensData?.exercises || lensData.exercises.length === 0) return null;
+                  return (
+                    <div key={lens} style={{ marginBottom: '15px', padding: '12px', background: '#1c1c22', borderLeft: '3px solid #d08f60' }}>
+                      <strong style={{ textTransform: 'uppercase', fontSize: '11px', color: '#d08f60', fontFamily: 'Roboto Mono', display: 'block', marginBottom: '8px' }}>
+                        {lens} Lens
+                      </strong>
+                      <div style={{ display: 'grid', gap: '8px' }}>
+                        {lensData.exercises.map((ex, idx) => (
+                          <div key={idx} style={{ fontSize: '12px', padding: '8px', background: '#0c0c0e', borderRadius: '2px' }}>
+                            <strong style={{ color: 'rgba(255,255,255,0.85)' }}>{ex.name}:</strong>
+                            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '6px' }}>{ex.description}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="form-group">
+                <label>Recreation Notes</label>
+                <textarea
+                  placeholder="If you were to transcribe or recreate a part of this, what would it be? Describe the tools, settings, or performance choices needed."
+                  style={{ height: '200px' }}
+                  value={responses['recreation'] || ''}
+                  onChange={(e) => handleResponseChange('recreation', e.target.value)}
+                />
+              </div>
             </div>
           )}
 

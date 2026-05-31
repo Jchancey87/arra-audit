@@ -42,4 +42,8 @@ export class IBackendService {
   async addTechnique(techniqueData) { throw new Error('Not implemented'); }
   async updateTechnique(id, updates) { throw new Error('Not implemented'); }
   async deleteTechnique(id) { throw new Error('Not implemented'); }
+
+  // Tastes
+  async getTasteProfiles() { throw new Error('Not implemented'); }
+  async researchTasteProfile(lens, name) { throw new Error('Not implemented'); }
 }

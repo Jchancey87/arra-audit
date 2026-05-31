@@ -18,6 +18,7 @@ import User from './models/User.js';
 import Song from './models/Song.js';
 import Audit from './models/Audit.js';
 import TechniqueEntry from './models/TechniqueEntry.js';
+import TasteProfile from './models/TasteProfile.js';
 
 // Services
 import { AuthService } from './services/authService.js';
@@ -25,12 +26,14 @@ import { SongService } from './services/songService.js';
 import { AuditService } from './services/auditService.js';
 import { TechniqueService } from './services/techniqueService.js';
 import { TemplateComposer } from './services/templateComposer.js';
+import { TasteService } from './services/tasteService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
 import createSongRoutes from './routes/songs.js';
 import createAuditRoutes from './routes/audits.js';
 import createTechniqueRoutes from './routes/techniques.js';
+import createTasteRoutes from './routes/tastes.js';
 
 import { authMiddleware } from './middleware/auth.js';
 
@@ -56,18 +59,21 @@ const userRepository = new MongooseRepository(User);
 const songRepository = new MongooseRepository(Song);
 const auditRepository = new MongooseRepository(Audit);
 const techniqueRepository = new MongooseRepository(TechniqueEntry);
+const tasteProfileRepository = new MongooseRepository(TasteProfile);
 
 const authService = new AuthService(userRepository);
 const songService = new SongService(songRepository, searchAdapter, aiAdapter);
 const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
 const techniqueService = new TechniqueService(techniqueRepository);
 const templateComposer = new TemplateComposer(aiAdapter);
+const tasteService = new TasteService(tasteProfileRepository, searchAdapter, aiAdapter);
 
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
+app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {

@@ -19,4 +19,14 @@ export class IAIModelService {
   async generateTemplate(prompt) {
     throw new Error('generateTemplate() not implemented');
   }
+
+  /**
+   * Generate general text content from a prompt
+   * @param {string} prompt - The full prompt
+   * @returns {Promise<string>} Plain text response
+   * @throws {Error} if API fails
+   */
+  async generateCompletion(prompt) {
+    throw new Error('generateCompletion() not implemented');
+  }
 }

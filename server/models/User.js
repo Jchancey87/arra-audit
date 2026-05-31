@@ -1,6 +1,16 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const tastesSchema = new mongoose.Schema(
+  {
+    rhythm: { type: String, default: 'Jamerson, Radiohead' },
+    texture: { type: String, default: 'Flaming Lips, Pink Floyd' },
+    harmony: { type: String, default: 'Jimmy Webb, Beach Boys, Radiohead' },
+    arrangement: { type: String, default: 'Jimmy Webb, Beach Boys, Pink Floyd, Radiohead' },
+  },
+  { _id: false }
+);
+
 const preferencesSchema = new mongoose.Schema(
   {
     defaultWorkflow: {
@@ -15,6 +25,10 @@ const preferencesSchema = new mongoose.Schema(
     timezone: {
       type: String,
       default: 'UTC',
+    },
+    tastes: {
+      type: tastesSchema,
+      default: () => ({}),
     },
   },
   { _id: false }

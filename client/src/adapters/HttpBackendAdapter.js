@@ -214,4 +214,15 @@ export class HttpBackendAdapter extends IBackendService {
     const res = await this.api.delete(`/techniques/${id}`);
     return res.data;
   }
+
+  // ── Tastes ────────────────────────────────────────────────────────────────
+  async getTasteProfiles() {
+    const res = await this.api.get('/tastes');
+    return res.data;
+  }
+
+  async researchTasteProfile(lens, name) {
+    const res = await this.api.post('/tastes/research', { lens, name });
+    return res.data;
+  }
 }

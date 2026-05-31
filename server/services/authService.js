@@ -70,7 +70,17 @@ export class AuthService {
       email: user.email,
       name: user.name,
       displayName: user.displayName,
-      preferences: user.preferences || { defaultWorkflow: 'quick', preferredLenses: [] }
+      preferences: user.preferences || {
+        defaultWorkflow: 'quick',
+        preferredLenses: [],
+        timezone: 'UTC',
+        tastes: {
+          rhythm: 'Jamerson, Radiohead',
+          texture: 'Flaming Lips, Pink Floyd',
+          harmony: 'Jimmy Webb, Beach Boys, Radiohead',
+          arrangement: 'Jimmy Webb, Beach Boys, Pink Floyd, Radiohead'
+        }
+      }
     };
   }
 

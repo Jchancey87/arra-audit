@@ -10,6 +10,7 @@ export class InMemoryBackendAdapter extends IBackendService {
     this.songs = [];
     this.audits = [];
     this.techniques = [];
+    this.tastes = [];
     this.currentUser = null;
   }
 
@@ -144,7 +145,14 @@ export class InMemoryBackendAdapter extends IBackendService {
     const templateQuestions = {
       title: 'Mock Audit',
       lenses: resolvedLenses.reduce((acc, lens) => {
-        acc[lens] = { description: `Study the ${lens}`, questions: ['Q1?', 'Q2?', 'Q3?'] };
+        acc[lens] = { 
+          description: `Study the ${lens}`, 
+          questions: ['Q1?', 'Q2?', 'Q3?'],
+          exercises: [
+            { name: `Mock ${lens} exercise 1`, description: `Step 1 of recreation for ${lens}` },
+            { name: `Mock ${lens} exercise 2`, description: `Step 2 of application for ${lens}` }
+          ]
+        };
         return acc;
       }, {}),
       workflow_guidance: 'Work through each lens systematically.',
@@ -385,5 +393,34 @@ export class InMemoryBackendAdapter extends IBackendService {
       await this.purgeAudit(id);
     }
     return { success: true, count: deleted.length };
+  }
+
+  // ── Tastes ────────────────────────────────────────────────────────────────
+  async getTasteProfiles() {
+    return this.tastes || [];
+  }
+
+  async researchTasteProfile(lens, name) {
+    if (!this.tastes) this.tastes = [];
+    const idx = this.tastes.findIndex(t => t.lens === lens && t.name.toLowerCase() === name.toLowerCase());
+    const profile = {
+      _id: `taste-${Date.now()}`,
+      lens,
+      name,
+      summary: `Mock synthesized style profile for "${name}" under the ${lens} lens. Highly detailed techniques and DAW tips.`,
+      sources: [
+        { title: `Mock Source 1 about ${name}`, url: 'http://example.com/1', content: `${name}'s style analysis snippet.` },
+        { title: `Mock Source 2 about ${name}`, url: 'http://example.com/2', content: `${name}'s DAW techniques snippet.` },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    if (idx !== -1) {
+      this.tastes[idx] = { ...this.tastes[idx], ...profile };
+      return { profile: this.tastes[idx] };
+    } else {
+      this.tastes.push(profile);
+      return { profile };
+    }
   }
 }

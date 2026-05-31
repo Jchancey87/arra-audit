@@ -96,6 +96,75 @@ export class TavilyAdapter extends ISearchService {
     }
   }
 
+  async search(query, maxResults = 10) {
+    if (!this.apiKey || this.apiKey === 'your-tavily-api-key') {
+      console.warn('[Tavily] ✗ No API key configured — returning empty results.');
+      return { query, results: [] };
+    }
+
+    console.log(`[Tavily] General Search (max ${maxResults} results): "${query}"`);
+
+    try {
+      const response = await axios.post(
+        this.apiUrl,
+        {
+          query,
+          max_results: maxResults,
+          include_raw_content: false,
+          exclude_domains: [
+            'spotify.com',
+            'open.spotify.com',
+            'youtube.com',
+            'youtu.be',
+            'music.youtube.com',
+            'soundcloud.com',
+            'music.apple.com',
+            'amazon.com',
+            'instagram.com',
+            'facebook.com',
+            'tiktok.com',
+            'deezer.com',
+            'tidal.com',
+            'bandcamp.com',
+            'vimeo.com',
+            'dailymotion.com',
+            'pinterest.com',
+            'twitter.com',
+            'x.com'
+          ]
+        },
+        {
+          timeout: 12000,
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const rawResults = response.data.results || [];
+      console.log(`[Tavily] ✓ Got ${rawResults.length} general results`);
+
+      const sources = rawResults.slice(0, maxResults).map((r) => ({
+        title: r.title || 'Untitled',
+        url: r.url || '',
+        content: (r.content || r.snippet || '').substring(0, 800),
+        score: r.score || 0,
+      }));
+
+      return {
+        query,
+        results: sources,
+      };
+    } catch (error) {
+      console.error('[Tavily] General Search error:', error.message);
+      return {
+        query,
+        results: [],
+      };
+    }
+  }
+
   /**
    * Build a rich multi-source summary for the AI template prompt.
    * Concatenates meaningful content from up to 3 top sources (up to 1500 chars).
