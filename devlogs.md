@@ -222,6 +222,39 @@ Check status:
   - **Override Controls**: Drawer containing selectors for key, scale, meter, manual BPM inputs, and an interactive **Tap Tempo** button.
   - Updated frontend backend adapters (`HttpBackendAdapter`, `InMemoryBackendAdapter`) to support analysis triggering and override storage.
 
+---
 
+### 2026-06-06: Arrangement Timeline v2 — Bars Mode + Multi-Track Instrument Lanes
+
+#### 1. BPM Input & Bars/Seconds Ruler Toggle
+- **Goal**: Let users view the arrangement in musical bars rather than wall-clock seconds, since producers think in bars not `mm:ss`.
+- **Implementation**:
+  - Added a compact BPM number input (40–300 range) to the workspace toolbar. Auto-fills from `song.bpm` if available in song metadata, otherwise defaults to 120. Persists to `responses['arrangement-bpm']`.
+  - Added a `BARS | SECS` toggle pill next to BPM. State persists to `responses['arrangement-view-mode']`.
+  - **In Bars mode**: ruler ticks show bar numbers (`Bar 1`, `5`, `9`...) with smart tick intervals based on total bar count. Section block footers show `Bars 1–8` + `8 bars`. Inspector timing inputs switch to bar number / bar count inputs with the alternate format shown as a hint.
+  - **Snapping**: All drag-resize and drag-move operations snap to the nearest bar boundary **only when in Bars mode**. In Secs mode, values snap to the nearest whole second.
+  - **Time signature**: Hardcoded 4/4 (`barDurSecs = (60 / bpm) * 4`). Time sig selector is a known TODO.
+- **Bar math utilities** added at file top: `barDurSecs`, `secToBar`, `barToSec`, `snapDurBars`, `snapStartBars`.
+
+#### 2. Multi-Track Instrument Lane System
+- **Goal**: Add a DAW-style multi-track area below the sections row so users can visualize when specific instruments, vocals, rhythm elements, etc. enter and exit.
+- **Layout**: Switched from flex-based section blocks to absolute positioning (`PX_PER_SEC = 6px/sec`) so sections and track lanes share the same coordinate system. A fixed `140px` left gutter column shows track labels, emoji, and delete buttons. The ruler, sections row, and all track lanes share a single `overflow-x: auto` scroll container so they stay perfectly aligned.
+- **Track categories**: 8 built-in — Vocals 🎤, Rhythm 🥁, Bass 🎸, Synth 🎹, Guitar 🎸, Brass 🎺, Strings 🎻, FX ✨ — each with a preset color from the existing palette.
+- **Track CRUD**:
+  - `+ track` button in gutter → inline form (name input + category pill picker) at bottom of timeline.
+  - `×` button in gutter deletes the whole track and its blocks.
+  - Click on empty space in a track lane → creates a block at that bar/second position.
+  - Drag block body → moves block (with bar snap in bars mode).
+  - Drag block right edge → resizes block (with bar snap in bars mode).
+  - Click block → opens compact track block inspector bar below the timeline (start, duration, ▶ Play, 🎯 Sync to playhead, Delete).
+  - `Delete` key removes the selected track block.
+- **Data persistence**: Tracks array stored as JSON in `responses['arrangement-tracks']`. Schema: `{ id, name, category, color, emoji, blocks: [{ id, startTime, duration }] }`. Sections remain at `responses['arrangement-timeline']`.
+- **Playhead**: Red playhead line extends through the sections row and all track lanes simultaneously.
+- **Commit**: `b6f3e75`
+
+#### 3. agent_memory.md Created
+- Created `/agent_memory.md` at project root as a machine-readable quick-reference for future AI sessions.
+- Contains: file map, full data model shapes, all `responses` key documentation, design tokens, architecture patterns, known gotchas, open TODOs, and session log.
+- Intent: read this at session start to orient in ~30 seconds instead of crawling the codebase.
 
 
