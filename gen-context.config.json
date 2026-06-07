@@ -1,0 +1,29 @@
+{
+  "strategy": "hot-cold",
+  "autoMaxTokens": true,
+  "maxTokens": 10000,
+  "exclude": [
+    "node_modules/**",
+    "venv/**",
+    ".venv/**",
+    "dist/**",
+    "build/**",
+    "out/**",
+    ".git/**",
+    "*.log",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    ".context/**",
+    "__pycache__/**"
+  ],
+  "outputs": ["copilot", "gemini"],
+  "adapters": ["copilot", "gemini"],
+  "hotCommits": 10,
+  "depMap": true,
+  "todos": true,
+  "changes": true,
+  "changesCommits": 5,
+  "testCoverage": false,
+  "impactRadius": false
+}
