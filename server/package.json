@@ -1,7 +1,7 @@
 {
-  "name": "sonic-dna-server",
+  "name": "arra-server",
   "version": "0.1.0",
-  "description": "Backend for Sonic DNA Audit App",
+  "description": "Backend for Arra Audit App",
   "main": "server.js",
   "type": "module",
   "scripts": {

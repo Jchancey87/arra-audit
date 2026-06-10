@@ -26,7 +26,7 @@ export class MockAIAdapter extends IAIModelService {
 
     // Default: return a consistent template for testing
     return JSON.stringify({
-      title: 'Sonic DNA Audit Template',
+      title: 'Arra Audit Template',
       description: 'Mock template for testing',
       lenses: {
         rhythm: {

@@ -276,7 +276,7 @@ const Settings = () => {
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
       <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
         <h1>Preferences & Settings</h1>
-        <p className="card-subtitle">Customize the default behavior of your Sonic DNA workshop</p>
+        <p className="card-subtitle">Customize the default behavior of your Arra workshop</p>
 
         {error && <div className="error">{error}</div>}
         {success && <div className="success">{success}</div>}

@@ -1,6 +1,6 @@
-# 🎵 Sonic DNA Audit App
+# 🎵 Arra Audit App
 
-Sonic DNA is a full-stack music production analysis workspace designed to help music producers, educators, and musicians reverse-engineer song structures, track arrangement dynamics, study composition techniques, and build a personalized vocabulary of production concepts.
+Arra is a full-stack music production analysis workspace designed to help music producers, educators, and musicians reverse-engineer song structures, track arrangement dynamics, study composition techniques, and build a personalized vocabulary of production concepts.
 
 The application leverages a clean **Hexagonal Architecture (Ports & Adapters)** to decouple external infrastructure dependencies from core business logic.
 
@@ -66,7 +66,7 @@ PORT=5050
 NODE_ENV=development
 
 # Database
-MONGODB_URI=mongodb://192.168.0.205:27017/sonic_dna
+MONGODB_URI=mongodb://192.168.0.205:27017/arra
 
 # JWT Authenticator
 JWT_SECRET=your-super-secret-auth-token-key
@@ -97,7 +97,7 @@ npm --prefix server test
 ### Proxmox LXC Container Deployment
 Production deployment uses process separation managed by **PM2**:
 1. Commit and push updates to your origin branch.
-2. Log into the Proxmox container shell and navigate to the project directory `/home/jackc/projects/sonic-dna`.
+2. Log into the Proxmox container shell and navigate to the project directory `/home/jackc/projects/arra`.
 3. Execute the deployment script:
    ```bash
    ./deploy.sh
@@ -106,7 +106,7 @@ Production deployment uses process separation managed by **PM2**:
    - Pulling commits from remote origin.
    - Syncing npm packages.
    - Restoring port configurations.
-   - Launching PM2 process instances (`sonic-dna-server` and `sonic-dna-client`).
+   - Launching PM2 process instances (`arra-server` and `arra-client`).
 
 ---
 

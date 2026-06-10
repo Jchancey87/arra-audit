@@ -109,7 +109,7 @@ const AppContent = () => {
               textTransform: 'uppercase',
               letterSpacing: '0.05em'
             }}>
-              SONIC DNA // AUDIT SYSTEM
+              ARRA // AUDIT SYSTEM
             </Link>
           </div>
 

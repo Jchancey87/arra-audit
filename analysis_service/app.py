@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from analyzer import download_and_analyze
 
 app = FastAPI(
-    title="Sonic DNA Audio Analysis Service",
+    title="Arra Audio Analysis Service",
     description="Microservice for extracting BPM, key, scale, and meters from audio files.",
     version="1.0.0"
 )
@@ -33,7 +33,7 @@ class AnalysisRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "sonic-dna-analysis"}
+    return {"status": "ok", "service": "arra-analysis"}
 
 @app.post("/analyze")
 def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks):
@@ -63,5 +63,5 @@ if __name__ == "__main__":
     import uvicorn
     # Allow port configurations via env
     port = int(os.environ.get("PORT", 8080))
-    print(f"Starting Sonic DNA Analysis microservice on port {port}...")
+    print(f"Starting Arra Analysis microservice on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)

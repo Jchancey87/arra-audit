@@ -1,4 +1,4 @@
-# 🎵 Sonic DNA Audit App - Implementation Complete
+# 🎵 Arra Audit App - Implementation Complete
 
 ## ✅ Delivery Summary
 
@@ -58,7 +58,7 @@ In the root directory (`c:\Users\jchancey\Documents\Homma Research\.env`):
 ```env
 PORT=5050
 NODE_ENV=development
-MONGODB_URI=mongodb+srv://your_user:your_password@cluster.mongodb.net/sonic_dna
+MONGODB_URI=mongodb+srv://your_user:your_password@cluster.mongodb.net/arra
 JWT_SECRET=change-this-to-any-random-string-12345
 OPENAI_API_KEY=sk-your-openai-key
 TAVILY_API_KEY=your-tavily-key

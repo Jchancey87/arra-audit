@@ -1,8 +1,8 @@
-# 🚀 Sonic DNA Audit App - Proxmox LXC Manual Deployment Guide
+# 🚀 Arra Audit App - Proxmox LXC Manual Deployment Guide
 
 ## Overview
 
-This guide walks you through deploying the Sonic DNA Audit App on a **Proxmox LXC container** with manual setup (no Docker). By the end, you'll have a production-ready app running on your home lab.
+This guide walks you through deploying the Arra Audit App on a **Proxmox LXC container** with manual setup (no Docker). By the end, you'll have a production-ready app running on your home lab.
 
 **Target Architecture:**
 - LXC Container (Ubuntu 22.04 LTS recommended)
@@ -24,7 +24,7 @@ This guide walks you through deploying the Sonic DNA Audit App on a **Proxmox LX
 - ✅ Your API keys ready:
   - OpenAI API key
   - Tavily API key
-- ✅ The Sonic DNA Audit App code (from `c:\Users\jchancey\Documents\Homma Research`)
+- ✅ The Arra Audit App code (from `c:\Users\jchancey\Documents\Homma Research`)
 
 ### Not Needed
 - ❌ Docker (we're doing manual installation)
@@ -42,7 +42,7 @@ In Proxmox:
 1. **Proxmox Web UI** → `Create CT`
 2. **General Tab:**
    - VMID: `101` (or next available)
-   - Hostname: `sonic-dna-app`
+   - Hostname: `arra-app`
    - Unprivileged container: ☑ (checked)
    - Password: (choose secure password)
 
@@ -120,11 +120,11 @@ usermod -aG sudo appuser
 
 ```bash
 # Create directory
-mkdir -p /opt/sonic-dna
-cd /opt/sonic-dna
+mkdir -p /opt/arra
+cd /opt/arra
 
 # Set ownership (if using appuser)
-chown -R appuser:appuser /opt/sonic-dna
+chown -R appuser:appuser /opt/arra
 
 # Change to app user
 su - appuser
@@ -140,11 +140,11 @@ On your Proxmox host (with your app code):
 
 ```bash
 # From Proxmox host, copy app to container
-pct push 101 "c:\Users\jchancey\Documents\Homma Research" /opt/sonic-dna
+pct push 101 "c:\Users\jchancey\Documents\Homma Research" /opt/arra
 
 # Then verify
 pct enter 101
-ls -la /opt/sonic-dna
+ls -la /opt/arra
 ```
 
 **Option B: Clone from Git (If You Have a Repo)**
@@ -152,15 +152,15 @@ ls -la /opt/sonic-dna
 In the container:
 
 ```bash
-cd /opt/sonic-dna
-git clone https://github.com/yourusername/sonic-dna-audit.git .
+cd /opt/arra
+git clone https://github.com/yourusername/arra-audit.git .
 ```
 
 **Option C: Manually Copy Key Files**
 
 ```bash
 # Create minimal structure
-mkdir -p /opt/sonic-dna/{server,client}
+mkdir -p /opt/arra/{server,client}
 # Copy files using SFTP or similar
 ```
 
@@ -204,7 +204,7 @@ If you want to use MongoDB Atlas instead:
 ### Step 9: Install Server & Client Dependencies
 
 ```bash
-cd /opt/sonic-dna
+cd /opt/arra
 
 # Install root dependencies
 npm install
@@ -232,7 +232,7 @@ cd ..
 ### Step 10: Create Production .env File
 
 ```bash
-cd /opt/sonic-dna
+cd /opt/arra
 
 # Create .env file
 cat > .env << 'EOF'
@@ -241,7 +241,7 @@ PORT=5050
 NODE_ENV=production
 
 # Database
-MONGODB_URI=mongodb://localhost:27017/sonic_dna
+MONGODB_URI=mongodb://localhost:27017/arra
 
 # JWT Secret (CHANGE THIS TO SOMETHING RANDOM)
 JWT_SECRET=$(openssl rand -base64 32)
@@ -282,8 +282,8 @@ apt install -y nginx
 systemctl enable nginx
 systemctl start nginx
 
-# Create config for Sonic DNA
-cat > /etc/nginx/sites-available/sonic-dna << 'EOF'
+# Create config for Arra
+cat > /etc/nginx/sites-available/arra << 'EOF'
 server {
     listen 80;
     server_name _;  # Accept any hostname; change to your domain if you have one
@@ -293,7 +293,7 @@ server {
 
     # Serve React build (static files)
     location / {
-        root /opt/sonic-dna/client/build;
+        root /opt/arra/client/build;
         try_files $uri $uri/ /index.html;
         expires 30d;
         add_header Cache-Control "public, immutable";
@@ -322,7 +322,7 @@ server {
 EOF
 
 # Enable the site
-ln -s /etc/nginx/sites-available/sonic-dna /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/arra /etc/nginx/sites-enabled/
 
 # Remove default site (optional)
 rm /etc/nginx/sites-enabled/default
@@ -352,17 +352,17 @@ curl http://localhost/api/auth/login
 
 ```bash
 # Create service file
-cat > /etc/systemd/system/sonic-dna.service << 'EOF'
+cat > /etc/systemd/system/arra.service << 'EOF'
 [Unit]
-Description=Sonic DNA Audit App
+Description=Arra Audit App
 After=network.target mongodb.service
 Wants=mongodb.service
 
 [Service]
 Type=simple
 User=appuser
-WorkingDirectory=/opt/sonic-dna/server
-ExecStart=/usr/bin/node /opt/sonic-dna/server/server.js
+WorkingDirectory=/opt/arra/server
+ExecStart=/usr/bin/node /opt/arra/server/server.js
 
 # Automatically restart if it crashes
 Restart=always
@@ -375,7 +375,7 @@ Environment="NODE_ENV=production"
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=sonic-dna
+SyslogIdentifier=arra
 
 # Security
 NoNewPrivileges=true
@@ -388,23 +388,23 @@ EOF
 systemctl daemon-reload
 
 # Enable service (start on boot)
-systemctl enable sonic-dna
+systemctl enable arra
 
 # Start the service
-systemctl start sonic-dna
+systemctl start arra
 
 # Check status
-systemctl status sonic-dna
+systemctl status arra
 
 # View logs
-journalctl -u sonic-dna -f
+journalctl -u arra -f
 ```
 
 ### Step 15: Verify App is Running
 
 ```bash
 # Should show running
-systemctl status sonic-dna
+systemctl status arra
 
 # Should show the backend responding
 curl http://localhost:5050/health
@@ -425,8 +425,8 @@ curl http://localhost/
 ```bash
 # Generate self-signed certificate (valid for 365 days)
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/ssl/private/sonic-dna.key \
-  -out /etc/ssl/certs/sonic-dna.crt
+  -keyout /etc/ssl/private/arra.key \
+  -out /etc/ssl/certs/arra.crt
 
 # When prompted, you can press Enter through most fields
 # For "Common Name", enter your container's IP or hostname
@@ -436,7 +436,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 
 ```bash
 # Update Nginx config to use HTTPS
-cat > /etc/nginx/sites-available/sonic-dna << 'EOF'
+cat > /etc/nginx/sites-available/arra << 'EOF'
 # Redirect HTTP to HTTPS
 server {
     listen 80;
@@ -449,8 +449,8 @@ server {
     listen 443 ssl http2;
     server_name _;
 
-    ssl_certificate /etc/ssl/certs/sonic-dna.crt;
-    ssl_certificate_key /etc/ssl/private/sonic-dna.key;
+    ssl_certificate /etc/ssl/certs/arra.crt;
+    ssl_certificate_key /etc/ssl/private/arra.key;
 
     # Security headers
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -461,7 +461,7 @@ server {
 
     # Serve React build (static files)
     location / {
-        root /opt/sonic-dna/client/build;
+        root /opt/arra/client/build;
         try_files $uri $uri/ /index.html;
         expires 30d;
         add_header Cache-Control "public, immutable";
@@ -516,7 +516,7 @@ mongosh
 
 # Create database and indexes
 # (This happens automatically on first write, but we can verify)
-use sonic_dna
+use arra
 db.users.createIndex({ "email": 1 }, { unique: true })
 db.songs.createIndex({ "userId": 1, "youtubeId": 1 }, { unique: true })
 db.audits.createIndex({ "userId": 1, "songId": 1 })
@@ -539,12 +539,12 @@ exit
 
 ```bash
 # Check all services running
-systemctl status sonic-dna
+systemctl status arra
 systemctl status nginx
 systemctl status mongod
 
 # Check logs for any errors
-journalctl -u sonic-dna -n 50
+journalctl -u arra -n 50
 journalctl -u nginx -n 50
 
 # Test API health
@@ -589,7 +589,7 @@ journalctl --disk-usage
 
 # Limit journal size (optional)
 mkdir -p /etc/systemd/journald.conf.d/
-cat > /etc/systemd/journald.conf.d/99-sonic-dna.conf << 'EOF'
+cat > /etc/systemd/journald.conf.d/99-arra.conf << 'EOF'
 [Journal]
 MaxRetentionSec=30day
 SystemMaxUse=500M
@@ -603,17 +603,17 @@ systemctl restart systemd-journald
 
 ```bash
 # Create monitoring script
-cat > /opt/sonic-dna/check-health.sh << 'EOF'
+cat > /opt/arra/check-health.sh << 'EOF'
 #!/bin/bash
-# Check if Sonic DNA app is healthy
+# Check if Arra app is healthy
 
-echo "=== Sonic DNA Health Check ==="
+echo "=== Arra Health Check ==="
 echo "Time: $(date)"
 echo ""
 
 # Check services
 echo "Service Status:"
-systemctl is-active sonic-dna && echo "✓ Node.js app: RUNNING" || echo "✗ Node.js app: STOPPED"
+systemctl is-active arra && echo "✓ Node.js app: RUNNING" || echo "✗ Node.js app: STOPPED"
 systemctl is-active mongodb && echo "✓ MongoDB: RUNNING" || echo "✗ MongoDB: STOPPED"
 systemctl is-active nginx && echo "✓ Nginx: RUNNING" || echo "✗ Nginx: STOPPED"
 echo ""
@@ -641,21 +641,21 @@ echo "Disk Usage:"
 df -h / | tail -1
 EOF
 
-chmod +x /opt/sonic-dna/check-health.sh
+chmod +x /opt/arra/check-health.sh
 
 # Run it
-/opt/sonic-dna/check-health.sh
+/opt/arra/check-health.sh
 ```
 
 ### Step 22: Backup Strategy
 
 ```bash
 # Create backup script
-cat > /opt/sonic-dna/backup.sh << 'EOF'
+cat > /opt/arra/backup.sh << 'EOF'
 #!/bin/bash
-# Backup Sonic DNA app and database
+# Backup Arra app and database
 
-BACKUP_DIR="/opt/sonic-dna/backups"
+BACKUP_DIR="/opt/arra/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p $BACKUP_DIR
@@ -671,16 +671,16 @@ echo "Backing up application..."
 tar -czf $BACKUP_DIR/app_$DATE.tar.gz \
   --exclude=node_modules \
   --exclude=.git \
-  /opt/sonic-dna/{server,client/build,.env}
+  /opt/arra/{server,client/build,.env}
 
 echo "Backup complete: $BACKUP_DIR"
 ls -lh $BACKUP_DIR
 EOF
 
-chmod +x /opt/sonic-dna/backup.sh
+chmod +x /opt/arra/backup.sh
 
 # Run backup
-/opt/sonic-dna/backup.sh
+/opt/arra/backup.sh
 ```
 
 ---
@@ -692,10 +692,10 @@ chmod +x /opt/sonic-dna/backup.sh
 When you have new code:
 
 ```bash
-cd /opt/sonic-dna
+cd /opt/arra
 
 # Stop the app
-systemctl stop sonic-dna
+systemctl stop arra
 
 # Update code (pull from git or copy new files)
 # git pull origin main
@@ -707,23 +707,23 @@ cd server && npm install && cd ..
 cd client && npm install && npm run build && cd ..
 
 # Restart
-systemctl start sonic-dna
+systemctl start arra
 
 # Verify
-systemctl status sonic-dna
+systemctl status arra
 ```
 
 ### Step 24: Restart Services
 
 ```bash
 # Just the app
-systemctl restart sonic-dna
+systemctl restart arra
 
 # Full restart
-systemctl restart sonic-dna nginx mongod
+systemctl restart arra nginx mongod
 
 # Check all running
-systemctl status sonic-dna nginx mongod
+systemctl status arra nginx mongod
 ```
 
 ---
@@ -734,16 +734,16 @@ systemctl status sonic-dna nginx mongod
 
 ```bash
 # Check the logs
-journalctl -u sonic-dna -n 100
+journalctl -u arra -n 100
 
 # Common issues:
 # - Port grep -E '80|443|5050|27017' already in use: ps aux | grep node|ps aux | grep node
 # - MongoDB not running: systemctl start mongod
-# - Missing .env file: check /opt/sonic-dna/.env exists
+# - Missing .env file: check /opt/arra/.env exists
 
 # Restart manually
-systemctl restart sonic-dna
-journalctl -u sonic-dna -f  # Follow logs
+systemctl restart arra
+journalctl -u arra -f  # Follow logs
 ```
 
 ### MongoDB Connection Error
@@ -772,10 +772,10 @@ ps aux | grep node|ps aux | grep node
 netstat -tuln | grep grep -E '80|443|5050|27017'
 
 # Restart
-systemctl restart sonic-dna
+systemctl restart arra
 
 # Check logs
-journalctl -u sonic-dna -f
+journalctl -u arra -f
 ```
 
 ### Nginx Issues
@@ -801,13 +801,13 @@ systemctl restart nginx
 df -h /
 
 # Clear Node.js cache
-rm -rf /opt/sonic-dna/node_modules/.cache
+rm -rf /opt/arra/node_modules/.cache
 
 # Clear npm cache
 npm cache clean --force
 
 # Remove old backups
-rm -rf /opt/sonic-dna/backups/old_*
+rm -rf /opt/arra/backups/old_*
 
 # If needed, resize container in Proxmox
 ```
@@ -818,28 +818,28 @@ rm -rf /opt/sonic-dna/backups/old_*
 
 ```bash
 # Status checks
-systemctl status sonic-dna
+systemctl status arra
 systemctl status nginx
 systemctl status mongod
 curl http://localhost:5050/health
 
 # Log viewing
-journalctl -u sonic-dna -f        # Follow logs
-journalctl -u sonic-dna -n 100    # Last 100 lines
-journalctl -u sonic-dna -S -1h    # Last hour
+journalctl -u arra -f        # Follow logs
+journalctl -u arra -n 100    # Last 100 lines
+journalctl -u arra -S -1h    # Last hour
 
 # Service control
-systemctl start sonic-dna
-systemctl stop sonic-dna
-systemctl restart sonic-dna
-systemctl enable sonic-dna        # Enable on boot
+systemctl start arra
+systemctl stop arra
+systemctl restart arra
+systemctl enable arra        # Enable on boot
 
 # Database
 mongosh                           # Connect to MongoDB
 mongodump --out ./backup         # Backup database
 
 # App
-cd /opt/sonic-dna
+cd /opt/arra
 npm run build                     # Rebuild frontend
 
 # Nginx
@@ -865,7 +865,7 @@ pct set 101 -memory 4096    # Increase to 4GB RAM
 
 ```bash
 # In mongosh
-use sonic_dna
+use arra
 db.users.getIndexes()
 db.audits.getIndexes()
 
@@ -882,10 +882,10 @@ For production with multiple instances, consider PM2:
 npm install -g pm2
 
 # Create ecosystem.config.js
-cat > /opt/sonic-dna/ecosystem.config.js << 'EOF'
+cat > /opt/arra/ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [{
-    name: 'sonic-dna',
+    name: 'arra',
     script: './server/server.js',
     instances: 2,
     exec_mode: 'cluster',
@@ -926,7 +926,7 @@ ufw status numbered
 ✅ Proxmox LXC container (Ubuntu 22.04)  
 ✅ Node.js 24 installed  
 ✅ MongoDB running locally  
-✅ Sonic DNA Audit App deployed  
+✅ Arra Audit App deployed  
 ✅ Nginx reverse proxy  
 ✅ HTTPS enabled  
 ✅ Systemd service auto-start  
@@ -956,15 +956,15 @@ Common issues and fixes:
 
 | Issue | Solution |
 |-------|----------|
-| App won't start | Check logs: `journalctl -u sonic-dna -f` |
+| App won't start | Check logs: `journalctl -u arra -f` |
 | Port already in use | Kill process: `lsof -ti:grep -E '80|443|5050|27017' \| xargs kill -9` |
 | No database connection | Restart MongoDB: `systemctl restart mongod` |
 | Nginx not working | Test config: `nginx -t` then restart |
 | Container full | Check disk: `df -h /` and clean up |
-| Forgot API keys | Edit `/opt/sonic-dna/.env` and restart service |
+| Forgot API keys | Edit `/opt/arra/.env` and restart service |
 
 ---
 
-**Deployment complete! Your Sonic DNA Audit App is now running on Proxmox. 🎵**
+**Deployment complete! Your Arra Audit App is now running on Proxmox. 🎵**
 
 For daily operations, use the commands in the "Quick Reference" section above.

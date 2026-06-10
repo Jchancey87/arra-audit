@@ -39,7 +39,7 @@ const Login = () => {
     <div style={{ maxWidth: '400px', margin: '0 auto', padding: '40px 20px' }}>
       <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
         <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#d08f60', fontSize: '16px', letterSpacing: '0.05em' }}>
-          🎵 SONIC DNA // AUDIT SYSTEM
+          🎵 ARRA // AUDIT SYSTEM
         </h1>
 
         {error && <div className="error">{error}</div>}

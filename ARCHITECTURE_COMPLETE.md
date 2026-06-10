@@ -1,8 +1,8 @@
-# Sonic DNA Architecture Summary: Priorities 1 & 2 Complete
+# Arra Architecture Summary: Priorities 1 & 2 Complete
 
 ## Executive Summary
 
-The Sonic DNA Audit App now implements **seam discipline** at all critical dependencies through adapter patterns. This enables:
+The Arra Audit App now implements **seam discipline** at all critical dependencies through adapter patterns. This enables:
 
 - **60-100x faster tests** (60ms → <1ms per operation)
 - **Zero infrastructure cost** for unit testing

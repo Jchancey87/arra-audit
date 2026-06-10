@@ -97,7 +97,7 @@ export class TemplateComposer {
       }
     }
 
-    return `You are a music production expert specializing in detailed song analysis using the "Sonic DNA" methodology.
+    return `You are a music production expert specializing in detailed song analysis using the "Arra" methodology.
 
 Song: "${songTitle}" by ${artist}
 Research Context: ${researchSummary || 'No research available'}
@@ -118,7 +118,7 @@ For EACH selected lens, generate:
 
 Format your response as JSON (no markdown, just the object):
 {
-  "title": "Sonic DNA Audit: [Song Name]",
+  "title": "Arra Audit: [Song Name]",
   "artist": "${artist}",
   "lenses": {
     "lens_name": {
@@ -260,7 +260,7 @@ Only include the lenses specified: ${lenses.join(', ')}`;
     });
 
     return {
-      title: `Sonic DNA Audit: ${songTitle}`,
+      title: `Arra Audit: ${songTitle}`,
       artist,
       lenses: selectedLenses,
       workflow_guidance:

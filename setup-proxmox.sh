@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sonic DNA Audit App - Proxmox LXC Semi-Automated Setup Script
+# Arra Audit App - Proxmox LXC Semi-Automated Setup Script
 # This script automates much of the manual setup. Run it as root in your LXC container.
 #
 # Usage: bash setup-proxmox.sh
@@ -17,7 +17,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Sonic DNA - Proxmox LXC Setup Script${NC}"
+echo -e "${BLUE}Arra - Proxmox LXC Setup Script${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -67,9 +67,9 @@ echo ""
 # PHASE 4: Create App Directory
 # ============================================================================
 echo -e "${YELLOW}[4/10] Creating application directory...${NC}"
-mkdir -p /opt/sonic-dna
-chown -R appuser:appuser /opt/sonic-dna
-echo -e "${GREEN}✓ Directory: /opt/sonic-dna${NC}"
+mkdir -p /opt/arra
+chown -R appuser:appuser /opt/arra
+echo -e "${GREEN}✓ Directory: /opt/arra${NC}"
 echo ""
 
 # ============================================================================
@@ -111,11 +111,11 @@ echo ""
 echo -e "${YELLOW}[7/10] Installing application dependencies...${NC}"
 echo -e "${BLUE}  → This may take a few minutes...${NC}"
 
-cd /opt/sonic-dna
+cd /opt/arra
 
 # Check if app files exist
 if [ ! -f "package.json" ]; then
-    echo -e "${YELLOW}  NOTE: No package.json found in /opt/sonic-dna${NC}"
+    echo -e "${YELLOW}  NOTE: No package.json found in /opt/arra${NC}"
     echo -e "${YELLOW}  You need to copy the app files here first.${NC}"
     echo -e "${YELLOW}  Skipping npm install.${NC}"
 else
@@ -143,7 +143,7 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[8/10] Creating .env configuration file...${NC}"
 
-ENV_FILE="/opt/sonic-dna/.env"
+ENV_FILE="/opt/arra/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
     # Generate random JWT secret
@@ -155,7 +155,7 @@ PORT=5050
 NODE_ENV=production
 
 # Database
-MONGODB_URI=mongodb://localhost:27017/sonic_dna
+MONGODB_URI=mongodb://localhost:27017/arra
 
 # JWT Secret
 JWT_SECRET=${JWT_SECRET}
@@ -184,7 +184,7 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[9/10] Configuring Nginx reverse proxy...${NC}"
 
-NGINX_CONF="/etc/nginx/sites-available/sonic-dna"
+NGINX_CONF="/etc/nginx/sites-available/arra"
 
 if [ ! -f "$NGINX_CONF" ]; then
     cat > "$NGINX_CONF" << 'EOF'
@@ -196,7 +196,7 @@ server {
 
     # Serve React build (static files)
     location / {
-        root /opt/sonic-dna/client/build;
+        root /opt/arra/client/build;
         try_files $uri $uri/ /index.html;
         expires 30d;
         add_header Cache-Control "public, immutable";
@@ -224,7 +224,7 @@ server {
 }
 EOF
     
-    ln -sf /etc/nginx/sites-available/sonic-dna /etc/nginx/sites-enabled/
+    ln -sf /etc/nginx/sites-available/arra /etc/nginx/sites-enabled/
     rm -f /etc/nginx/sites-enabled/default
     
     nginx -t
@@ -241,20 +241,20 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}[10/10] Setting up systemd service...${NC}"
 
-SERVICE_FILE="/etc/systemd/system/sonic-dna.service"
+SERVICE_FILE="/etc/systemd/system/arra.service"
 
 if [ ! -f "$SERVICE_FILE" ]; then
     cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
-Description=Sonic DNA Audit App
+Description=Arra Audit App
 After=network.target mongodb.service
 Wants=mongodb.service
 
 [Service]
 Type=simple
 User=appuser
-WorkingDirectory=/opt/sonic-dna/server
-ExecStart=/usr/bin/node /opt/sonic-dna/server/server.js
+WorkingDirectory=/opt/arra/server
+ExecStart=/usr/bin/node /opt/arra/server/server.js
 
 Restart=always
 RestartSec=5
@@ -264,7 +264,7 @@ Environment="NODE_ENV=production"
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=sonic-dna
+SyslogIdentifier=arra
 
 NoNewPrivileges=true
 
@@ -273,7 +273,7 @@ WantedBy=multi-user.target
 EOF
     
     systemctl daemon-reload
-    systemctl enable sonic-dna
+    systemctl enable arra
     
     echo -e "${GREEN}✓ Systemd service created${NC}"
 else
@@ -287,7 +287,7 @@ echo ""
 echo -e "${YELLOW}Initializing MongoDB indexes...${NC}"
 
 mongosh << 'MONGOEOF'
-use sonic_dna
+use arra
 db.users.createIndex({ "email": 1 }, { unique: true })
 db.songs.createIndex({ "userId": 1, "youtubeId": 1 }, { unique: true })
 db.audits.createIndex({ "userId": 1, "songId": 1 })
@@ -310,16 +310,16 @@ echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo ""
 echo -e "  1. ${BLUE}Edit .env file and add your API keys:${NC}"
-echo -e "     ${GREEN}nano /opt/sonic-dna/.env${NC}"
+echo -e "     ${GREEN}nano /opt/arra/.env${NC}"
 echo ""
-echo -e "  2. ${BLUE}Copy application files to /opt/sonic-dna:${NC}"
+echo -e "  2. ${BLUE}Copy application files to /opt/arra:${NC}"
 echo -e "     ${GREEN}(server, client/build, package.json, etc.)${NC}"
 echo ""
 echo -e "  3. ${BLUE}Start the application:${NC}"
-echo -e "     ${GREEN}systemctl start sonic-dna${NC}"
+echo -e "     ${GREEN}systemctl start arra${NC}"
 echo ""
 echo -e "  4. ${BLUE}Verify it's running:${NC}"
-echo -e "     ${GREEN}systemctl status sonic-dna${NC}"
+echo -e "     ${GREEN}systemctl status arra${NC}"
 echo -e "     ${GREEN}curl http://localhost/${NC}"
 echo ""
 echo -e "  5. ${BLUE}Get your container IP:${NC}"
@@ -331,10 +331,10 @@ echo ""
 
 echo -e "${YELLOW}Useful Commands:${NC}"
 echo ""
-echo -e "  Status:        ${GREEN}systemctl status sonic-dna${NC}"
-echo -e "  View Logs:     ${GREEN}journalctl -u sonic-dna -f${NC}"
-echo -e "  Stop App:      ${GREEN}systemctl stop sonic-dna${NC}"
-echo -e "  Restart App:   ${GREEN}systemctl restart sonic-dna${NC}"
+echo -e "  Status:        ${GREEN}systemctl status arra${NC}"
+echo -e "  View Logs:     ${GREEN}journalctl -u arra -f${NC}"
+echo -e "  Stop App:      ${GREEN}systemctl stop arra${NC}"
+echo -e "  Restart App:   ${GREEN}systemctl restart arra${NC}"
 echo -e "  Test API:      ${GREEN}curl http://localhost:5050/health${NC}"
 echo ""
 

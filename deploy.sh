@@ -6,10 +6,10 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}🚀 Starting Sonic DNA Deployment Sequence...${NC}"
+echo -e "${YELLOW}🚀 Starting Arra Deployment Sequence...${NC}"
 
 # 1. Navigate to the repository
-REPO_DIR="/home/jackc/projects/sonic-dna"
+REPO_DIR="/home/jackc/projects/arra"
 cd "$REPO_DIR" || { echo -e "${RED}✗ Repository directory not found!${NC}"; exit 1; }
 
 # 2. Pull latest code from Git
@@ -44,7 +44,7 @@ fi
 # 5. Clean up any dangling raw node processes (not managed by PM2) that might block ports
 echo -e "${YELLOW}🧹 Cleaning up port conflicts...${NC}"
 # Stop PM2 instances if they are running, so they don't get forcefully killed
-pm2 stop sonic-dna-server sonic-dna-client &> /dev/null
+pm2 stop arra-server arra-client &> /dev/null
 
 # Kill any other non-PM2 node processes
 pkill -9 -f "concurrently" &> /dev/null
@@ -57,23 +57,23 @@ echo -e "${GREEN}✓ Cleanup complete.${NC}"
 echo -e "${YELLOW}⚡ Starting services under PM2...${NC}"
 
 # Manage Backend
-pm2 describe sonic-dna-server &> /dev/null
+pm2 describe arra-server &> /dev/null
 if [ $? -eq 0 ]; then
   echo -e "${YELLOW}Restarting existing backend service...${NC}"
-  pm2 restart sonic-dna-server
+  pm2 restart arra-server
 else
   echo -e "${YELLOW}Launching backend service...${NC}"
-  cd "$REPO_DIR/server" && pm2 start server.js --name "sonic-dna-server" --watch
+  cd "$REPO_DIR/server" && pm2 start server.js --name "arra-server" --watch
 fi
 
 # Manage Frontend
-pm2 describe sonic-dna-client &> /dev/null
+pm2 describe arra-client &> /dev/null
 if [ $? -eq 0 ]; then
   echo -e "${YELLOW}Restarting existing frontend service...${NC}"
-  pm2 restart sonic-dna-client
+  pm2 restart arra-client
 else
   echo -e "${YELLOW}Launching frontend service...${NC}"
-  cd "$REPO_DIR/client" && pm2 start npm --name "sonic-dna-client" -- run dev
+  cd "$REPO_DIR/client" && pm2 start npm --name "arra-client" -- run dev
 fi
 
 cd "$REPO_DIR"

@@ -515,7 +515,7 @@ const TechniqueNotebook = () => {
       <div className="panel" style={{ background: '#151518', borderBottom: '2px solid #d08f60' }}>
         <h1>📚 Technique Notebook</h1>
         <p className="card-subtitle" style={{ margin: 0 }}>
-          Your personal collection of musical DNA, portable patterns, and structural discoveries.
+          Your personal collection of musical vocabulary, portable patterns, and structural discoveries.
         </p>
 
         {error && <div className="error">{error}</div>}

@@ -1,6 +1,6 @@
-# Setup Guide - Sonic DNA Audit App
+# Setup Guide - Arra Audit App
 
-This guide will walk you through setting up and running the Sonic DNA Audit App locally.
+This guide will walk you through setting up and running the Arra Audit App locally.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ NODE_ENV=development
 
 # Database
 # Get MongoDB URI from https://www.mongodb.com/cloud/atlas
-MONGODB_URI=mongodb+srv://username:password@cluster-name.mongodb.net/sonic_dna?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://username:password@cluster-name.mongodb.net/arra?retryWrites=true&w=majority
 
 # JWT Secret (use any long random string)
 JWT_SECRET=your-super-secret-key-change-this-in-production-12345
@@ -104,7 +104,7 @@ npm run client
 
 Open your browser and go to: **http://localhost:3050**
 
-You should see the Sonic DNA Audit login page.
+You should see the Arra Audit login page.
 
 ## Step 6: Create an Account
 

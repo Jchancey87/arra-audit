@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the adapter pattern implementation for Sonic DNA Audit App, demonstrating seam discipline for dependency injection and testing.
+This document explains the adapter pattern implementation for Arra Audit App, demonstrating seam discipline for dependency injection and testing.
 
 ## What Was Implemented
 

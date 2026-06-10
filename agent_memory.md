@@ -1,4 +1,4 @@
-# 🧠 Active Agent Memory — Sonic DNA
+# 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
 - **Goal**: Optimize session startup and reduce prompt token footprint.

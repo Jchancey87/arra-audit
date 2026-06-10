@@ -1,7 +1,7 @@
 # Agent System Directives & Performance Optimizations
 
 ## Session Startup — MANDATORY
-- At the start of every session, before doing anything else, read `/home/jackc/projects/sonic-dna/agent_memory.md` in full.
+- At the start of every session, before doing anything else, read `/home/jackc/projects/arra/agent_memory.md` in full.
 - This file contains the file map, data models, design tokens, architecture patterns, known gotchas, open TODOs, and the session log. It is the fastest way to get oriented.
 - After completing work each session, update the Session Log table in `agent_memory.md` with a one-line summary and the commit hash, and append a full entry to `devlogs.md`.
 

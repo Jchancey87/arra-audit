@@ -14,7 +14,7 @@ export default defineConfig({
       },
     },
     allowedHosts: [
-      'sonic-dna.homma.casa'
+      'arra.homma.casa'
      ]
   },
   build: {

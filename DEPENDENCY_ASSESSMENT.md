@@ -1,4 +1,4 @@
-# Sonic DNA Audit App - Dependency Assessment
+# Arra Audit App - Dependency Assessment
 
 ## Dependency Classification & Seam Strategy
 
@@ -478,7 +478,7 @@ export class OpenAIAdapter implements IAIModelService {
 export class MockAIAdapter implements IAIModelService {
   async generateTemplate(prompt: string): Promise<string> {
     return JSON.stringify({
-      title: "Sonic DNA Audit",
+      title: "Arra Audit",
       lenses: { rhythm: { questions: [...] } }
     });
   }

@@ -49,7 +49,7 @@ export async function generateAuditTemplate(songTitle, artist, researchSummary, 
       .map((lens) => `- ${lens}: ${LENS_DESCRIPTIONS[lens]}`)
       .join('\n');
 
-    const prompt = `You are a music production expert specializing in detailed song analysis using the "Sonic DNA" methodology.
+    const prompt = `You are a music production expert specializing in detailed song analysis using the "Arra" methodology.
 
 Song: "${songTitle}" by ${artist}
 Research Context: ${researchSummary || 'No research available'}
@@ -109,7 +109,7 @@ Only include the lenses specified: ${lenses.join(', ')}`;
 
 function generateFallbackTemplate(songTitle, artist, lenses) {
   const template = {
-    title: `Sonic DNA Audit: ${songTitle}`,
+    title: `Arra Audit: ${songTitle}`,
     artist: artist,
     lenses: {},
     workflow_guidance: 'Listen to the song multiple times, focusing on one lens at a time. Take notes and sketch what you hear.',

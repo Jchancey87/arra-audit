@@ -47,7 +47,7 @@ app.use(express.json());
 
 // Database connection
 mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/sonic_dna')
+  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/arra')
   .then(() => console.log('✓ MongoDB connected'))
   .catch((err) => console.error('✗ MongoDB connection error:', err));
 

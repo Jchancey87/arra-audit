@@ -11,7 +11,7 @@ Create `.env` file in root with your API keys:
 ```env
 PORT=5050
 NODE_ENV=development
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/sonic_dna
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/arra
 JWT_SECRET=any-random-secret-key
 OPENAI_API_KEY=sk-your-openai-key
 TAVILY_API_KEY=your-tavily-key

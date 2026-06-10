@@ -1,4 +1,4 @@
-# Hand-off Document: Sonic DNA — Audio Analysis Pipeline Integration
+# Hand-off Document: Arra — Audio Analysis Pipeline Integration
 
 ## Project Status: **Audio Analysis Pipeline Integration Completed** ✅
 **Current State**: The hybrid audio analysis pipeline is fully implemented, verified, and active. The backend system enqueues analysis jobs to a dedicated Python FastAPI service running in a virtual environment (`venv/`) under PM2, downloads audio via `yt-dlp` (ignoring playlist parameters), and processes features (BPM, key, scale, downbeats) with deterministic simulation support. The frontend successfully visualizes track facts, confidence badges, playhead-synced beat/downbeat timelines, tap-tempo features, manual overrides, and source comparison tables.

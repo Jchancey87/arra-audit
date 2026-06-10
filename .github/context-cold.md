@@ -39,13 +39,13 @@ POST /analyze  →  trigger_analysis()  :39-60
 
 ### client/index.html
 ```
-title: Sonic DNA Audit
+title: Arra Audit
 div#root
 ```
 
 ### client/public/index.html
 ```
-title: Sonic DNA Audit
+title: Arra Audit
 div#root
 ```
 

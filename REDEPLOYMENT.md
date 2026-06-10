@@ -1,4 +1,4 @@
-# 🚀 Sonic DNA Audit App - Redeployment Guide
+# 🚀 Arra Audit App - Redeployment Guide
 
 This document contains step-by-step instructions on how to commit/push development updates and redeploy them to your Proxmox server environment.
 
@@ -35,7 +35,7 @@ Since your application is running in **development/dev-server mode** via `concur
 ### Navigate to the repository
 Log into your server shell and go to:
 ```bash
-cd /home/jackc/projects/sonic-dna
+cd /home/jackc/projects/arra
 ```
 
 ### Pull the latest updates
