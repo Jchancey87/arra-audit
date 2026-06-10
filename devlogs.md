@@ -318,3 +318,32 @@ Post-rename `grep -rn DNA` (excluding venv, .git, node_modules, devlogs.md) retu
 
 #### Commit
 `66249ec` — rebrand: replace all Sonic DNA references with Arra (36 files changed)
+
+### 2026-06-10: Full Redeployment — Arra Live at arra.homma.casa
+
+#### Goals
+1. Run all tests after rebrand
+2. Redeploy PM2 with correct arra paths
+3. Fix MongoDB (was broken since kernel 6.19 upgrade)
+
+#### Test Results
+- All 29 Jest tests passing across 6 suites (unit + integration)
+- Fixed test runner: symlinked `server/tests -> ../tests` so Jest resolves `../../services/` imports correctly
+- Run with: `cd server && npm test`
+
+#### PM2 Redeployment
+- Deleted old `sonic-dna-server` / `sonic-dna-client` processes (were pointing at deleted `/home/jackc/projects/sonic-dna`)
+- Created `ecosystem.config.cjs` with `arra-server` (port 5050) and `arra-client` (port 3050)
+- `pm2 save` to persist across reboots
+
+#### MongoDB Fix (kernel 6.19 incompatibility)
+- **Root cause**: Proxmox host kernel 6.19+ — MongoDB 8.x crashes on startup (SERVER-121912)
+- **Fix**: Installed MongoDB 7.0.35 (first version with kernel 6.19 backport fix)
+- **Repo**: `https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0`
+- **Gotchas**:
+  - apt install resets `bindIp` to `127.0.0.1` — must re-set to `0.0.0.0` in `/etc/mongod.conf`
+  - Fresh install wipes auth users — recreate `myAdmin` in `admin` db with `readWriteAnyDatabase` + `userAdminAnyDatabase` + `dbAdminAnyDatabase` roles
+  - `ss -tlnp | grep 27017` needs `sudo` in LXC containers to show process names
+
+#### Commit
+`8c35682` — ops: add PM2 ecosystem config and fix test symlink for arra
