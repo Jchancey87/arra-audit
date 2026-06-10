@@ -406,5 +406,25 @@ Improve the user experience during Phase 1 of guided audits by visualizing the s
 #### Commit
 `1b6d53a` — feat(ui): add simulated progress bar for background audio analysis
 
+---
+
+### 2026-06-10: Resume Guided Audits from Dashboard and Detail Views
+
+#### Goal
+Allow users to easily save their progress on guided audits (which are persisted via background auto-saves and active step endpoints) and resume editing them when returning to the app later.
+
+#### Implementation
+- **Dashboard Action Adjustments**:
+  - Modified [Dashboard.jsx](file:///home/jackc/projects/arra/client/src/pages/Dashboard.jsx) to check the status of each audit in the library history list.
+  - If the status is not `'completed'`, the review button changes from "Review →" to "Resume ⚡" and links directly to `/audit/form/${audit._id}` instead of the read-only detail page.
+- **Audit Detail Action Header**:
+  - Added a "Resume Audit" (or "Edit Audit" if completed) button to [AuditDetail.jsx](file:///home/jackc/projects/arra/client/src/pages/AuditDetail.jsx) next to the "Delete" and "Back to Library" actions. This allows users to easily transition from the static overview to the active editing workspace.
+- **Verification**:
+  - Compiled successfully via client production build check.
+
+#### Commit
+`9a95351` — feat(ui): allow resuming guided audits from dashboard and detail views
+
+
 
 
