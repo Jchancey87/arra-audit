@@ -33,6 +33,7 @@
 | 2026-06-10 | Add simulated progress bar displaying extraction stages to Phase 1 Audit loading state | `1b6d53a` |
 | 2026-06-10 | Allow resuming guided audits from Dashboard history list and AuditDetail review views | `9a95351` |
 | 2026-06-10 | Implement UI/UX design handoff: Bitwig dark studio theme, playheads, dynamic zoom, and meter signature dropdown | `e167637` |
+| 2026-06-10 | Resolve workspace black hole theme issue by aligning card/panel backgrounds with perfect dark grey (#282828) | `97fa1a7` |
 
 
 

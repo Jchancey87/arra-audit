@@ -456,6 +456,28 @@ Implement the UI/UX design handoff to transform the Arra Audit interface into a 
 #### Commit
 `e167637` — feat(ui): implement Bitwig dark studio aesthetic and timeline features
 
+---
+
+### 2026-06-10: Resolve Workspace Black Hole Aesthetic Inconsistency
+
+#### Goal
+Resolve the user-reported "black hole" look on the main page workspaces by replacing the ultra-dark backgrounds of the page layout grids and nested cards with the lighter, perfectly balanced dark grey (`#282828`) of the transport bar.
+
+#### Implementation
+- **Depth Contrast & Background Hierarchy**:
+  - Set the workspace container background to `#1E1E1E` in [App.jsx](file:///home/jackc/projects/arra/client/src/App.jsx) and the CSS variables.
+  - Set the background of all `.card` and `.panel` containers in [global.js](file:///home/jackc/projects/arra/client/src/styles/global.js) to `--bg-panel` (`#282828`), matching the transport bar level of dark gray.
+  - Added a subtle top highlight (`inset 0 1px 0 rgba(255, 255, 255, 0.05)`) and flat shadow to cards/panels to create a premium, hardware-extruded modular feel.
+- **Eliminated Hardcoded Dark Overrides**:
+  - Refactored 9 page views (`AuditCreate.jsx`, `AuditDetail.jsx`, `AuditForm.jsx`, `Dashboard.jsx`, `ImportSong.jsx`, `Login.jsx`, `Settings.jsx`, `TechniqueNotebook.jsx`, `Trash.jsx`) and modal views (`TechniqueDetailModal.jsx`) to remove hardcoded dark backgrounds (`#151518`, `#141418`, `#1c1c22`), allowing elements to inherit the standard theme variables and panel backgrounds automatically.
+
+#### Verification
+- Built successfully via client production build pipeline check.
+- Verified all 29 Jest server unit/integration tests pass.
+
+#### Commit
+`97fa1a7` — feat(ui): resolve black hole issue by setting workspace panels to #282828
+
 
 
 
