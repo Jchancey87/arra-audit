@@ -12,6 +12,9 @@
 - **Vite Proxying**: Set `VITE_API_URL=/api` and `host: true` in development to allow network exposure without hardcoded localhost strings.
 - **MongoDB on Proxmox kernel 6.19+**: Only MongoDB 7.0.21+ works. v8.x crashes on startup. Use `mongodb-org` 7.0 repo (debian bookworm). After apt upgrade, `/etc/mongod.conf` resets `bindIp` to `127.0.0.1` — always re-set to `0.0.0.0`. Auth user `myAdmin` must be recreated in `admin` db after fresh installs (URI: `authSource=admin`).
 - **Jest test paths**: Tests live in root `tests/` but import `../../services/`. Run from `server/` via symlink `server/tests -> ../tests`. Always run as `npm test` from `server/` dir.
+- **Audit Lenses**: Keep auditing templates and questions strictly structured under the four core lenses: rhythm, texture, harmony, and arrangement.
+- **Export Formats**: Prefer beautiful HTML files over markdown for generated reference documents, lessons, and exportable handoff sheets.
+- **Token Optimization (Caveman Style)**: Write devlogs, session summaries, and agent logs in highly terse, compressed "caveman" style (omit articles, pleasantries, fluff) to maximize token efficiency.
 
 ## 🛠️ Open Priority TODOs
 - [x] Time signature selector (3/4, 6/8) in ArrangementTimelineWidget.
@@ -34,6 +37,8 @@
 | 2026-06-10 | Allow resuming guided audits from Dashboard history list and AuditDetail review views | `9a95351` |
 | 2026-06-10 | Implement UI/UX design handoff: Bitwig dark studio theme, playheads, dynamic zoom, and meter signature dropdown | `e167637` |
 | 2026-06-10 | Resolve workspace black hole theme issue by aligning card/panel backgrounds with perfect dark grey (#282828) | `97fa1a7` |
+| 2026-06-10 | Research teach/caveman. Add token/lens rules. | `-` |
+
 
 
 

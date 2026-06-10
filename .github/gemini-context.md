@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v6.14.0 on 2026-06-07T20:57:40.537Z.
+The following code signatures were extracted by SigMap v6.14.0 on 2026-06-10T17:32:20.039Z.
 
 These signatures represent every public function, class, and type in the project.
 Refer to them when answering questions about code structure, APIs, and implementation.
@@ -13,22 +13,26 @@ Before answering questions about specific code areas, suggest running `sigmap as
 
 ## deps
 ```
-analysis_service/analyzer.py ← requests
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+client/src/context/AudioContext.jsx ← BackendContext
+client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/ArrangementTimelineWidget
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## client
+
+### client/src/App.jsx
 ```
-analysis_service/analyzer.py                  +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
+function App()  :574-586
 ```
 
-## analysis_service
-
-### analysis_service/analyzer.py
+### client/src/context/AudioContext.jsx
 ```
-class ClapAnalyzer  :44-108
-  def __init__(model_name)
-  def analyze_features(file_path, tags)
-def get_clap_analyzer()  :113-120
-def analyze_audio_file(file_path, yt_id)  :123-333  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :336-428  # Downloads audio via yt-dlp to a temporary directory, analyze
+export const AudioProvider = ({ children }) =>  :7-148
+export const useAudio = () =>  :276-282
+```
+
+### client/src/pages/AuditForm.jsx
+```
+function useAutosave(auditId, data, backend, delay = 3000)  :8-45
+function formatTime(seconds)  :48-51
 ```

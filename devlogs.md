@@ -478,6 +478,21 @@ Resolve the user-reported "black hole" look on the main page workspaces by repla
 #### Commit
 `97fa1a7` — feat(ui): resolve black hole issue by setting workspace panels to #282828
 
+---
+
+### 2026-06-10: Research /teach & /caveman productivity skills
+
+#### Goal
+Integrate learning framework concepts. Save tokens.
+
+#### Implementation
+- **Memory Update**:
+  - Add constraints to `agent_memory.md`. Keep four lenses. Prefer HTML exports.
+  - Set caveman style rule for devlogs.
+- **Analysis**:
+  - Write `teach_skill_analysis.md`. Map mission, glossary, lessons, reference sheets.
+
+
 
 
 

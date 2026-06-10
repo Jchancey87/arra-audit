@@ -14,17 +14,81 @@ server/adapters/MongooseRepository.js ← ports/IRepository
 server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/services/auditService.js ← models/Audit
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
-client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
-client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/ArrangementTimelineWidget
+analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
+## .github
+
+### .github/context-cold.md
+```
+h1 Code signatures
+h2 deps
+h2 .github
+h3 .github/context-cold.md
+h3 .github/copilot-instructions.md
+h3 .github/gemini-context.md
+h2 analysis_service
+h3 analysis_service/analyzer.py
+h3 analysis_service/app.py
+h2 client
+h3 client/index.html
+h3 client/public/index.html
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/context/AuthContext.jsx
+h3 client/src/context/BackendContext.jsx
+h3 client/src/ports/IBackendService.js
+h2 server
+h3 server/adapters/InMemoryRepository.js
+h3 server/adapters/MockAIAdapter.js
+h3 server/adapters/MockSearchAdapter.js
+h3 server/adapters/MongooseRepository.js
+h3 server/adapters/OpenAIAdapter.js
+h3 server/adapters/TavilyAdapter.js
+h3 server/middleware/auth.js
+```
+
+### .github/copilot-instructions.md
+```
+h2 Auto-generated signatures
+h2 SigMap commands
+h1 Code signatures
+h2 deps
+h2 client
+h3 client/src/App.jsx
+h3 client/src/context/AudioContext.jsx
+h3 client/src/pages/AuditForm.jsx
+code-fence plain
+```
+
+### .github/gemini-context.md
+```
+h2 Auto-generated signatures
+h2 Code Signatures
+h2 deps
+h2 client
+h3 client/src/App.jsx
+h3 client/src/context/AudioContext.jsx
+h3 client/src/pages/AuditForm.jsx
+code-fence plain
+```
+
 ## analysis_service
+
+### analysis_service/analyzer.py
+```
+class ClapAnalyzer  :44-108
+  def __init__(model_name)
+  def analyze_features(file_path, tags)
+def get_clap_analyzer()  :113-120
+def analyze_audio_file(file_path, yt_id)  :123-333  # Runs the audio analysis on the downloaded file
+def download_and_analyze(youtube_url, yt_id, callback_url)  :336-428  # Downloads audio via yt-dlp to a temporary directory, analyze
+```
 
 ### analysis_service/app.py
 ```
@@ -47,11 +111,6 @@ div#root
 ```
 title: Arra Audit
 div#root
-```
-
-### client/src/App.jsx
-```
-function App()  :541-553
 ```
 
 ### client/src/adapters/HttpBackendAdapter.js
@@ -80,12 +139,6 @@ export class InMemoryBackendAdapter  :7-150
   async deleteAccount()  :70-73
 ```
 
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :7-148
-export const useAudio = () =>  :276-282
-```
-
 ### client/src/context/AuthContext.jsx
 ```
 export const AuthProvider = ({ children }) =>  :6-114
@@ -96,12 +149,6 @@ export const useAuth = () =>  :116-122
 ```
 export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
-```
-
-### client/src/pages/AuditForm.jsx
-```
-function useAutosave(auditId, data, backend, delay = 3000)  :8-45
-function formatTime(seconds)  :48-51
 ```
 
 ### client/src/ports/IBackendService.js
@@ -178,12 +225,13 @@ export class OpenAIAdapter  :18-107
 
 ### server/adapters/TavilyAdapter.js
 ```
-export class TavilyAdapter  :15-160
+export class TavilyAdapter  :15-153
   constructor(apiKey = process.env.TAVILY_API_KEY)  :16-20
-  async searchSongInfo(title, artist)  :22-97
+  async searchSongInfo(title, artist)  :22-99
   if(!this.apiKey || this.apiKey === 'your-tavily-api-key')  :23-26
-  async search(query, maxResults = 10)  :99-160
-  if(!this.apiKey || this.apiKey === 'your-tavily-api-key')  :100-103
+  async search(query, maxResults = 10)  :101-153
+  if(!this.apiKey || this.apiKey === 'your-tavily-api-key')  :102-105
+function cleanQueryTerm(text)  :200-206
 ```
 
 ### server/middleware/auth.js
