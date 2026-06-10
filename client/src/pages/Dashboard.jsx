@@ -282,20 +282,21 @@ const Dashboard = () => {
                                   {audit.workflowType && ` · ${audit.workflowType}`}
                                 </div>
                               </div>
-                              <Link to={`/audit/${audit._id}`}>
+                              <Link to={audit.status === 'completed' ? `/audit/${audit._id}` : `/audit/form/${audit._id}`}>
                                 <button
                                   style={{
                                     padding: '4px 10px',
                                     fontSize: '10px',
-                                    background: '#1c1c22',
+                                    background: audit.status === 'completed' ? '#1c1c22' : 'rgba(208, 143, 96, 0.12)',
                                     color: '#d08f60',
                                     border: '1px solid rgba(208,143,96,0.3)',
                                     borderRadius: '2px',
                                     whiteSpace: 'nowrap',
                                     cursor: 'pointer',
+                                    fontWeight: audit.status === 'completed' ? 'normal' : 'bold',
                                   }}
                                 >
-                                  Review →
+                                  {audit.status === 'completed' ? 'Review →' : 'Resume ⚡'}
                                 </button>
                               </Link>
                             </div>

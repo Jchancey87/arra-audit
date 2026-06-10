@@ -103,6 +103,22 @@ const AuditDetail = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => navigate(`/audit/form/${audit._id}`)}
+              style={{
+                background: '#d08f60',
+                color: '#0c0c0e',
+                fontWeight: 'bold',
+                border: 'none',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontFamily: 'Roboto Mono',
+                fontSize: '11px',
+                borderRadius: '2px',
+              }}
+            >
+              {audit.status === 'completed' ? 'Edit Audit' : 'Resume Audit'}
+            </button>
             <button onClick={() => setIsDeleteModalOpen(true)} className="danger">
               Delete
             </button>
