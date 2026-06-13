@@ -370,7 +370,10 @@ const AuditForm = () => {
                 fontWeight: 'bold',
               }}
             >
-              <span>📡 RESEARCH INTELLIGENCE ({researchSources.length} SOURCES)</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+                RESEARCH INTELLIGENCE ({researchSources.length} SOURCES)
+              </span>
               <span>{showResearch ? '▲ COLLAPSE' : '▼ EXPAND'}</span>
             </button>
 
@@ -506,7 +509,7 @@ const AuditForm = () => {
           <div className="panel" style={{ background: 'var(--bg-panel)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '2px', padding: '20px', marginBottom: '25px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#ff6600', fontSize: '14px' }}>🧬</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ff6600' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                 <h3 style={{ margin: 0, fontFamily: 'Roboto Mono', fontSize: '13px', color: '#ff6600' }}>
                   SIGNAL ANALYSIS MATRIX // {song.audioAnalysisStatus?.toUpperCase()}
                 </h3>
@@ -529,7 +532,7 @@ const AuditForm = () => {
                           await backend.triggerSongAnalysis(song._id);
                           const updated = await backend.getSong(song._id);
                           setSong(updated);
-                          flash('🧬 Analysis pipeline triggered!');
+                          flash(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg> Analysis pipeline triggered!</span>);
                         } catch (e) {
                           setError('Failed to trigger analysis pipeline');
                         }
@@ -544,8 +547,9 @@ const AuditForm = () => {
                 {song.audioAnalysisStatus === 'pending' && (
                   <div style={{ textAlign: 'center', padding: '25px 0' }}>
                     <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '2.5px solid rgba(255, 102, 0, 0.2)', borderTopColor: '#ff6600', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
-                    <p style={{ fontSize: '12px', fontFamily: 'Roboto Mono', color: '#ff6600', margin: '0 0 10px 0', letterSpacing: '0.05em' }}>
-                      📡 EXTRACTING HARMONIC & RHYTHMIC CODES ({analysisProgress}%)
+                    <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', fontFamily: 'Roboto Mono', color: '#ff6600', margin: '0 0 10px 0', letterSpacing: '0.05em' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+                      EXTRACTING HARMONIC & RHYTHMIC CODES ({analysisProgress}%)
                     </p>
                     
                     {/* Simulated Progress Bar */}
@@ -570,7 +574,7 @@ const AuditForm = () => {
                           await backend.triggerSongAnalysis(song._id);
                           const updated = await backend.getSong(song._id);
                           setSong(updated);
-                          flash('🧬 Analysis pipeline retried!');
+                          flash(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path></svg> Analysis pipeline retried!</span>);
                         } catch (e) {
                           setError('Failed to retry analysis pipeline');
                         }
@@ -664,8 +668,11 @@ const AuditForm = () => {
                     {/* Timeline lanes */}
                     {duration > 0 && (
                       <div style={{ background: 'var(--bg-workspace)', padding: '15px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
-                        <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                          <span>⏱️ REAL-TIME TEMPORAL LANES</span>
+                        <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            REAL-TIME TEMPORAL LANES
+                          </span>
                           <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                         </div>
                         
@@ -779,7 +786,8 @@ const AuditForm = () => {
                     {showOverrideControls && (
                       <div style={{ marginTop: '20px', padding: '15px', background: '#0c0c0e', border: '1px dashed rgba(255, 102, 0, 0.25)', borderRadius: '2px' }}>
                         <h4 style={{ margin: '0 0 15px 0', fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>
-                          ✍️ AUDIO METADATA MANUAL CORRECTIONS
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                          AUDIO METADATA MANUAL CORRECTIONS
                         </h4>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px', marginBottom: '15px' }}>
@@ -808,7 +816,8 @@ const AuditForm = () => {
                                   whiteSpace: 'nowrap'
                                 }}
                               >
-                                🥁 TAP ({tapTimes.length})
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '4px' }}><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
+                                TAP ({tapTimes.length})
                               </button>
                             </div>
                           </div>
@@ -932,7 +941,12 @@ const AuditForm = () => {
           {/* STEP 1: LISTEN — Issue 5: clear play instruction */}
           {isGuided && currentStep?.name === 'Listen' && (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: '48px', marginBottom: '20px' }}>🎧</div>
+              <div style={{ color: '#ff6600', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                </svg>
+              </div>
               <p style={{ fontSize: '14px', maxWidth: '500px', margin: '0 auto 20px', lineHeight: '1.6', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.7)' }}>
                 FULL AUDIT FOCUS. EXPERIENCE THE SIGNAL SPECTRUM FROM START TO FINISH.
               </p>
@@ -948,7 +962,9 @@ const AuditForm = () => {
                 fontFamily: 'Roboto Mono',
                 color: '#ff6600',
               }}>
-                <span style={{ animation: 'pulse 1.5s infinite', fontSize: '16px' }}>▶</span>
+                <span style={{ animation: 'pulse 1.5s infinite', display: 'inline-flex', alignItems: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </span>
                 Press <strong>Play</strong> in the Tape Deck below or click the video monitor
               </div>
             </div>
@@ -979,7 +995,8 @@ const AuditForm = () => {
                   marginBottom: '30px',
                 }}>
                   <strong style={{ fontFamily: 'Roboto Mono', fontSize: '11px', color: '#ff6600' }}>
-                    💡 WORKSPACE SIGNAL ANALYSIS MATRIX:
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><path d="M9.663 17h4.673M12 3v1m0 16v1m-9-9h1m16 0h1M5.636 5.636l.707.707m11.314 11.314l.707.707M18.364 5.636l-.707.707M5.636 18.364l-.707-.707M12 7a5 5 0 0 0-5 5h10a5 5 0 0 0-5-5z"></path></svg>
+                    WORKSPACE SIGNAL ANALYSIS MATRIX:
                   </strong>
                   <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
                     {template.workflow_guidance}
@@ -1030,7 +1047,8 @@ const AuditForm = () => {
                               alignItems: 'center',
                               gap: '6px'
                             }}>
-                              🔬 CONCRETE EXERCISES (TAILORED)
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                              CONCRETE EXERCISES (TAILORED)
                             </h4>
                             <div className="flex flex-col gap-6">
                               {lensData.exercises.map((ex, idx) => (
@@ -1092,7 +1110,8 @@ const AuditForm = () => {
             <div>
               <div style={{ marginBottom: '25px' }}>
                 <h3 style={{ color: '#ff6600', fontSize: '12px', fontFamily: 'Roboto Mono', marginBottom: '12px' }}>
-                  🎯 TAILORED RECREATION EXERCISES
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                  TAILORED RECREATION EXERCISES
                 </h3>
                 {lenses.map((lens) => {
                   const lensData = template?.lenses?.[lens];
@@ -1130,7 +1149,10 @@ const AuditForm = () => {
           {/* QUICK MODE or GUIDED STEP 5: LOG — Issue 3 fix */}
           {(!isGuided || currentStep?.name === 'Log') && (
             <div style={{ marginTop: '30px', paddingTop: '20px' }}>
-              <h2>📝 Technique Log</h2>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                Technique Log
+              </h2>
               <p style={{ color: 'rgba(255, 255, 255, 0.45)', marginBottom: '20px' }}>
                 Distill observations into portable techniques. Each entry saves immediately to your notebook.
               </p>

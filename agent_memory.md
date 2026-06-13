@@ -25,6 +25,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-13 | Fix study progress day completion 500 error due to confidence field type mismatch | `f870e3d` |
 | 2026-06-13 | Implement daily study session workspace page, uploader, populates, and verify builds | `ebaae66` |
 | 2026-06-13 | Implement client adapters, StudyPlannerDashboard, Router hooks, and dashboard widget | `ebaae66` |
 | 2026-06-13 | Create CurriculumService, Multer configs, API routes, server hooks, and integration tests | `ebaae66` |
@@ -48,10 +49,5 @@
 | 2026-06-11 | Remove max-width constraints on concrete exercises to allow full-width text | `ef92b3d` |
 | 2026-06-11 | Set Noto Sans 18px 400 as default global typography style | `da5cd7e` |
 | 2026-06-11 | Set size 18 on audit questions labels in AuditForm (Phase 3) | `f9a1a6a` |
+| 2026-06-13 | Create handoff.md mapping all target files, lines, and custom SVG DAW elements | - |
 | 2026-06-11 | GTX 1050 Ti GPU CLAP setup: torch 2.6.0+cu126, transformers 5.x API fix (audios→audio), 4.23GB VRAM confirmed | `15e025e` |
-
-
-
-
-
-

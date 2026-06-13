@@ -14,6 +14,7 @@ import Trash from './pages/Trash';
 import Settings from './pages/Settings';
 import StudyPlannerDashboard from './pages/StudyPlannerDashboard';
 import StudySessionWorkspace from './pages/StudySessionWorkspace';
+import ResearchSummaryRenderer from './components/ResearchSummaryRenderer';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -328,9 +329,7 @@ const AppContent = () => {
                           <div style={{ fontFamily: 'Roboto Mono', fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px' }}>
                             PRODUCTION NOTE
                           </div>
-                          <p style={{ fontSize: '11px', lineHeight: '1.5', color: 'rgba(255,255,255,0.6)' }}>
-                            {activeSong.researchSummary.summary}
-                          </p>
+                          <ResearchSummaryRenderer summary={activeSong.researchSummary.summary} compact={true} />
                         </div>
                       ) : (
                         <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginBottom: '15px' }}>

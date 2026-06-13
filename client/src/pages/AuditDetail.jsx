@@ -4,6 +4,7 @@ import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
+import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 
 
 const AuditDetail = () => {
@@ -135,7 +136,7 @@ const AuditDetail = () => {
           <div className="panel" style={{ background: 'var(--bg-panel)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '2px', padding: '20px', marginBottom: '25px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ color: '#ff6600', fontSize: '14px' }}>🧬</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ff6600' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                 <h3 style={{ margin: 0, fontFamily: 'Roboto Mono', fontSize: '13px', color: '#ff6600' }}>
                   SIGNAL ANALYSIS MATRIX // CANONICAL DESCRIPTORS
                 </h3>
@@ -226,8 +227,11 @@ const AuditDetail = () => {
                 {/* Timeline lanes */}
                 {duration > 0 && (
                   <div style={{ background: 'var(--bg-workspace)', padding: '15px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>⏱️ REAL-TIME TEMPORAL LANES</span>
+                    <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        REAL-TIME TEMPORAL LANES
+                      </span>
                       <span>{formatTimestamp(currentTime)} / {formatTimestamp(duration)}</span>
                     </div>
                     
@@ -334,22 +338,11 @@ const AuditDetail = () => {
         {/* Research Intelligence Log */}
         {song?.researchSummary?.summary && (
           <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <h2 style={{ color: '#ff6600', fontSize: '13px', fontFamily: 'Roboto Mono', letterSpacing: '0.05em', marginBottom: '12px' }}>
-              📡 Song Research Intelligence
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ff6600', fontSize: '13px', fontFamily: 'Roboto Mono', letterSpacing: '0.05em', marginBottom: '12px' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+              Song Research Intelligence
             </h2>
-            <div style={{
-              background: '#0c0c0e',
-              padding: '15px',
-              borderRadius: '2px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
-              borderLeft: '4px solid #ff6600',
-              lineHeight: '1.6',
-              color: 'rgba(255, 255, 255, 0.8)',
-              fontSize: '12px',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {song.researchSummary.summary}
-            </div>
+            <ResearchSummaryRenderer summary={song.researchSummary.summary} />
 
             {song.researchSummary.results && song.researchSummary.results.length > 0 && (
               <div style={{ marginTop: '12px' }}>
@@ -418,8 +411,9 @@ const AuditDetail = () => {
                               border: '1px dashed rgba(255, 102, 0, 0.15)',
                               borderRadius: '2px',
                             }}>
-                              <strong style={{ display: 'block', fontSize: '10px', fontFamily: 'Roboto Mono', color: '#ff6600', marginBottom: '8px' }}>
-                                🔬 CONCRETE EXERCISES (TAILORED)
+                              <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontFamily: 'Roboto Mono', color: '#ff6600', marginBottom: '8px' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                                CONCRETE EXERCISES (TAILORED)
                               </strong>
                               <div className="flex flex-col gap-6">
                                 {lensData.exercises.map((ex, idx) => (
@@ -523,8 +517,9 @@ const AuditDetail = () => {
                     borderLeft: '4px solid #14b8a6'
                   }}
                 >
-                  <strong style={{ color: '#14b8a6', textTransform: 'uppercase', fontSize: '11px', fontFamily: 'Roboto Mono' }}>
-                    🛠️ Recreate / Transcription Lens
+                  <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#14b8a6', textTransform: 'uppercase', fontSize: '11px', fontFamily: 'Roboto Mono' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    Recreate / Transcription Lens
                   </strong>
                   <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
                     {audit.responses.recreation}
