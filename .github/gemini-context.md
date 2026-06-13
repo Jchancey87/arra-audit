@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v6.14.0 on 2026-06-13T13:32:19.555Z.
+The following code signatures were extracted by SigMap v6.14.0 on 2026-06-13T14:21:08.519Z.
 
 These signatures represent every public function, class, and type in the project.
 Refer to them when answering questions about code structure, APIs, and implementation.
@@ -75,7 +75,7 @@ h2 Auto-generated signatures
 h2 SigMap commands
 h1 Code signatures
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -101,7 +101,7 @@ code-fence plain
 h2 Auto-generated signatures
 h2 Code Signatures
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -138,7 +138,7 @@ def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Download
 
 ### client/src/App.jsx
 ```
-function App()  :584-596
+function App()  :583-595
 ```
 
 ### client/src/adapters/HttpBackendAdapter.js
@@ -158,6 +158,11 @@ export class HttpBackendAdapter  :8-172
 ```
 export class InMemoryBackendAdapter  :7-31
   constructor()  :8-31
+```
+
+### client/src/components/ResearchSummaryRenderer.jsx
+```
+export const parseSummaryText = (text) =>  :49-90
 ```
 
 ### client/src/pages/AuditForm.jsx
