@@ -14,6 +14,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [activePlanProgress, setActivePlanProgress] = useState(null);
 
   // Modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -29,12 +30,14 @@ const Dashboard = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [songsRes, auditsRes] = await Promise.all([
+      const [songsRes, auditsRes, activeProgressRes] = await Promise.all([
         backend.getSongs(search ? { search } : {}),
         backend.getAudits(),
+        backend.getActiveStudyProgress().catch(() => null)
       ]);
       setSongs(songsRes);
       setAudits(auditsRes);
+      setActivePlanProgress(activeProgressRes);
     } catch (err) {
       setError(err.message || 'Failed to load data');
     } finally {
@@ -104,6 +107,82 @@ const Dashboard = () => {
           />
         </div>
       </div>
+
+      {activePlanProgress && (
+        <div className="panel" style={{
+          background: 'linear-gradient(135deg, #1d1d22 0%, #151518 100%)',
+          border: '1px solid #383838',
+          borderLeft: '4px solid #ff6600',
+          padding: '20px',
+          borderRadius: '2px',
+          marginBottom: '20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <span className="badge primary" style={{ marginBottom: '6px', textTransform: 'uppercase' }}>
+                Current Study Plan
+              </span>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, border: 'none', padding: 0 }}>
+                {activePlanProgress.curriculumId?.title || 'Active Curriculum'}
+              </h2>
+              <p className="card-subtitle" style={{ margin: '4px 0 0 0' }}>
+                Day {activePlanProgress.currentDay} of {activePlanProgress.dayProgress?.length || 14}
+              </p>
+            </div>
+            <Link to={`/planner`}>
+              <button style={{ background: '#ff6600', color: '#000000', fontWeight: 'bold', fontSize: '12px', padding: '8px 16px' }}>
+                ▶ Resume Planner Dashboard
+              </button>
+            </Link>
+          </div>
+
+          {/* Progress metrics */}
+          {(() => {
+            const completedCount = activePlanProgress.dayProgress?.filter(dp => dp.status === 'completed').length || 0;
+            const totalCount = activePlanProgress.dayProgress?.length || 14;
+            const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            
+            // Find current day's target song and lens
+            const currentDayMeta = activePlanProgress.curriculumId?.days?.find(d => d.dayNumber === activePlanProgress.currentDay);
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'Roboto Mono', color: '#8a8a8a' }}>
+                  <span>PROGRESS ({percent}%)</span>
+                  <span>{completedCount} / {totalCount} DAYS COMPLETED</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: '#282828', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: `${percent}%`, height: '100%', background: '#ff6600', transition: 'width 0.3s ease' }} />
+                </div>
+                
+                {currentDayMeta && (
+                  <div style={{ marginTop: '5px', fontSize: '12px', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#8a8a8a' }}>Today's Target:</span>
+                    <span className="badge" style={{
+                      background: 'rgba(255, 102, 0, 0.08)',
+                      color: '#ff6600',
+                      borderColor: 'rgba(255, 102, 0, 0.25)',
+                      fontSize: '9px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {currentDayMeta.lens}
+                    </span>
+                    <span style={{ fontWeight: '500' }}>
+                      {currentDayMeta.songTitle} - <span style={{ color: '#8a8a8a' }}>{currentDayMeta.artistName}</span>
+                    </span>
+                    <Link to={`/planner/session/${activePlanProgress.currentDay}`} style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 'bold', textDecoration: 'underline' }}>
+                      Start Day {activePlanProgress.currentDay} Session →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {songs.length === 0 ? (
         <EmptyState

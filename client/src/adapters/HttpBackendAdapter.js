@@ -235,4 +235,66 @@ export class HttpBackendAdapter extends IBackendService {
     const res = await this.api.post('/tastes/research', { lens, name });
     return res.data;
   }
+
+  // ── Curriculum & Study Progress ───────────────────────────────────────────
+  async getCurricula() {
+    const res = await this.api.get('/curricula');
+    return res.data;
+  }
+
+  async generateAICurriculum(focusArea, pastTechniques) {
+    const res = await this.api.post('/curricula/generate', { focusArea, pastTechniques });
+    return res.data;
+  }
+
+  async saveCustomCurriculum(curriculumData) {
+    const res = await this.api.post('/curricula/custom', curriculumData);
+    return res.data;
+  }
+
+  async getActiveStudyProgress() {
+    const res = await this.api.get('/study-progress/active');
+    return res.data;
+  }
+
+  async startCurriculum(curriculumId) {
+    const res = await this.api.post('/study-progress/start', { curriculumId });
+    return res.data;
+  }
+
+  async linkSongToDay(progressId, dayNumber, songId) {
+    const res = await this.api.post(`/study-progress/${progressId}/day/${dayNumber}/song`, { songId });
+    return res.data;
+  }
+
+  async saveDayProgress(progressId, dayNumber, responses) {
+    const res = await this.api.post(`/study-progress/${progressId}/day/${dayNumber}/save`, { responses });
+    return res.data;
+  }
+
+  async completeDayProgress(progressId, dayNumber, responses, syncTechnique, techniqueNotes) {
+    const res = await this.api.post(`/study-progress/${progressId}/day/${dayNumber}/complete`, {
+      responses,
+      syncTechnique,
+      techniqueNotes
+    });
+    return res.data;
+  }
+
+  async uploadAudioSketch(progressId, dayNumber, file) {
+    const formData = new FormData();
+    formData.append('audio', file);
+    const res = await this.api.post(`/study-progress/${progressId}/day/${dayNumber}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return res.data;
+  }
+
+  async submitWeeklyReview(progressId, weekNumber, reviewData) {
+    const res = await this.api.post(`/study-progress/${progressId}/week/${weekNumber}/review`, reviewData);
+    return res.data;
+  }
 }
+

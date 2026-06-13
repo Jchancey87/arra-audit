@@ -48,4 +48,17 @@ export class IBackendService {
   // Tastes
   async getTasteProfiles() { throw new Error('Not implemented'); }
   async researchTasteProfile(lens, name) { throw new Error('Not implemented'); }
+
+  // Curriculum & Study Progress
+  async getCurricula() { throw new Error('Not implemented'); }
+  async generateAICurriculum(focusArea, pastTechniques) { throw new Error('Not implemented'); }
+  async saveCustomCurriculum(curriculumData) { throw new Error('Not implemented'); }
+  async getActiveStudyProgress() { throw new Error('Not implemented'); }
+  async startCurriculum(curriculumId) { throw new Error('Not implemented'); }
+  async linkSongToDay(progressId, dayNumber, songId) { throw new Error('Not implemented'); }
+  async saveDayProgress(progressId, dayNumber, responses) { throw new Error('Not implemented'); }
+  async completeDayProgress(progressId, dayNumber, responses, syncTechnique, techniqueNotes) { throw new Error('Not implemented'); }
+  async uploadAudioSketch(progressId, dayNumber, file) { throw new Error('Not implemented'); }
+  async submitWeeklyReview(progressId, weekNumber, reviewData) { throw new Error('Not implemented'); }
 }
+

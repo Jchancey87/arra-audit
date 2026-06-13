@@ -1,0 +1,663 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useBackend } from '../context/BackendContext';
+import { useAudio } from '../context/AudioContext';
+import YouTube from 'react-youtube';
+import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
+
+const getLensStyle = (lens) => {
+  switch (lens?.toLowerCase()) {
+    case 'harmony':
+      return { background: 'rgba(124, 58, 237, 0.15)', color: '#c084fc', border: '1px solid rgba(124, 58, 237, 0.3)' };
+    case 'rhythm':
+      return { background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' };
+    case 'texture':
+      return { background: 'rgba(6, 182, 212, 0.15)', color: '#22d3ee', border: '1px solid rgba(6, 182, 212, 0.3)' };
+    case 'form':
+      return { background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.3)' };
+    case 'arrangement':
+      return { background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' };
+    default:
+      return { background: '#282828', color: '#8a8a8a', border: '1px solid #383838' };
+  }
+};
+
+const StudySessionWorkspace = () => {
+  const { dayNumber } = useParams();
+  const dayNum = parseInt(dayNumber, 10);
+  const navigate = useNavigate();
+  const backend = useBackend();
+  const { loadSong, activeSong, setShowVideo } = useAudio();
+
+  const [activeProgress, setActiveProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Search/linking states
+  const [existingSongs, setExistingSongs] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importStep, setImportStep] = useState(0);
+
+  // Responses & uploader states
+  const [responses, setResponses] = useState({});
+  const [syncTechnique, setSyncTechnique] = useState(true);
+  const [videoOpen, setVideoOpen] = useState(true);
+
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  // Disable global video overlay during active session
+  useEffect(() => {
+    setShowVideo(false);
+    return () => setShowVideo(true);
+  }, [setShowVideo]);
+
+  // Load progress and library songs on day change
+  useEffect(() => {
+    loadProgress();
+    loadSongs();
+  }, [dayNum]);
+
+  const loadProgress = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const progress = await backend.getActiveStudyProgress();
+      if (!progress) {
+        setError('No active study plan found.');
+        return;
+      }
+      setActiveProgress(progress);
+
+      const dayProgress = progress.dayProgress?.find(dp => dp.dayNumber === dayNum);
+      if (!dayProgress) {
+        setError(`Day ${dayNum} not found in this curriculum.`);
+        return;
+      }
+      setResponses(dayProgress.responses || {});
+
+      // Automatically load linked song into tape deck
+      if (dayProgress.songId && typeof dayProgress.songId === 'object') {
+        loadSong(dayProgress.songId);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to load active curriculum details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSongs = async () => {
+    try {
+      const list = await backend.getSongs();
+      setExistingSongs(list || []);
+    } catch (err) {
+      console.error('Failed to load songs list:', err);
+    }
+  };
+
+  const handleLinkSong = async (songId) => {
+    try {
+      setSaving(true);
+      setError('');
+      const updated = await backend.linkSongToDay(activeProgress._id, dayNum, songId);
+      setActiveProgress(updated);
+      const dayProgress = updated.dayProgress?.find(dp => dp.dayNumber === dayNum);
+      if (dayProgress?.songId && typeof dayProgress.songId === 'object') {
+        loadSong(dayProgress.songId);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to link song to study day.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImportAndLink = async (e) => {
+    e.preventDefault();
+    if (!youtubeUrl.trim()) return;
+
+    setImporting(true);
+    setError('');
+    setImportStep(0);
+
+    const timer = setInterval(() => {
+      setImportStep((prev) => Math.min(prev + 1, 4));
+    }, 2500);
+
+    try {
+      const response = await backend.importSong(youtubeUrl);
+      const songId = response.song._id;
+      const updated = await backend.linkSongToDay(activeProgress._id, dayNum, songId);
+      setActiveProgress(updated);
+      setYoutubeUrl('');
+      const dayProgress = updated.dayProgress?.find(dp => dp.dayNumber === dayNum);
+      if (dayProgress?.songId && typeof dayProgress.songId === 'object') {
+        loadSong(dayProgress.songId);
+      }
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.error === 'already_imported' && data?.songId) {
+        // Link immediately if already in database
+        const updated = await backend.linkSongToDay(activeProgress._id, dayNum, data.songId);
+        setActiveProgress(updated);
+        setYoutubeUrl('');
+        const dayProgress = updated.dayProgress?.find(dp => dp.dayNumber === dayNum);
+        if (dayProgress?.songId && typeof dayProgress.songId === 'object') {
+          loadSong(dayProgress.songId);
+        }
+      } else {
+        setError(data?.error || err.message || 'Failed to import and link song.');
+      }
+    } finally {
+      clearInterval(timer);
+      setImporting(false);
+      setImportStep(0);
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError('');
+    try {
+      const updated = await backend.uploadAudioSketch(activeProgress._id, dayNum, file);
+      setActiveProgress(updated);
+    } catch (err) {
+      console.error(err);
+      setUploadError(err.response?.data?.error || err.message || 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleResponseChange = (key, value) => {
+    setResponses(prev => ({ ...prev, [key]: value }));
+  };
+
+  const saveDraft = async (responsesToSave = responses) => {
+    try {
+      setSaving(true);
+      setError('');
+      const updated = await backend.saveDayProgress(activeProgress._id, dayNum, responsesToSave);
+      setActiveProgress(updated);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to save draft responses.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveNow = async (updatedResponses) => {
+    setResponses(prev => {
+      const next = { ...prev, ...updatedResponses };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  const handleComplete = async () => {
+    try {
+      setSaving(true);
+      setError('');
+      
+      const stealNotes = responses['steal_move'] || responses['steal_notes'] || responses['steal'] || '';
+      
+      await backend.completeDayProgress(
+        activeProgress._id,
+        dayNum,
+        responses,
+        syncTechnique,
+        stealNotes
+      );
+      
+      navigate('/planner');
+    } catch (err) {
+      console.error(err);
+      setError('Failed to log and complete study session.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="loading" style={{ color: 'var(--accent-orange)' }}>Loading Study Session...</div>;
+  }
+
+  const dayProgress = activeProgress?.dayProgress?.find(dp => dp.dayNumber === dayNum);
+  const currDay = activeProgress?.curriculumId?.days?.find(d => d.dayNumber === dayNum) || {};
+  const isLinked = dayProgress?.songId != null;
+  const song = isLinked && typeof dayProgress.songId === 'object' ? dayProgress.songId : null;
+
+  // Filter existing songs list
+  const filteredSongs = existingSongs.filter(s =>
+    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.artist || s.artistName || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Recommended Match helper
+  const recommendedMatch = existingSongs.find(s =>
+    s.title?.toLowerCase() === currDay?.songTitle?.toLowerCase() ||
+    s.artist?.toLowerCase() === currDay?.artistName?.toLowerCase()
+  );
+
+  return (
+    <div style={{ maxWidth: '1100px', margin: '0 auto', paddingBottom: '40px' }}>
+      
+      {/* Navigation and Title */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+        <Link 
+          to="/planner" 
+          style={{ fontSize: '11px', fontFamily: 'Roboto Mono', textTransform: 'uppercase', color: '#ff6600', display: 'flex', alignItems: 'center', gap: '5px' }}
+        >
+          ◀ Back to Planner
+        </Link>
+        <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#8a8a8a' }}>
+          CURRICULUM: {activeProgress?.curriculumId?.title}
+        </span>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      {/* CASE 1: Song is NOT linked yet */}
+      {!isLinked ? (
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          
+          {/* Target recommendation details */}
+          <div className="panel" style={{ background: '#151518', padding: '25px', borderColor: '#383838' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+              <span style={{ fontFamily: 'Roboto Mono', fontSize: '13px', fontWeight: 'bold', color: '#ff6600' }}>
+                DAY {dayNum} TARGET SIGNAL
+              </span>
+              <span className="badge" style={getLensStyle(currDay.lens)}>
+                {currDay.lens}
+              </span>
+            </div>
+
+            <h2 style={{ color: '#ffffff', fontSize: '1.4rem', border: 'none', padding: 0, margin: '0 0 10px 0' }}>
+              {currDay.songTitle}
+            </h2>
+            <p style={{ fontFamily: 'Roboto Mono', fontSize: '12px', color: '#8a8a8a', marginBottom: '20px' }}>
+              by {currDay.artistName}
+            </p>
+
+            <div style={{ padding: '15px', background: '#0c0c0e', border: '1px solid rgba(255,102,0,0.15)', borderRadius: '2px', marginBottom: '25px' }}>
+              <div style={{ fontFamily: 'Roboto Mono', fontSize: '10px', color: '#ff6600', marginBottom: '6px' }}>
+                SEARCH QUERY RECOMMENDATION:
+              </div>
+              <code style={{ fontSize: '12px', color: '#ffffff', wordBreak: 'break-all' }}>
+                {currDay.songQuery}
+              </code>
+            </div>
+
+            {recommendedMatch ? (
+              <div style={{ padding: '15px', background: 'rgba(74, 222, 128, 0.08)', border: '1px solid rgba(74, 222, 128, 0.25)', borderRadius: '2px' }}>
+                <p style={{ fontSize: '12px', color: '#4ade80', margin: '0 0 10px 0' }}>
+                  ✓ A matching song was found in your library!
+                </p>
+                <button 
+                  onClick={() => handleLinkSong(recommendedMatch._id)}
+                  disabled={saving}
+                  style={{ background: '#4ade80', color: '#000000', fontWeight: 'bold', width: '100%' }}
+                >
+                  Link "{recommendedMatch.title}" from Library
+                </button>
+              </div>
+            ) : (
+              <p style={{ fontSize: '12px', color: '#8a8a8a', fontStyle: 'italic' }}>
+                No perfect match currently in library. Import from YouTube or select another song.
+              </p>
+            )}
+          </div>
+
+          {/* Import / Library selector section */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* YouTube Import form */}
+            <div className="panel" style={{ background: 'var(--bg-panel)' }}>
+              <h3 style={{ color: '#ff6600', marginBottom: '10px' }}>⚡ Import via YouTube URL</h3>
+              <form onSubmit={handleImportAndLink}>
+                <div className="form-group" style={{ marginBottom: '15px' }}>
+                  <input
+                    type="text"
+                    required
+                    value={youtubeUrl}
+                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    disabled={importing}
+                    style={{ background: 'var(--bg-workspace)', borderColor: '#383838' }}
+                  />
+                </div>
+                <button type="submit" disabled={importing} style={{ width: '100%', fontWeight: 'bold' }}>
+                  {importing ? 'Importing Signal...' : 'Import & Link Song'}
+                </button>
+              </form>
+
+              {importing && (
+                <div style={{ marginTop: '15px', padding: '10px', background: '#0c0c0e', border: '1px dashed #ff6600', borderRadius: '2px' }}>
+                  <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>
+                    ● Step {importStep + 1}/5: {
+                      [
+                        "Downloading audio stream from YouTube",
+                        "Extracting song metadata and attributes",
+                        "Deploying research crawler for production notes",
+                        "Building GPT listening worksheet",
+                        "Connecting signal back to local workspace"
+                      ][importStep]
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Existing Library Search */}
+            <div className="panel" style={{ background: 'var(--bg-panel)', flex: 1, display: 'flex', flexDirection: 'column', maxHeight: '380px' }}>
+              <h3 style={{ color: '#ffffff', marginBottom: '10px' }}>🔎 Select Existing Song</h3>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search library songs..."
+                style={{ background: 'var(--bg-workspace)', borderColor: '#383838', marginBottom: '10px' }}
+              />
+
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {filteredSongs.length === 0 ? (
+                  <p style={{ fontSize: '11px', color: '#8a8a8a', padding: '10px 0' }}>No matching songs found.</p>
+                ) : (
+                  filteredSongs.map(s => (
+                    <div 
+                      key={s._id} 
+                      style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        background: '#151518', 
+                        padding: '8px 12px',
+                        border: '1px solid #282828',
+                        borderRadius: '2px'
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ffffff' }}>{s.title}</div>
+                        <div style={{ fontSize: '10px', color: '#8a8a8a' }}>{s.artist || s.artistName}</div>
+                      </div>
+                      <button 
+                        onClick={() => handleLinkSong(s._id)} 
+                        disabled={saving}
+                        style={{ padding: '4px 8px', fontSize: '10px' }}
+                      >
+                        Link
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      ) : (
+        /* CASE 2: Song is linked successfully */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <div className="grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', alignItems: 'start' }}>
+            
+            {/* Left Column: Prompts, Log Form & Timeline */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Prompts Panel */}
+              <div className="panel" style={{ background: '#151518', borderColor: '#ff6600', padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontFamily: 'Roboto Mono', fontSize: '13px', fontWeight: 'bold', color: '#ff6600' }}>
+                      DAY {dayNum} STUDY DETAILS
+                    </span>
+                    <span className="badge" style={getLensStyle(currDay.lens)}>
+                      {currDay.lens}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px' }}>🎧 LISTENING PROMPT</h4>
+                  <p style={{ fontSize: '18px', color: '#ffffff', margin: 0, fontWeight: '400', lineHeight: '1.6' }}>
+                    {currDay.listeningPrompt}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px' }}>🎹 DAW SKETCH CHALLENGE</h4>
+                  <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', margin: 0, lineHeight: '1.5' }}>
+                    {currDay.applicationPrompt}
+                  </p>
+                </div>
+              </div>
+
+              {/* Log Responses Form */}
+              <div className="panel" style={{ background: 'var(--bg-panel)', padding: '20px' }}>
+                <h3 style={{ color: '#ffffff', marginBottom: '15px', fontSize: '12px', fontFamily: 'Roboto Mono', borderBottom: '1px solid #383838', paddingBottom: '6px' }}>
+                  📝 OBSERVED STUDY NOTES
+                </h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {currDay.logFields?.map((field) => (
+                    <div key={field.key} className="form-group">
+                      <label style={{ color: '#ff6600' }}>{field.label}</label>
+                      <textarea
+                        value={responses[field.key] || ''}
+                        onChange={(e) => handleResponseChange(field.key, e.target.value)}
+                        placeholder={`Write down your ${field.label.toLowerCase()} observations...`}
+                        style={{ minHeight: '90px' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Notebook Sync Toggle */}
+                <div style={{ 
+                  marginTop: '20px', 
+                  padding: '12px', 
+                  background: '#131316', 
+                  border: '1px solid rgba(255,102,0,0.15)',
+                  borderRadius: '2px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px'
+                }}>
+                  <input
+                    type="checkbox"
+                    id="syncTechnique"
+                    checked={syncTechnique}
+                    onChange={(e) => setSyncTechnique(e.target.checked)}
+                    style={{ width: 'auto', marginTop: '3px' }}
+                  />
+                  <label htmlFor="syncTechnique" style={{ textTransform: 'none', fontSize: '12px', color: '#ffffff', cursor: 'pointer' }}>
+                    <strong>Add takeaway to Technique Notebook</strong>
+                    <span style={{ display: 'block', fontSize: '10px', color: '#8a8a8a', marginTop: '2px' }}>
+                      Automatically syncs your "Steal Move" text into your production notebook reference system.
+                    </span>
+                  </label>
+                </div>
+
+                {/* Save Draft & Log actions */}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button 
+                    onClick={handleComplete} 
+                    disabled={saving}
+                    style={{ background: '#ff6600', color: '#000000', fontWeight: 'bold' }}
+                  >
+                    {saving ? 'Completing Day...' : 'Complete & Log Day'}
+                  </button>
+                  <button 
+                    onClick={() => saveDraft()} 
+                    disabled={saving}
+                    className="secondary"
+                  >
+                    {saving ? 'Saving...' : 'Save Draft'}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Right Column: Audio Stream & DAW Sketch Uploader */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Linked Song Panel */}
+              <div className="panel" style={{ background: 'var(--bg-panel)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ color: '#ffffff', margin: 0 }}>🔗 Reference Signal</h3>
+                  <button 
+                    onClick={() => handleLinkSong(null)} 
+                    disabled={saving}
+                    className="danger" 
+                    style={{ padding: '3px 6px', fontSize: '9px' }}
+                  >
+                    Unlink Song
+                  </button>
+                </div>
+
+                {song && (
+                  <div style={{ background: '#151518', padding: '12px', borderRadius: '2px', border: '1px solid #282828', marginBottom: '15px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ffffff' }}>{song.title}</div>
+                    <div style={{ fontSize: '11px', color: '#ff6600', fontFamily: 'Roboto Mono', marginTop: '2px' }}>{song.artist || song.artistName}</div>
+                  </div>
+                )}
+
+                {/* YouTube Video toggle and Player */}
+                {song && (
+                  <div>
+                    <button 
+                      onClick={() => setVideoOpen(!videoOpen)} 
+                      className="secondary"
+                      style={{ width: '100%', fontSize: '10px', marginBottom: '10px' }}
+                    >
+                      {videoOpen ? 'Hide Video Screen ▲' : 'Show Video Screen ▼'}
+                    </button>
+
+                    {videoOpen && (
+                      <div style={{ 
+                        height: '200px', 
+                        background: '#000000', 
+                        borderRadius: '2px', 
+                        overflow: 'hidden',
+                        border: '1px solid #282828'
+                      }}>
+                        <YouTube
+                          videoId={song.sourceId || song.youtubeId}
+                          opts={{
+                            height: '100%',
+                            width: '100%',
+                            playerVars: { controls: 1, origin: window.location.origin }
+                          }}
+                          style={{ width: '100%', height: '100%' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* DAW Sketch Uploader */}
+              <div className="panel" style={{ background: 'var(--bg-panel)' }}>
+                <h3 style={{ color: '#ff6600', marginBottom: '10px' }}>📤 DAW Sketch Uploader</h3>
+                <p style={{ fontSize: '11px', color: '#8a8a8a', marginBottom: '15px', lineHeight: '1.4' }}>
+                  Drag & drop or select your audio sketch file (.mp3/.wav, max 10MB) to review it inside this day's workspace.
+                </p>
+
+                {uploadError && <div className="error">{uploadError}</div>}
+
+                {/* Uploader Input Zone */}
+                <div style={{
+                  border: '2px dashed rgba(255, 102, 0, 0.25)',
+                  background: '#151518',
+                  borderRadius: '2px',
+                  padding: '20px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  marginBottom: '15px'
+                }}>
+                  <input
+                    type="file"
+                    accept=".mp3,.wav"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      opacity: 0,
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#ff6600', fontFamily: 'Roboto Mono' }}>
+                    {uploading ? 'Uploading sketch...' : 'Choose Audio Sketch (.mp3/.wav)'}
+                  </span>
+                </div>
+
+                {/* Sketch Audio player */}
+                {dayProgress?.audioFilePath ? (
+                  <div style={{ background: '#0c0c0e', padding: '12px', border: '1px solid #282828', borderRadius: '2px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: '#8a8a8a' }}>SKETCH FILENAME:</span>
+                      <span className="badge success">UPLOADED</span>
+                    </div>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#ffffff', wordBreak: 'break-all', marginBottom: '10px' }}>
+                      {dayProgress.audioOriginalName || 'Uploaded Audio'}
+                    </div>
+                    <audio 
+                      controls 
+                      src={dayProgress.audioFilePath}
+                      style={{ width: '100%', height: '32px' }} 
+                    />
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '11px', color: '#8a8a8a', fontStyle: 'italic', margin: 0 }}>
+                    No DAW sketch uploaded for this day yet.
+                  </p>
+                )}
+              </div>
+
+            </div>
+          </div>
+
+          {/* Arrangement Timeline Widget for Arrangement/Form Lens days */}
+          {['arrangement', 'form'].includes(currDay.lens?.toLowerCase()) && (
+            <div className="panel" style={{ background: '#1e1e1e', marginTop: '20px', border: '1px solid #383838', borderRadius: '2px', padding: '15px' }}>
+              <div style={{ borderBottom: '1px solid #282828', paddingBottom: '6px', marginBottom: '15px' }}>
+                <h3 style={{ color: '#ff6600', margin: 0, fontSize: '13px' }}>📊 Arrangement / Form Timeline</h3>
+                <span style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono' }}>
+                  Analyze or chart blocks for the active reference signal. Snap to grid bars, label lanes, or trace dynamic curves.
+                </span>
+              </div>
+              <ArrangementTimelineWidget
+                responses={responses}
+                onChange={handleResponseChange}
+                song={song}
+                lensData={currDay}
+                saveNow={saveNow}
+              />
+            </div>
+          )}
+
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+export default StudySessionWorkspace;

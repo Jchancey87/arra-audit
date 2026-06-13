@@ -19,6 +19,8 @@ import Song from './models/Song.js';
 import Audit from './models/Audit.js';
 import TechniqueEntry from './models/TechniqueEntry.js';
 import TasteProfile from './models/TasteProfile.js';
+import Curriculum from './models/Curriculum.js';
+import StudyProgress from './models/StudyProgress.js';
 
 // Services
 import { AuthService } from './services/authService.js';
@@ -27,6 +29,7 @@ import { AuditService } from './services/auditService.js';
 import { TechniqueService } from './services/techniqueService.js';
 import { TemplateComposer } from './services/templateComposer.js';
 import { TasteService } from './services/tasteService.js';
+import { CurriculumService } from './services/curriculumService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
@@ -34,6 +37,8 @@ import createSongRoutes from './routes/songs.js';
 import createAuditRoutes from './routes/audits.js';
 import createTechniqueRoutes from './routes/techniques.js';
 import createTasteRoutes from './routes/tastes.js';
+import createCurriculumRoutes from './routes/curricula.js';
+import createStudyProgressRoutes from './routes/studyProgress.js';
 
 import { authMiddleware } from './middleware/auth.js';
 
@@ -60,6 +65,8 @@ const songRepository = new MongooseRepository(Song);
 const auditRepository = new MongooseRepository(Audit);
 const techniqueRepository = new MongooseRepository(TechniqueEntry);
 const tasteProfileRepository = new MongooseRepository(TasteProfile);
+const curriculumRepository = new MongooseRepository(Curriculum);
+const studyProgressRepository = new MongooseRepository(StudyProgress);
 
 const authService = new AuthService(userRepository);
 const songService = new SongService(songRepository, searchAdapter, aiAdapter);
@@ -67,6 +74,14 @@ const auditService = new AuditService(auditRepository, techniqueRepository, song
 const techniqueService = new TechniqueService(techniqueRepository);
 const templateComposer = new TemplateComposer(aiAdapter);
 const tasteService = new TasteService(tasteProfileRepository, searchAdapter, aiAdapter);
+const curriculumService = new CurriculumService(
+  curriculumRepository,
+  studyProgressRepository,
+  songRepository,
+  auditService,
+  techniqueRepository,
+  aiAdapter
+);
 
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
@@ -102,6 +117,11 @@ app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRe
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
+app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));
+app.use('/api/study-progress', authMiddleware, createStudyProgressRoutes(curriculumService));
+
+// Static file serving for audio uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {

@@ -10,15 +10,12 @@
 server/adapters/InMemoryRepository.js ← ports/IRepository
 server/adapters/MockAIAdapter.js ← ports/IAIModelService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
-server/adapters/MongooseRepository.js ← ports/IRepository
 server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/services/auditService.js ← models/Audit
-client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
-client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
+client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
-analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
@@ -33,24 +30,24 @@ h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
 h2 analysis_service
-h3 analysis_service/analyzer.py
 h3 analysis_service/app.py
 h2 client
 h3 client/index.html
 h3 client/public/index.html
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/context/AudioContext.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
-h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/InMemoryRepository.js
 h3 server/adapters/MockAIAdapter.js
 h3 server/adapters/MockSearchAdapter.js
-h3 server/adapters/MongooseRepository.js
 h3 server/adapters/OpenAIAdapter.js
 h3 server/adapters/TavilyAdapter.js
 h3 server/middleware/auth.js
+h3 server/ports/IAIModelService.js
+h3 server/ports/IRepository.js
+h3 server/ports/ISearchService.js
+h3 server/routes/songs.js
 ```
 
 ### .github/copilot-instructions.md
@@ -59,10 +56,20 @@ h2 Auto-generated signatures
 h2 SigMap commands
 h1 Code signatures
 h2 deps
+h2 changes (last 5 commits — 1 second ago)
+h2 analysis_service
+h3 analysis_service/analyzer.py
 h2 client
 h3 client/src/App.jsx
-h3 client/src/context/AudioContext.jsx
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/pages/AuditForm.jsx
+h3 client/src/ports/IBackendService.js
+h2 server
+h3 server/adapters/MongooseRepository.js
+h3 server/bin/seedCurriculum.js
+h3 server/routes/curricula.js
+h3 server/services/curriculumService.js
 code-fence plain
 ```
 
@@ -71,24 +78,24 @@ code-fence plain
 h2 Auto-generated signatures
 h2 Code Signatures
 h2 deps
+h2 changes (last 5 commits — 1 second ago)
+h2 analysis_service
+h3 analysis_service/analyzer.py
 h2 client
 h3 client/src/App.jsx
-h3 client/src/context/AudioContext.jsx
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/pages/AuditForm.jsx
+h3 client/src/ports/IBackendService.js
+h2 server
+h3 server/adapters/MongooseRepository.js
+h3 server/bin/seedCurriculum.js
+h3 server/routes/curricula.js
+h3 server/services/curriculumService.js
 code-fence plain
 ```
 
 ## analysis_service
-
-### analysis_service/analyzer.py
-```
-class ClapAnalyzer  :44-108
-  def __init__(model_name)
-  def analyze_features(file_path, tags)
-def get_clap_analyzer()  :113-120
-def analyze_audio_file(file_path, yt_id)  :123-333  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :336-428  # Downloads audio via yt-dlp to a temporary directory, analyze
-```
 
 ### analysis_service/app.py
 ```
@@ -113,30 +120,10 @@ title: Arra Audit
 div#root
 ```
 
-### client/src/adapters/HttpBackendAdapter.js
+### client/src/context/AudioContext.jsx
 ```
-export class HttpBackendAdapter  :8-172
-  constructor(baseURL)  :9-22
-  async login(email, password)  :25-28
-  async register(email, password, name)  :30-33
-  async getUserProfile()  :35-38
-  async updatePreferences(preferences)  :40-43
-  async updateProfile(profileData)  :45-48
-  async changePassword(oldPassword, newPassword)  :50-53
-  async deleteAccount()  :55-58
-```
-
-### client/src/adapters/InMemoryBackendAdapter.js
-```
-export class InMemoryBackendAdapter  :7-150
-  constructor()  :8-15
-  async login(email, password)  :18-27
-  async register(email, password, name)  :29-38
-  async getUserProfile()  :40-43
-  async updatePreferences(preferences)  :45-52
-  async updateProfile(profileData)  :54-63
-  async changePassword(oldPassword, newPassword)  :65-68
-  async deleteAccount()  :70-73
+export const AudioProvider = ({ children }) =>  :7-148
+export const useAudio = () =>  :276-282
 ```
 
 ### client/src/context/AuthContext.jsx
@@ -149,19 +136,6 @@ export const useAuth = () =>  :116-122
 ```
 export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
-```
-
-### client/src/ports/IBackendService.js
-```
-export class IBackendService  :7-51
-  async login(email, password)  :9-9
-  async register(email, password, name)  :10-10
-  async getUserProfile()  :11-11
-  async updatePreferences(preferences)  :12-12
-  async updateProfile(profileData)  :13-13
-  async changePassword(oldPassword, newPassword)  :14-14
-  async deleteAccount()  :15-15
-  async getSongs(filters)  :18-18
 ```
 
 ## server
@@ -195,19 +169,6 @@ export class MockSearchAdapter  :21-52
   constructor(responseOverride = null)  :22-25
   async searchSongInfo(title, artist)  :27-51
   if(this.responseOverride)  :29-36
-```
-
-### server/adapters/MongooseRepository.js
-```
-export class MongooseRepository  :14-125
-  constructor(model)  :15-21
-  if(!model)  :17-19
-  async create(data)  :23-30
-  async findById(id)  :32-38
-  async find(query = {}, options = {})  :40-64
-  if(options.sort)  :45-47
-  if(options.limit)  :48-50
-  if(options.skip)  :51-53
 ```
 
 ### server/adapters/OpenAIAdapter.js

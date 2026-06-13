@@ -6,6 +6,47 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-13: Study Session Workspace & Build Verification (Phase 4)
+
+- **Backend Route Populates**: Added `populateProgress` helper in `studyProgress.js`. Resolves nested `curriculumId` & `dayProgress.songId` for active planner sessions. Standardized response format across Mongoose and InMemory repository mocks. Fixed integration tests.
+- **Vite Proxy Config**: Added `/uploads` proxy route in `vite.config.js`. Correctly forwards static file audio sketch requests to Express server.
+- **Pages**: Built `StudySessionWorkspace.jsx` at `/planner/session/:dayNumber`. Implements:
+  - Search recommendation selector: links existing song library tracks or imports via YouTube URLs, fallback matching logic.
+  - Video monitor: collapsible YouTube inline player, disables global background overlay.
+  - Custom Log Fields: dynamic Noto Sans textareas mapped to curriculum schema.
+  - Audio Sketch Uploader: accept `.wav`/`.mp3` uploads, show status, render inline HTML5 audio review player.
+  - Sync Checkbox: syncs takeaways to Technique Notebook.
+- **Routing**: Registered route `/planner/session/:dayNumber` in `App.jsx`.
+- **Verification**: Client build compiled successfully with no ESLint/bundling errors. Backend Jest tests verified passing (44/44).
+
+### 2026-06-13: Study Planner Phase 3 — Client Adapters, Study Planner Dashboard, and Router Hooks
+
+- **Client Ports & Adapters**: Added curriculum/study progress declarations in `IBackendService.js`. Implemented `HttpBackendAdapter.js` calling `/api/curricula/*` and `/api/study-progress/*` endpoints. Added mock implementations in `InMemoryBackendAdapter.js`.
+- **Pages**: Created `StudyPlannerDashboard.jsx` accessible at `/planner`. Designed a premium dark studio dashboard UI featuring progress bars, weekly reflections, seeded course activation, custom AI generated curricula, and inline plan editor.
+- **Routing & Nav**: Registered `/planner` in `App.jsx` with active navigation highlights and calendar icon.
+- **Dashboard Widget**: Added a premium dashboard widget card at the top of the main song library crate in `Dashboard.jsx`, showing active plan status, progress percentage, target song recommendations, and quick-action resume link.
+
+### 2026-06-13: Study Planner Phase 2 — Services, Uploads, Routes & Tests
+
+- **Service**: Built `CurriculumService` with constructor injection. Added `generateAICurriculum` (OpenAI prompt compose + JSON parse), `startCurriculum` (init `StudyProgress` days/reviews), `linkSongToDay`, `logDayProgress`, `completeDayProgress` (trigger `auditService.createAudit` & notebook technique sync), `submitWeeklyReview`.
+- **Routes**: Created `server/routes/curricula.js` and `server/routes/studyProgress.js`. Configured `multer` for `.wav`/`.mp3` uploads.
+- **Server**: Registered routes and `uploads` static serving in `server.js`.
+- **Tests**: Created `server/__tests__/integration/curriculumApi.test.js` testing starts, upload, complete, audits/technique sync, weekly review, AI generation. All 44 Jest tests pass.
+
+### 2026-06-13: Curriculum Models & Seeding (Phase 1)
+
+#### 1. Models & Repositories
+- Created `Curriculum.js` schema with daily prompts, focus lenses, custom logs. Compound index on `{ userId, creatorType }`.
+- Created `StudyProgress.js` tracking responses, audio upload paths, weekly reviews. Compound unique index `{ userId, curriculumId }`.
+- Mapped both models in `MongooseRepository.js` using `CurriculumRepository` & `StudyProgressRepository` subclasses.
+
+#### 2. Directories & Seeds
+- Scaffolded `server/uploads/` with `.gitkeep`.
+- Coded `seedCurriculum.js` populating 14-day Song Audit Planner default curriculum.
+
+#### 3. Verification
+- Created `curriculumModel.test.js` verifying schema validation and DB operations. All tests pass.
+
 ### 2026-05-22: DAW-Style Layout & Persistent Playback Redesign
 
 #### 1. Global Audio Context & Persistent YouTube Player
@@ -626,3 +667,19 @@ Increase audit questions label font size to 18px.
 - GPU verified: `cuda.is_available()=True`, 4.23GB VRAM, 4.8x speedup over CPU on matmul benchmark
 - `arra-analysis` PM2 service restarted and online
 - `requirements.txt` updated with pinned GPU deps + cu126 install note
+
+---
+
+### 2026-06-12: PM2 Application Startup & Verification
+
+**Commit:** `-`
+
+**Problem:** Application services not running on startup.
+
+**Work done:**
+- Read active agent memory file `agent_memory.md` to align session focus.
+- Started `arra-server` (Express), `arra-client` (Vite), and `arra-analysis` (Python CLAP microservice) using PM2 config `ecosystem.config.cjs`.
+- Monitored process status (`pm2 status`) to verify all three services are online.
+- Tail-logged PM2 outputs to confirm successful database connectivity (MongoDB on remote Proxmox VM) and microservice initialization (CLAP model cached on CUDA).
+- Verified client (port 3050) and server (port 5050) HTTP endpoints with curl.
+

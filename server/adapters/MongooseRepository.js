@@ -1,4 +1,6 @@
 import { IRepository } from '../ports/IRepository.js';
+import Curriculum from '../models/Curriculum.js';
+import StudyProgress from '../models/StudyProgress.js';
 
 /**
  * MongooseRepository - Production implementation of IRepository
@@ -123,3 +125,16 @@ export class MongooseRepository extends IRepository {
     }
   }
 }
+
+export class CurriculumRepository extends MongooseRepository {
+  constructor() {
+    super(Curriculum);
+  }
+}
+
+export class StudyProgressRepository extends MongooseRepository {
+  constructor() {
+    super(StudyProgress);
+  }
+}
+

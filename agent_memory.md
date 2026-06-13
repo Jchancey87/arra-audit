@@ -25,6 +25,10 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-13 | Implement daily study session workspace page, uploader, populates, and verify builds | `ebaae66` |
+| 2026-06-13 | Implement client adapters, StudyPlannerDashboard, Router hooks, and dashboard widget | `ebaae66` |
+| 2026-06-13 | Create CurriculumService, Multer configs, API routes, server hooks, and integration tests | `ebaae66` |
+| 2026-06-13 | Create Curriculum/StudyProgress models, seed script, uploads dir, Mongoose repo mapping, unit tests | `ebaae66` |
 | 2026-06-06 | ArrangementTimelineWidget v2: BPM autofill, BARS/SECS ruler toggle (4/4), multi-track lanes | `b6f3e75` |
 | 2026-06-07 | Integrate SigMap and configure Antigravity MCP server | `0f0a791` |
 | 2026-06-07 | Prune agent_memory.md to optimize token usage | `c4c348c` |
@@ -45,6 +49,7 @@
 | 2026-06-11 | Set Noto Sans 18px 400 as default global typography style | `da5cd7e` |
 | 2026-06-11 | Set size 18 on audit questions labels in AuditForm (Phase 3) | `f9a1a6a` |
 | 2026-06-11 | GTX 1050 Ti GPU CLAP setup: torch 2.6.0+cu126, transformers 5.x API fix (audios→audio), 4.23GB VRAM confirmed | `15e025e` |
+
 
 
 
