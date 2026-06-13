@@ -301,8 +301,11 @@ const StudySessionWorkspace = () => {
 
             {recommendedMatch ? (
               <div style={{ padding: '15px', background: 'rgba(74, 222, 128, 0.08)', border: '1px solid rgba(74, 222, 128, 0.25)', borderRadius: '2px' }}>
-                <p style={{ fontSize: '12px', color: '#4ade80', margin: '0 0 10px 0' }}>
-                  ✓ A matching song was found in your library!
+                <p style={{ fontSize: '12px', color: '#4ade80', margin: '0 0 10px 0', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: '#4ade80' }}>
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  A matching song was found in your library!
                 </p>
                 <button 
                   onClick={() => handleLinkSong(recommendedMatch._id)}
@@ -324,7 +327,12 @@ const StudySessionWorkspace = () => {
             
             {/* YouTube Import form */}
             <div className="panel" style={{ background: 'var(--bg-panel)' }}>
-              <h3 style={{ color: '#ff6600', marginBottom: '10px' }}>⚡ Import via YouTube URL</h3>
+              <h3 style={{ color: '#ff6600', marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                Import via YouTube URL
+              </h3>
               <form onSubmit={handleImportAndLink}>
                 <div className="form-group" style={{ marginBottom: '15px' }}>
                   <input
@@ -361,7 +369,13 @@ const StudySessionWorkspace = () => {
 
             {/* Existing Library Search */}
             <div className="panel" style={{ background: 'var(--bg-panel)', flex: 1, display: 'flex', flexDirection: 'column', maxHeight: '380px' }}>
-              <h3 style={{ color: '#ffffff', marginBottom: '10px' }}>🔎 Select Existing Song</h3>
+              <h3 style={{ color: '#ffffff', marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Select Existing Song
+              </h3>
               <input
                 type="text"
                 value={searchQuery}
@@ -429,14 +443,33 @@ const StudySessionWorkspace = () => {
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
-                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px' }}>🎧 LISTENING PROMPT</h4>
+                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px', display: 'flex', alignItems: 'center' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                    </svg>
+                    LISTENING PROMPT
+                  </h4>
                   <p style={{ fontSize: '18px', color: '#ffffff', margin: 0, fontWeight: '400', lineHeight: '1.6' }}>
                     {currDay.listeningPrompt}
                   </p>
                 </div>
 
                 <div>
-                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px' }}>🎹 DAW SKETCH CHALLENGE</h4>
+                  <h4 style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginBottom: '6px', display: 'flex', alignItems: 'center' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <rect x="2" y="3" width="20" height="18" rx="2"></rect>
+                      <line x1="6" y1="3" x2="6" y2="13"></line>
+                      <line x1="10" y1="3" x2="10" y2="13"></line>
+                      <line x1="14" y1="3" x2="14" y2="13"></line>
+                      <line x1="18" y1="3" x2="18" y2="13"></line>
+                      <line x1="2" y1="13" x2="22" y2="13"></line>
+                      <line x1="6" y1="13" x2="6" y2="21"></line>
+                      <line x1="12" y1="13" x2="12" y2="21"></line>
+                      <line x1="18" y1="13" x2="18" y2="21"></line>
+                    </svg>
+                    DAW SKETCH CHALLENGE
+                  </h4>
                   <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', margin: 0, lineHeight: '1.5' }}>
                     {currDay.applicationPrompt}
                   </p>
@@ -445,8 +478,15 @@ const StudySessionWorkspace = () => {
 
               {/* Log Responses Form */}
               <div className="panel" style={{ background: 'var(--bg-panel)', padding: '20px' }}>
-                <h3 style={{ color: '#ffffff', marginBottom: '15px', fontSize: '12px', fontFamily: 'Roboto Mono', borderBottom: '1px solid #383838', paddingBottom: '6px' }}>
-                  📝 OBSERVED STUDY NOTES
+                <h3 style={{ color: '#ffffff', marginBottom: '15px', fontSize: '12px', fontFamily: 'Roboto Mono', borderBottom: '1px solid #383838', paddingBottom: '6px', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  OBSERVED STUDY NOTES
                 </h3>
                 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -516,7 +556,13 @@ const StudySessionWorkspace = () => {
               {/* Linked Song Panel */}
               <div className="panel" style={{ background: 'var(--bg-panel)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h3 style={{ color: '#ffffff', margin: 0 }}>🔗 Reference Signal</h3>
+                  <h3 style={{ color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    Reference Signal
+                  </h3>
                   <button 
                     onClick={() => handleLinkSong(null)} 
                     disabled={saving}
@@ -570,7 +616,14 @@ const StudySessionWorkspace = () => {
 
               {/* DAW Sketch Uploader */}
               <div className="panel" style={{ background: 'var(--bg-panel)' }}>
-                <h3 style={{ color: '#ff6600', marginBottom: '10px' }}>📤 DAW Sketch Uploader</h3>
+                <h3 style={{ color: '#ff6600', marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  DAW Sketch Uploader
+                </h3>
                 <p style={{ fontSize: '11px', color: '#8a8a8a', marginBottom: '15px', lineHeight: '1.4' }}>
                   Drag & drop or select your audio sketch file (.mp3/.wav, max 10MB) to review it inside this day's workspace.
                 </p>
@@ -638,7 +691,16 @@ const StudySessionWorkspace = () => {
           {['arrangement', 'form'].includes(currDay.lens?.toLowerCase()) && (
             <div className="panel" style={{ background: '#1e1e1e', marginTop: '20px', border: '1px solid #383838', borderRadius: '2px', padding: '15px' }}>
               <div style={{ borderBottom: '1px solid #282828', paddingBottom: '6px', marginBottom: '15px' }}>
-                <h3 style={{ color: '#ff6600', margin: 0, fontSize: '13px' }}>📊 Arrangement / Form Timeline</h3>
+                <h3 style={{ color: '#ff6600', margin: 0, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                    <line x1="9" y1="9" x2="9" y2="21"></line>
+                    <line x1="15" y1="9" x2="15" y2="21"></line>
+                  </svg>
+                  Arrangement / Form Timeline
+                </h3>
                 <span style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono' }}>
                   Analyze or chart blocks for the active reference signal. Snap to grid bars, label lanes, or trace dynamic curves.
                 </span>

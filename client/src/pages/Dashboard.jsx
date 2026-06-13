@@ -82,7 +82,20 @@ const Dashboard = () => {
       {/* Header Panel */}
       <div className="panel" style={{ background: 'var(--bg-panel)', borderBottom: '2px solid #ff6600' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <h1 style={{ margin: 0, border: 'none', padding: 0 }}>🎛️ Song Library Crate</h1>
+          <h1 style={{ margin: 0, border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="2" y1="14" x2="6" y2="14"></line>
+              <line x1="10" y1="8" x2="14" y2="8"></line>
+              <line x1="18" y1="16" x2="22" y2="16"></line>
+            </svg>
+            Song Library Crate
+          </h1>
           <Link to="/import">
             <button style={{ background: '#ff6600', color: '#0c0c0e', fontWeight: 'bold' }}>+ Import Track</button>
           </Link>
@@ -186,7 +199,12 @@ const Dashboard = () => {
 
       {songs.length === 0 ? (
         <EmptyState
-          icon="🎧"
+          icon={
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+            </svg>
+          }
           title={search ? 'No Channels Found Matching Search' : 'Library Crate Empty'}
           description={
             search
@@ -297,7 +315,12 @@ const Dashboard = () => {
                       onClick={() => openDeleteModal(song)}
                       title="Delete Song"
                     >
-                      🗑️
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
                     </button>
                   </div>
 
@@ -378,7 +401,16 @@ const Dashboard = () => {
                                     fontWeight: audit.status === 'completed' ? 'normal' : 'bold',
                                   }}
                                 >
-                                  {audit.status === 'completed' ? 'Review →' : 'Resume ⚡'}
+                                  {audit.status === 'completed' ? (
+                                    'Review →'
+                                  ) : (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                      Resume
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}>
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                      </svg>
+                                    </span>
+                                  )}
                                 </button>
                               </Link>
                             </div>

@@ -3,10 +3,64 @@ import { useAuth } from '../context/AuthContext';
 import { useBackend } from '../context/BackendContext';
 
 const LENS_META = {
-  rhythm:      { emoji: '🥁', label: 'Rhythm',      desc: 'Groove, pocket, and timing' },
-  texture:     { emoji: '🎛️', label: 'Texture',     desc: 'Timbre, space, and mixing' },
-  harmony:     { emoji: '🎹', label: 'Harmony',     desc: 'Chords, progressions, keys' },
-  arrangement: { emoji: '🎼', label: 'Arrangement', desc: 'Transitions and energy arcs' },
+  rhythm:      {
+    icon: (props) => (
+      <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="16" x2="6" y2="8"></line>
+        <line x1="18" y1="16" x2="18" y2="8"></line>
+      </svg>
+    ),
+    label: 'Rhythm',
+    desc: 'Groove, pocket, and timing'
+  },
+  texture:     {
+    icon: (props) => (
+      <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14"></line>
+        <line x1="4" y1="10" x2="4" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12" y2="3"></line>
+        <line x1="20" y1="21" x2="20" y2="16"></line>
+        <line x1="20" y1="12" x2="20" y2="3"></line>
+        <line x1="2" y1="14" x2="6" y2="14"></line>
+        <line x1="10" y1="8" x2="14" y2="8"></line>
+        <line x1="18" y1="16" x2="22" y2="16"></line>
+      </svg>
+    ),
+    label: 'Texture',
+    desc: 'Timbre, space, and mixing'
+  },
+  harmony:     {
+    icon: (props) => (
+      <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="18" rx="2"></rect>
+        <line x1="6" y1="3" x2="6" y2="13"></line>
+        <line x1="10" y1="3" x2="10" y2="13"></line>
+        <line x1="14" y1="3" x2="14" y2="13"></line>
+        <line x1="18" y1="3" x2="18" y2="13"></line>
+        <line x1="2" y1="13" x2="22" y2="13"></line>
+        <line x1="6" y1="13" x2="6" y2="21"></line>
+        <line x1="12" y1="13" x2="12" y2="21"></line>
+        <line x1="18" y1="13" x2="18" y2="21"></line>
+      </svg>
+    ),
+    label: 'Harmony',
+    desc: 'Chords, progressions, keys'
+  },
+  arrangement: {
+    icon: (props) => (
+      <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+        <line x1="3" y1="9" x2="21" y2="9"></line>
+        <line x1="3" y1="15" x2="21" y2="15"></line>
+        <line x1="9" y1="9" x2="9" y2="21"></line>
+        <line x1="15" y1="9" x2="15" y2="21"></line>
+      </svg>
+    ),
+    label: 'Arrangement',
+    desc: 'Transitions and energy arcs'
+  },
 };
 
 const TIMEZONES = [
@@ -134,7 +188,19 @@ const Settings = () => {
                   marginLeft: '4px',
                 }}
               >
-                {isLoading ? 'RESEARCHING...' : matched && matched.summary ? 'RE-RUN DIVE' : '🔬 DEEP DIVE (10 SOURCES)'}
+              {isLoading ? (
+                'RESEARCHING...'
+              ) : matched && matched.summary ? (
+                'RE-RUN DIVE'
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  DEEP DIVE (10 SOURCES)
+                </span>
+              )}
               </button>
             </div>
           );
@@ -338,8 +404,27 @@ const Settings = () => {
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
               {[
-                { id: 'quick',   emoji: '⚡', label: 'Quick',   desc: 'Unified single-page form workflow' },
-                { id: 'guided',  emoji: '🎓', label: 'Guided',  desc: 'Interactive step-by-step audit sequence' },
+                { 
+                  id: 'quick',   
+                  icon: (props) => (
+                    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                  ),
+                  label: 'Quick',   
+                  desc: 'Unified single-page form workflow' 
+                },
+                { 
+                  id: 'guided',  
+                  icon: (props) => (
+                    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                      <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path>
+                    </svg>
+                  ),
+                  label: 'Guided',  
+                  desc: 'Interactive step-by-step audit sequence' 
+                },
               ].map((w) => {
                 const active = defaultWorkflow === w.id;
                 return (
@@ -362,8 +447,8 @@ const Settings = () => {
                       gap: '4px'
                     }}
                   >
-                    <div style={{ fontSize: '13px', fontFamily: 'Roboto Mono' }}>
-                      {w.emoji} {w.label}
+                    <div style={{ fontSize: '13px', fontFamily: 'Roboto Mono', display: 'flex', alignItems: 'center' }}>
+                      {w.icon({ width: 14, height: 14, style: { marginRight: '6px' } })} {w.label}
                     </div>
                     <div style={{
                       fontSize: '10px',
@@ -410,7 +495,9 @@ const Settings = () => {
                       justifyContent: 'center',
                     }}
                   >
-                    <div style={{ fontSize: '20px', marginBottom: '4px' }}>{meta.emoji}</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+                      {meta.icon({ width: 20, height: 20 })}
+                    </div>
                     <div style={{ fontFamily: 'Roboto Mono', fontSize: '10px' }}>
                       {meta.label}
                     </div>
@@ -428,7 +515,14 @@ const Settings = () => {
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div className="form-group">
-                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>🥁 Rhythm Tastes</label>
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600', display: 'flex', alignItems: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="16" x2="6" y2="8"></line>
+                    <line x1="18" y1="16" x2="18" y2="8"></line>
+                  </svg>
+                  Rhythm Tastes
+                </label>
                 <input
                   type="text"
                   value={rhythmTaste}
@@ -439,7 +533,20 @@ const Settings = () => {
                 {renderTasteStatus('rhythm', rhythmTaste)}
               </div>
               <div className="form-group">
-                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>🎛️ Texture Tastes</label>
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600', display: 'flex', alignItems: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                    <line x1="2" y1="14" x2="6" y2="14"></line>
+                    <line x1="10" y1="8" x2="14" y2="8"></line>
+                    <line x1="18" y1="16" x2="22" y2="16"></line>
+                  </svg>
+                  Texture Tastes
+                </label>
                 <input
                   type="text"
                   value={textureTaste}
@@ -450,7 +557,20 @@ const Settings = () => {
                 {renderTasteStatus('texture', textureTaste)}
               </div>
               <div className="form-group">
-                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>🎹 Harmony Tastes</label>
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600', display: 'flex', alignItems: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <rect x="2" y="3" width="20" height="18" rx="2"></rect>
+                    <line x1="6" y1="3" x2="6" y2="13"></line>
+                    <line x1="10" y1="3" x2="10" y2="13"></line>
+                    <line x1="14" y1="3" x2="14" y2="13"></line>
+                    <line x1="18" y1="3" x2="18" y2="13"></line>
+                    <line x1="2" y1="13" x2="22" y2="13"></line>
+                    <line x1="6" y1="13" x2="6" y2="21"></line>
+                    <line x1="12" y1="13" x2="12" y2="21"></line>
+                    <line x1="18" y1="13" x2="18" y2="21"></line>
+                  </svg>
+                  Harmony Tastes
+                </label>
                 <input
                   type="text"
                   value={harmonyTaste}
@@ -461,7 +581,16 @@ const Settings = () => {
                 {renderTasteStatus('harmony', harmonyTaste)}
               </div>
               <div className="form-group">
-                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>🎼 Arrangement Tastes</label>
+                <label style={{ fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600', display: 'flex', alignItems: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                    <line x1="9" y1="9" x2="9" y2="21"></line>
+                    <line x1="15" y1="9" x2="15" y2="21"></line>
+                  </svg>
+                  Arrangement Tastes
+                </label>
                 <input
                   type="text"
                   value={arrangementTaste}
@@ -620,8 +749,13 @@ const Settings = () => {
           zIndex: 10000
         }}>
           <div className="panel" style={{ maxWidth: '450px', width: '90%', margin: '20px', borderTop: '4px solid #f87171', background: 'var(--bg-panel)' }}>
-            <h2 style={{ color: '#f87171', fontSize: '13px', fontFamily: 'Roboto Mono', marginBottom: '15px' }}>
-              ⚠️ Critical: Delete System Account
+            <h2 style={{ color: '#f87171', fontSize: '13px', fontFamily: 'Roboto Mono', marginBottom: '15px', display: 'flex', alignItems: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              Critical: Delete System Account
             </h2>
             
             <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5', marginBottom: '15px' }}>

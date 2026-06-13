@@ -142,7 +142,15 @@ const Trash = () => {
         borderBottom: '2px solid #ff6600'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, border: 'none', padding: 0 }}>🗑️ Archives & Trash</h1>
+          <h1 style={{ margin: 0, border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            Archives & Trash
+          </h1>
           {(songs.length > 0 || audits.length > 0) && (
             <button 
               onClick={handleEmptyTrash} 
@@ -159,8 +167,24 @@ const Trash = () => {
       </div>
 
       {/* Messages */}
-      {error && <div className="error">⚠️ {error}</div>}
-      {successMessage && <div className="success">✅ {successMessage}</div>}
+      {error && (
+        <div className="error" style={{ display: 'flex', alignItems: 'center' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', display: 'inline-block', verticalAlign: 'middle' }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="success" style={{ display: 'flex', alignItems: 'center' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px', color: '#4ade80' }}>
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          {successMessage}
+        </div>
+      )}
 
       {loading ? (
         <div className="loading">
@@ -194,7 +218,12 @@ const Trash = () => {
               <div>
                 {songs.length === 0 ? (
                   <div className="panel" style={{ textAlign: 'center', padding: '30px 20px', background: 'var(--bg-panel)', borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-                    <span style={{ fontSize: '32px', display: 'block', marginBottom: '10px' }}>🎧</span>
+                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                        <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                        <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                      </svg>
+                    </span>
                     <h3 style={{ marginBottom: '6px', fontSize: '12px' }}>Deleted songs folder is empty</h3>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'Roboto Mono', fontSize: '11px' }}>
                       Songs deleted from the library will appear here.
@@ -236,8 +265,22 @@ const Trash = () => {
                               {song.artistName || song.artist}
                             </p>
                             <div style={{ display: 'flex', gap: '15px', marginTop: '6px', fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'Roboto Mono' }}>
-                              <span>⏱️ {formatDuration(song.durationSeconds)}</span>
-                              <span>📅 Deleted: {formatDate(song.deletedAt)}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                  <circle cx="12" cy="12" r="10"></circle>
+                                  <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg>
+                                {formatDuration(song.durationSeconds)}
+                              </span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                                </svg>
+                                Deleted: {formatDate(song.deletedAt)}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -253,14 +296,29 @@ const Trash = () => {
                               fontSize: '10px'
                             }}
                           >
-                            🔄 Restore
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                              </svg>
+                              Restore
+                            </span>
                           </button>
                           <button 
                             className="danger"
                             onClick={() => openPurgeModal('song', song)}
                             style={{ padding: '6px 12px', fontSize: '10px' }}
                           >
-                            🗑️ Purge
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                              </svg>
+                              Purge
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -297,7 +355,15 @@ const Trash = () => {
               <div>
                 {audits.length === 0 ? (
                   <div className="panel" style={{ textAlign: 'center', padding: '30px 20px', background: 'var(--bg-panel)', borderColor: 'rgba(255, 255, 255, 0.08)' }}>
-                    <span style={{ fontSize: '32px', display: 'block', marginBottom: '10px' }}>📝</span>
+                    <span style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                      </svg>
+                    </span>
                     <h3 style={{ marginBottom: '6px', fontSize: '12px' }}>Deleted audits folder is empty</h3>
                     <p style={{ margin: 0, color: 'rgba(255, 255, 255, 0.45)', fontFamily: 'Roboto Mono', fontSize: '11px' }}>
                       Audits deleted individually will appear here. Audits deleted as part of a song are restored when restoring the song.
@@ -330,8 +396,14 @@ const Trash = () => {
                                 {lens}
                               </span>
                             ))}
-                            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '9px', fontFamily: 'Roboto Mono', marginLeft: '5px', alignSelf: 'center' }}>
-                              📅 Deleted: {formatDate(audit.deletedAt)}
+                            <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '9px', fontFamily: 'Roboto Mono', marginLeft: '5px', alignSelf: 'center', display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                              </svg>
+                              Deleted: {formatDate(audit.deletedAt)}
                             </span>
                           </div>
                         </div>
@@ -347,14 +419,29 @@ const Trash = () => {
                               fontSize: '10px'
                             }}
                           >
-                            🔄 Restore
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                              </svg>
+                              Restore
+                            </span>
                           </button>
                           <button 
                             className="danger"
                             onClick={() => openPurgeModal('audit', audit)}
                             style={{ padding: '6px 12px', fontSize: '10px' }}
                           >
-                            🗑️ Purge
+                            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                              </svg>
+                              Purge
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -383,7 +470,12 @@ const Trash = () => {
         }}>
           <div className="panel" style={{ maxWidth: '500px', width: '90%', margin: '20px', borderTop: '4px solid #f87171', background: 'var(--bg-panel)' }}>
             <h2 style={{ color: '#f87171', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontFamily: 'Roboto Mono' }}>
-              ⚠️ CRITICAL: PERMANENT PURGE SEQUENCE
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              CRITICAL: PERMANENT PURGE SEQUENCE
             </h2>
             <p style={{ marginTop: '15px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.75)' }}>
               Are you sure you want to permanently purge this {purgeTarget.type === 'song' ? 'Song' : 'Audit'} from the active disk clusters?
