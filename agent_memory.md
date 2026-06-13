@@ -25,6 +25,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-13 | Rebrand emoji icons to clean DAW-aligned inline SVGs across client pages | `a875e5c` |
 | 2026-06-13 | Fix study progress day completion 500 error due to confidence field type mismatch | `f870e3d` |
 | 2026-06-13 | Implement daily study session workspace page, uploader, populates, and verify builds | `ebaae66` |
 | 2026-06-13 | Implement client adapters, StudyPlannerDashboard, Router hooks, and dashboard widget | `ebaae66` |
