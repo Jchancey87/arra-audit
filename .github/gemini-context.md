@@ -3,28 +3,49 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v6.14.0 on 2026-06-13T14:30:40.646Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-14T16:53:45.931Z.
+<!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
 Refer to them when answering questions about code structure, APIs, and implementation.
-Before answering questions about specific code areas, suggest running `sigmap ask "<query>"` to get the most relevant files. After config changes, `sigmap validate` confirms coverage.
-
 ## Code Signatures
+
+## SigMap commands
+
+| When | Command |
+|------|---------|
+| Before answering a question about code | `sigmap ask "<your question>"` |
+| To rank files by topic | `sigmap --query "<topic>"` |
+| After changing config or source dirs | `sigmap validate` |
+| To verify an AI answer is grounded | `sigmap judge --response <file>` |
+
+Always run `sigmap ask` (or `sigmap --query`) before searching for files relevant to a task.
 
 ## deps
 ```
+server/adapters/InMemoryRepository.js ← ports/IRepository
 server/adapters/MongooseRepository.js ← ports/IRepository, models/Curriculum, models/StudyProgress
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
+server/services/auditService.js ← models/Audit
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/ArrangementTimelineWidget
 analysis_service/analyzer.py ← requests
+analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
 ## changes (last 5 commits — 0 seconds ago)
 ```
+server/adapters/InMemoryRepository.js         ~InMemoryRepository
+server/adapters/MongooseRepository.js         ~MongooseRepository  ~CurriculumRepository
+server/ports/IRepository.js                   ~IRepository
+server/routes/songs.js                        ~extractYouTubeId  ~createSongRoutes
+server/services/auditService.js               ~AuditService
+server/services/authService.js                ~AuthService
+client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
+analysis_service/analyzer.py                  ~analyze_audio_file  ~download_and_analyze
 .github/copilot-instructions.md               +App  ~App  ~download_and_analyze  ~InMemoryBackendAdapter
 .github/gemini-context.md                     +App  ~App  ~download_and_analyze  ~InMemoryBackendAdapter
 ```
@@ -66,7 +87,7 @@ h2 Auto-generated signatures
 h2 SigMap commands
 h1 Code signatures
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -93,7 +114,7 @@ code-fence plain
 h2 Auto-generated signatures
 h2 Code Signatures
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -125,6 +146,15 @@ class ClapAnalyzer  :44-112
 def get_clap_analyzer()  :117-124
 def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
 def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
+```
+
+### analysis_service/app.py
+```
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
+def health()  :40-41
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :44-65  # Triggers an asynchronous audio analysis job
+GET /health  →  health()  :40-41
+POST /analyze  →  trigger_analysis()  :44-65
 ```
 
 ## client
@@ -179,21 +209,34 @@ export class IBackendService  :7-63
 
 ## server
 
+### server/adapters/InMemoryRepository.js
+```
+export class InMemoryRepository  :20-188
+  constructor()  :21-25
+  if(op === '$ne')  :54-60
+  if(opVal === null)  :55-57
+  if(opVal === null)  :61-63
+  if(docVal !== null && docVal !== undefined)  :70-72
+  if(docVal !== value)  :75-77
+  async create(data)  :83-93
+  async findById(id)  :95-98
+```
+
 ### server/adapters/MongooseRepository.js
 ```
-export class MongooseRepository  :16-127
-  constructor(model)  :17-23
-  if(!model)  :19-21
-  async create(data)  :25-32
-  async findById(id)  :34-40
-  async find(query = {}, options = {})  :42-66
-  if(options.sort)  :47-49
-  if(options.limit)  :50-52
-  if(options.skip)  :53-55
-export class CurriculumRepository  :129-133
-  constructor()  :130-132
-export class StudyProgressRepository  :135-139
-  constructor()  :136-138
+export class MongooseRepository  :17-170
+  constructor(model)  :18-24
+  if(!model)  :20-22
+  async create(data)  :26-33
+  async findById(id)  :35-41
+  async findByIdWithRelations(id, relations = [])  :43-56
+  for(const relation of relations)  :47-50
+  async find(query = {}, options = {})  :58-82
+  if(options.sort)  :63-65
+export class CurriculumRepository  :172-176
+  constructor()  :173-175
+export class StudyProgressRepository  :178-182
+  constructor()  :179-181
 ```
 
 ### server/bin/seedCurriculum.js
@@ -202,19 +245,78 @@ function formatLabel(key)  :14-24
 async function seed()  :193-212
 ```
 
+### server/middleware/auth.js
+```
+export const authMiddleware = (req, res, next) =>  :11-25
+```
+
+### server/ports/IRepository.js
+```
+export class IRepository  :11-136
+  async create(data) → Promise<Object>  :18-20
+  async findById(id) → Promise<Object|null>  :28-30
+  async findByIdWithRelations(id, relations = []) → Promise<Object|null>  :39-41
+  async find(query, options = {}) → Promise<Array>  :50-52
+  async findOne(query) → Promise<Object|null>  :60-62
+  async updateById(id, data) → Promise<Object>  :71-73
+  async deleteById(id) → Promise<boolean>  :81-83
+  async deleteMany(query) → Promise<number>  :91-93
+```
+
 ### server/routes/curricula.js
 ```
 function formatLabel(key)  :4-14
 ```
 
+### server/routes/songs.js
+```
+function extractYouTubeId(url)  :13-25
+function _sanitizeSong(song)  :263-289
+```
+
+### server/services/auditService.js
+```
+export class AuditService  :13-157
+  constructor(auditRepository, techniqueRepository, songRepository)  :14-21
+  if(!auditRepository)  :15-17
+  async createAudit(auditData) → Promise<Object>  :33-91
+  if(lensSelection.length === 0)  :49-51
+  if(this.songRepository)  :54-57
+  async getAudit(auditId, userId)  :95-101
+  async getAuditsForSong(songId, userId)  :103-112
+  if(this.songRepository)  :104-107
+```
+
+### server/services/authService.js
+```
+export class AuthService  :4-128
+  constructor(userRepository)  :5-11
+  if(!process.env.JWT_SECRET)  :6-8
+  async register(data)  :13-34
+  if(!email || !password)  :16-18
+  if(existingUser)  :21-23
+  async login(email, password)  :36-60
+  if(!email || !password)  :37-39
+  if(!user)  :44-46
+```
+
 ### server/services/curriculumService.js
 ```
-export class CurriculumService  :1-103
+export class CurriculumService  :1-98
   constructor(curriculumRepository, studyProgressRepository, songRepository, auditService, techniqueRepository, aiAdapter)  :2-9
   async generateAICurriculum(userId, focusArea, pastTechniques = []) → Promise<Object>  :19-76
   if(!this.aiAdapter)  :20-22
   async saveCustomCurriculum(userId, curriculumData)  :81-90
-  async startCurriculum(userId, curriculumId)  :95-103
-  if(existing)  :97-99
-  if(!curriculum)  :102-103
+  async getPopulatedStudyProgress(id)  :95-98
+```
+
+### server/services/songService.js
+```
+export class SongService  :11-116
+  constructor(songRepository, searchService, aiService)  :12-17
+  async importSong(songData, research) → Promise<Object>  :31-116
+  if(!title || !resolvedSourceId || !userId)  :55-57
+  if(existing)  :67-72
+  if(research && research.results?.length > 0 && this.aiService)  :75-116
+  if(aiSummary && aiSummary.overview)  :100-112
 ```
