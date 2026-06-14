@@ -331,7 +331,7 @@ export class AuditService {
    * Get all soft-deleted audits for a user whose parent song is active.
    */
   async getDeletedAudits(userId) {
-    const audits = await this.auditRepository.find({ userId });
+    const audits = await this.auditRepository.find({ userId, deletedAt: { $ne: null } });
     const deletedAudits = audits.filter((a) => a.deletedAt !== null && a.deletedAt !== undefined);
 
     const results = [];
@@ -369,7 +369,7 @@ export class AuditService {
 
     const techRepo = techniqueRepository || this.techniqueRepository;
     if (techRepo) {
-      const allTechs = await techRepo.find({ auditId });
+      const allTechs = await techRepo.find({ auditId, deletedAt: { $ne: null } });
       const deletedTechs = allTechs.filter((t) => t.deletedAt !== null && t.deletedAt !== undefined);
       for (const t of deletedTechs) {
         await techRepo.updateById(t._id, { deletedAt: null });

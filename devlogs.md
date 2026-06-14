@@ -6,6 +6,51 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-14: Add Rate Limiting and Input Validation
+
+- **Problem**: Sensitive endpoints (auth, song import, audit creation) lacked rate limiting and input validation, increasing abuse/bug risk.
+- **Solution**:
+  - Installed `express-rate-limit` (`^8.5.2`).
+  - `server/server.js`: Added global rate limiter — 100 requests per 15 minutes per IP.
+  - `server/routes/auth.js`: Added stricter auth rate limiter (5 attempts per 15 minutes per IP) to `/register` and `/login`. Added `express-validator` chains: `/register` validates email and password length (≥8); `/login` validates presence.
+  - `server/routes/songs.js`: Validated `youtubeUrl` as non-empty string on `/import`.
+  - `server/routes/audits.js`: Validated `songId` as non-empty string on `POST /`.
+  - Validation failures return `400` with `{ errors: [...] }`.
+  - Updated `server/__tests__/integration/songRoutes.test.js` import-missing-URL assertion to check `errors` array.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed. `JWT_SECRET=test node --check server.js` passed.
+
+### 2026-06-14: Remove 'form' Lens from Curriculum Domain
+
+- **Problem**: The curriculum model allowed a `form` lens, but the valid music-analysis lenses are only harmony, rhythm, texture, and arrangement.
+- **Solution**:
+  - `server/models/Curriculum.js`: Removed `'form'` from the `lens` enum.
+  - `server/bin/seedCurriculum.js` and `server/routes/curricula.js`: Changed days 4 and 12 from `lens: 'form'` to `lens: 'arrangement'`; replaced natural-language "form" references with "structure" or "arrangement"; updated description and focusAreas.
+  - `server/services/curriculumService.js`: Updated AI prompt allowed lenses to exclude `'form'`.
+  - Preserved log field keys like `form_notes` to avoid migration issues.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed. `rg "lens:\s*'form'"` returned no matches in server code.
+
+### 2026-06-14: Build-Mode Fix Phase 4 — Remove Mongoose Leakage from authService.changePassword
+
+- **Problem**: `authService.changePassword()` branched on `this.userRepository.model`, leaking Mongoose-specific logic into service layer.
+- **Solution**: Added password methods to repository port and both adapters.
+  - `server/ports/IRepository.js`: added `verifyPassword(entityId, candidatePassword)` and `setPassword(entityId, newPassword)` stubs.
+  - `server/adapters/MongooseRepository.js`: `verifyPassword` uses model `comparePassword` method when present, otherwise bcrypt; `setPassword` assigns plaintext password and saves (Mongoose pre-save hook hashes).
+  - `server/adapters/InMemoryRepository.js`: `verifyPassword` compares bcrypt hash; `setPassword` hashes with bcrypt salt rounds 10 and persists.
+  - `server/services/authService.js`: `changePassword` now delegates to `userRepository.verifyPassword` then `userRepository.setPassword`, no model branch.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed.
+
+### 2026-06-14: Build-Mode Crash Fixes Phase 1
+
+- **Audit purge route**: Pass `techniqueRepository` into `createAuditRoutes(auditService, templateComposer, techniqueRepository)` from `server.js`. Updated signature in `server/routes/audits.js` and integration test caller.
+- **InMemoryBackendAdapter**: Initialize `this.curricula = []` in constructor before seed curriculum push.
+- **Verification**: `npm test` in `server/` — 44/44 passed.
+
+### 2026-06-14: Remove Stale `/tests` Directory and Update Docs
+
+- **Deleted**: root `/tests/` (stale tests with outdated field names) and `server/tests -> ../tests` symlink.
+- **Updated**: `agent_memory.md` "Jest test paths" line now points to `server/__tests__/`.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed.
+
 ### 2026-06-13: Implement DAW SVG Icon Rebrand
 
 - **Icon Rebrand**: Swap emoji/AI icons to clean inline SVGs (`currentColor`, `strokeWidth="2.5"`) inside Dashboard.jsx, StudySessionWorkspace.jsx, Settings.jsx, TechniqueNotebook.jsx, StudyPlannerDashboard.jsx, Trash.jsx.
@@ -697,4 +742,84 @@ Increase audit questions label font size to 18px.
 - Monitored process status (`pm2 status`) to verify all three services are online.
 - Tail-logged PM2 outputs to confirm successful database connectivity (MongoDB on remote Proxmox VM) and microservice initialization (CLAP model cached on CUDA).
 - Verified client (port 3050) and server (port 5050) HTTP endpoints with curl.
+
+---
+
+### 2026-06-14: Phase 5 Tooling & Config Fixes
+
+**Commit:** `-`
+
+**Tasks:**
+- SigMap `gen-context.config.json`: set `autoMaxTokens: false` so `maxTokens: 10000` honored.
+- Vite proxy: read target from `VITE_API_PROXY_TARGET`, default `http://localhost:5050`; keeps `VITE_API_URL=/api`.
+- `.gitignore`: add `.context/`, `server/uploads/`, `.venv/`.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `npm run build` in `client/`: builds successfully (chunk size warning unchanged).
+
+### 2026-06-14: Phase 3 Security Hardening
+
+**Commit:** `-`
+
+**Tasks:**
+- Webhook secret: `server/server.js` validates `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` on `POST /api/public/songs/:id/analysis-completed`. Missing/invalid returns 401. Production requires `ANALYSIS_WEBHOOK_SECRET`; dev warns and skips if absent.
+- Analysis CORS: `analysis_service/app.py` uses `ALLOWED_ORIGINS` comma list, default `http://localhost:5173`; removed wildcard with credentials.
+- Backend CORS: `server/server.js` uses `CLIENT_ORIGIN` env, default dev origin, required in production.
+- JWT fallback removal: `server/middleware/auth.js` and `server/services/authService.js` no longer fall back to `'your-secret'`; fail closed if `JWT_SECRET` missing.
+- `.env`: added placeholders for `ANALYSIS_WEBHOOK_SECRET` and `CLIENT_ORIGIN`; marked `JWT_SECRET` required.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+
+---
+
+### 2026-06-14: Cleanup Legacy Artifacts in `analysis_service/analyzer.py`
+
+**Commit:** `-`
+
+**Tasks:**
+- Replaced temp-file prefix `sonic_dna_temp_` with `arra_temp_` in download template, final output path, and downloaded-file search.
+- Replaced fallback `hashlib.md5(...).hexdigest()` with `hashlib.sha256(...).hexdigest()` for deterministic seeding.
+- No `md5` import existed (only `hashlib` imported), so no import removal needed.
+
+**Verification:**
+- `python3 -m py_compile analysis_service/analyzer.py`: passed.
+- `rg -n "sonic_dna_temp|md5" analysis_service/analyzer.py`: zero matches.
+
+---
+
+### 2026-06-14: Standardize Soft-Delete Query Patterns
+
+**Commit:** `-`
+
+**Problem:** Mixed soft-delete query shapes. Some fetches pull all records then filter `deletedAt` in JS; convention unclear.
+
+**Changes:**
+- `server/services/songService.js`: `getDeletedSongs()` now queries `{ userId, deletedAt: { $ne: null } }`.
+- `server/services/auditService.js`: `getDeletedAudits()` and `restoreAudit()` technique lookup now use `{ deletedAt: { $ne: null } }`.
+- All active-record queries keep `{ deletedAt: null }`; no repository helper added to stay minimal.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `rg -n "deletedAt:\s*\{[^}]*\$ne" server/services`: SongService + AuditService deleted queries standardized.
+
+---
+
+### 2026-06-14: Remove Mongoose Populate Leakage from studyProgress Route
+
+**Commit:** `-`
+
+**Problem:** `server/routes/studyProgress.js` `populateProgress()` helper directly accessed `studyProgressRepository.model.findById(...).populate(...).lean()`, leaking Mongoose specifics into route layer. InMemory branch duplicated join logic in route.
+
+**Changes:**
+- `server/ports/IRepository.js`: added `findByIdWithRelations(id, relations)` abstract method. Relations accept array of strings or `{ path, resolver }` objects.
+- `server/adapters/MongooseRepository.js`: implemented `findByIdWithRelations` using `model.findById(id).populate(path).lean()` for each relation path.
+- `server/adapters/InMemoryRepository.js`: implemented manual in-memory join. Supports single-field paths (`curriculumId`) and array-field subpaths (`dayProgress.songId`) via supplied `resolver` functions.
+- `server/services/curriculumService.js`: added `getPopulatedStudyProgress(id)` delegating to `studyProgressRepository.findByIdWithRelations` with curriculum and song resolvers.
+- `server/routes/studyProgress.js`: replaced Mongoose-aware `populateProgress` helper with thin wrapper calling `curriculumService.getPopulatedStudyProgress(progress._id)`. Route no longer references `.model`, `.populate`, or `.lean`.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `rg "\.(model|populate|lean)\b" server/routes/studyProgress.js`: zero matches.
 

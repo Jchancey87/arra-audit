@@ -56,7 +56,7 @@ const daysDataRaw = [
   },
   {
     dayNumber: 4,
-    lens: 'form',
+    lens: 'arrangement',
     songQuery: 'Weird Fishes Arpeggi Radiohead',
     songTitle: 'Weird Fishes/Arpeggi',
     artistName: 'Radiohead',
@@ -80,7 +80,7 @@ const daysDataRaw = [
     songQuery: 'Integration Day 6',
     songTitle: 'Original Build 1',
     artistName: 'User Original',
-    listeningPrompt: 'Reflect on the techniques explored this week (harmony, rhythm, inversions, form, texture).',
+    listeningPrompt: 'Reflect on the techniques explored this week (harmony, rhythm, inversions, texture, arrangement).',
     applicationPrompt: 'Start an original DAW sketch combining at least two of these concepts. Do not overthink, keep it raw.',
     logFields: ['original_notes', 'ingredients_used', 'natural_vs_forced', 'sketch_filename']
   },
@@ -136,11 +136,11 @@ const daysDataRaw = [
   },
   {
     dayNumber: 12,
-    lens: 'form',
+    lens: 'arrangement',
     songQuery: 'She Moves She Four Tet',
     songTitle: 'She Moves She',
     artistName: 'Four Tet',
-    listeningPrompt: 'Observe how loops are repeated, modulated, filtered, and cut to create form and forward momentum.',
+    listeningPrompt: 'Observe how loops are repeated, modulated, filtered, and cut to create structure and forward momentum.',
     applicationPrompt: 'Take a simple 4-bar loop and build a 2-minute arrangement by applying filters, mute triggers, and variations.',
     logFields: ['form_notes', 'section_lengths', 'structural_tricks', 'sketch_filename']
   },
@@ -169,9 +169,9 @@ const daysDataRaw = [
 const curriculumData = {
   title: '2-Week Song Audit Planner & Daily Prompts',
   slug: '2-week-song-audit-planner',
-  description: 'A structured 14-day study plan focusing on harmony, bass movement, texture, and form to guide your listening and application practice.',
+  description: 'A structured 14-day study plan focusing on harmony, bass movement, texture, and arrangement to guide your listening and application practice.',
   audience: 'Producer blending lofi, indie electronic, country-psychedelic, and Americana',
-  focusAreas: ['harmony', 'bass movement', 'texture', 'form'],
+  focusAreas: ['harmony', 'bass movement', 'texture', 'arrangement'],
   durationWeeks: 2,
   creatorType: 'system',
   days: daysDataRaw.map(day => ({

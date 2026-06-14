@@ -11,7 +11,7 @@
 - **Mock Repo Querying**: `InMemoryRepository` must explicitly support null-matching and query operators (`$ne`, `$eq`) for parity with MongoDB.
 - **Vite Proxying**: Set `VITE_API_URL=/api` and `host: true` in development to allow network exposure without hardcoded localhost strings.
 - **MongoDB on Proxmox kernel 6.19+**: Only MongoDB 7.0.21+ works. v8.x crashes on startup. Use `mongodb-org` 7.0 repo (debian bookworm). After apt upgrade, `/etc/mongod.conf` resets `bindIp` to `127.0.0.1` — always re-set to `0.0.0.0`. Auth user `myAdmin` must be recreated in `admin` db after fresh installs (URI: `authSource=admin`).
-- **Jest test paths**: Tests live in root `tests/` but import `../../services/`. Run from `server/` via symlink `server/tests -> ../tests`. Always run as `npm test` from `server/` dir.
+- **Jest test paths**: Tests live in `server/__tests__/`. Always run as `npm test` from `server/` dir.
 - **Audit Lenses**: Keep auditing templates and questions strictly structured under the four core lenses: rhythm, texture, harmony, and arrangement.
 - **Export Formats**: Prefer beautiful HTML files over markdown for generated reference documents, lessons, and exportable handoff sheets.
 - **Token Optimization (Caveman Style)**: Write devlogs, session summaries, and agent logs in highly terse, compressed "caveman" style (omit articles, pleasantries, fluff) to maximize token efficiency. Skip backend testing on pure frontend/style changes to conserve context window tokens.
@@ -25,6 +25,15 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-14 | Add rate limiting and express-validator input validation to auth, song import, and audit creation endpoints | `-` |
+| 2026-06-14 | Remove Mongoose populate/lean leakage from studyProgress route via repository `findByIdWithRelations` port | `-` |
+| 2026-06-14 | Standardize soft-delete query patterns: active `deletedAt: null`, deleted `deletedAt: { $ne: null }` across SongService and AuditService | `-` |
+| 2026-06-14 | Remove deprecated 'form' lens from curriculum domain; migrate days 4/12 to arrangement, update prompts | `-` |
+| 2026-06-14 | Phase 4 build-mode fix: remove Mongoose leakage from authService.changePassword via repository port methods | `-` |
+| 2026-06-14 | Phase 3 security hardening: webhook secret, CORS env-driven, JWT fallback removed | `-` |
+| 2026-06-14 | Phase 5 tooling/config fixes: SigMap autoMaxTokens off, Vite proxy env-driven, .gitignore gaps | `-` |
+| 2026-06-14 | Remove stale root `/tests` dir and `server/tests` symlink; update agent_memory.md test paths to `server/__tests__/` | `-` |
+| 2026-06-14 | Fix build-mode runtime crashes: undefined `techniqueRepository` in audit purge route, uninitialized `curricula` in InMemoryBackendAdapter | `-` |
 | 2026-06-13 | Rebrand emoji icons to clean DAW-aligned inline SVGs across client pages | `a875e5c` |
 | 2026-06-13 | Fix study progress day completion 500 error due to confidence field type mismatch | `f870e3d` |
 | 2026-06-13 | Implement daily study session workspace page, uploader, populates, and verify builds | `ebaae66` |

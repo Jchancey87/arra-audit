@@ -1,6 +1,6 @@
 {
   "strategy": "hot-cold",
-  "autoMaxTokens": true,
+  "autoMaxTokens": false,
   "maxTokens": 10000,
   "exclude": [
     "node_modules/**",

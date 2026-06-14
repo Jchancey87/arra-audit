@@ -61,7 +61,7 @@ JSON Schema:
 
 CRITICAL RULES:
 1. Generate exactly 7 days, numbered 1 to 7.
-2. The "lens" for each day must be one of: 'harmony', 'rhythm', 'texture', 'form', 'arrangement'.
+2. The "lens" for each day must be one of: 'harmony', 'rhythm', 'texture', 'arrangement'.
 3. Set the "logFields" to include a field for general notes and always include a "steal_move" field so they can log a key takeaway.
 4. All text fields should be detailed, encouraging, and pedagogically sound.`;
 
@@ -87,6 +87,16 @@ CRITICAL RULES:
       userId,
     };
     return this.curriculumRepository.create(dataToSave);
+  }
+
+  /**
+   * Fetch a StudyProgress document by ID with curriculum and song relations populated.
+   */
+  async getPopulatedStudyProgress(id) {
+    return this.studyProgressRepository.findByIdWithRelations(id, [
+      { path: 'curriculumId', resolver: (curriculumId) => this.curriculumRepository.findById(curriculumId) },
+      { path: 'dayProgress.songId', resolver: (songId) => this.songRepository ? this.songRepository.findById(songId) : null }
+    ]);
   }
 
   /**

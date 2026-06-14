@@ -28,7 +28,7 @@ describe('Audit Routes Integration', () => {
       next();
     });
 
-    app.use('/api/audits', createAuditRoutes(auditService, null));
+    app.use('/api/audits', createAuditRoutes(auditService, null, techniqueRepository));
   });
 
   describe('GET /api/audits/trash', () => {

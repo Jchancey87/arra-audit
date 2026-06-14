@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -44,11 +45,43 @@ import { authMiddleware } from './middleware/auth.js';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Required secrets fail closed
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
+
+if (isProduction && !process.env.CLIENT_ORIGIN) {
+  throw new Error('CLIENT_ORIGIN environment variable is required in production');
+}
+
+if (isProduction && !process.env.ANALYSIS_WEBHOOK_SECRET) {
+  throw new Error('ANALYSIS_WEBHOOK_SECRET environment variable is required in production');
+}
+
+const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const analysisWebhookSecret = process.env.ANALYSIS_WEBHOOK_SECRET;
+
+if (!isProduction && !analysisWebhookSecret) {
+  console.warn('[Security] ANALYSIS_WEBHOOK_SECRET is not set; analysis webhook is unprotected in development');
+}
+
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: clientOrigin, credentials: true }));
 app.use(express.json());
+
+// Global rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+app.use(generalLimiter);
 
 // Database connection
 mongoose
@@ -86,6 +119,14 @@ const curriculumService = new CurriculumService(
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
   try {
+    if (analysisWebhookSecret) {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      if (token !== analysisWebhookSecret) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
+
     const { id } = req.params;
     const { status, analysis, error } = req.body;
     console.log(`[Webhook] Received analysis callback for song ${id}. Status: ${status}`);
@@ -114,7 +155,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository));
-app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer));
+app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));

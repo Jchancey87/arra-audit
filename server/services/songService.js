@@ -258,7 +258,7 @@ You MUST respond with a JSON object in this exact format (do not include markdow
   // ─── Trash / Archives ─────────────────────────────────────────────────────
 
   async getDeletedSongs(userId) {
-    const songs = await this.songRepository.find({ userId });
+    const songs = await this.songRepository.find({ userId, deletedAt: { $ne: null } });
     return songs
       .filter((s) => s.deletedAt !== null && s.deletedAt !== undefined)
       .sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));

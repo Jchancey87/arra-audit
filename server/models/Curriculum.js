@@ -4,7 +4,7 @@ const daySchema = new mongoose.Schema({
   dayNumber: { type: Number, required: true },
   lens: { 
     type: String, 
-    enum: ['harmony', 'rhythm', 'texture', 'form', 'arrangement'], 
+    enum: ['harmony', 'rhythm', 'texture', 'arrangement'], 
     required: true 
   },
   songQuery: { type: String, required: true },     // Search recommendation for YouTube

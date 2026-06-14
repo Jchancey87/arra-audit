@@ -32,3 +32,16 @@ client/.env.local
 
 # CLI Tool
 .antigravitycli/
+
+# Generated outputs
+.context/
+
+# Uploaded files
+server/uploads/
+
+# Python virtual environments
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]

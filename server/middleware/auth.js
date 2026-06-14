@@ -1,5 +1,13 @@
 import jwt from 'jsonwebtoken';
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+};
+
 export const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
 
@@ -8,7 +16,7 @@ export const authMiddleware = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret');
+    const decoded = jwt.verify(token, getJwtSecret());
     req.userId = decoded.userId;
     next();
   } catch (err) {

@@ -1,4 +1,5 @@
 import { IRepository } from '../ports/IRepository.js';
+import bcrypt from 'bcryptjs';
 import Curriculum from '../models/Curriculum.js';
 import StudyProgress from '../models/StudyProgress.js';
 
@@ -36,6 +37,21 @@ export class MongooseRepository extends IRepository {
       return await this.model.findById(id).lean();
     } catch (error) {
       throw new Error(`Failed to find ${this.model.modelName} by id: ${error.message}`);
+    }
+  }
+
+  async findByIdWithRelations(id, relations = []) {
+    try {
+      let query = this.model.findById(id);
+
+      for (const relation of relations) {
+        const path = typeof relation === 'string' ? relation : relation.path;
+        query = query.populate(path);
+      }
+
+      return await query.lean();
+    } catch (error) {
+      throw new Error(`Failed to find ${this.model.modelName} with relations: ${error.message}`);
     }
   }
 
@@ -123,6 +139,33 @@ export class MongooseRepository extends IRepository {
     } catch (error) {
       throw new Error(`Failed to check existence: ${error.message}`);
     }
+  }
+
+  async verifyPassword(entityId, candidatePassword) {
+    const doc = await this.model.findById(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const isValid = typeof doc.comparePassword === 'function'
+      ? await doc.comparePassword(candidatePassword)
+      : await bcrypt.compare(candidatePassword, doc.password);
+
+    if (!isValid) {
+      throw new Error('Invalid credentials');
+    }
+
+    return doc;
+  }
+
+  async setPassword(entityId, newPassword) {
+    const doc = await this.model.findById(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    doc.password = newPassword;
+    return await doc.save();
   }
 }
 

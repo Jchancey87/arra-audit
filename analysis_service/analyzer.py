@@ -135,7 +135,7 @@ def analyze_audio_file(file_path, yt_id):
     # ── Deterministic fallback generator ─────────────────────────────────────
     # Uses a hash of the youtube video ID to seed the randomizer,
     # ensuring that the same video ID always yields the exact same analysis values.
-    hasher = hashlib.md5(yt_id.encode('utf-8'))
+    hasher = hashlib.sha256(yt_id.encode('utf-8'))
     seed = int(hasher.hexdigest(), 16) % 1000000
     rng = random.Random(seed)
     
@@ -346,8 +346,8 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
     
     # Create a temporary file with a secure random suffix
     temp_dir = tempfile.gettempdir()
-    output_template = os.path.join(temp_dir, f"sonic_dna_temp_{yt_id}.%(ext)s")
-    final_output_file = os.path.join(temp_dir, f"sonic_dna_temp_{yt_id}.mp3")
+    output_template = os.path.join(temp_dir, f"arra_temp_{yt_id}.%(ext)s")
+    final_output_file = os.path.join(temp_dir, f"arra_temp_{yt_id}.mp3")
     
     try:
         # Resolve path to yt-dlp binary (checks same bin/ folder as current python interpreter)
@@ -389,7 +389,7 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
         # Find the downloaded file (it might have .webm, .m4a, .mp3, etc.)
         downloaded_file = None
         for filename in os.listdir(temp_dir):
-            if filename.startswith(f"sonic_dna_temp_{yt_id}"):
+            if filename.startswith(f"arra_temp_{yt_id}"):
                 downloaded_file = os.path.join(temp_dir, filename)
                 break
                 

@@ -1,5 +1,6 @@
 import express from 'express';
 import axios from 'axios';
+import { body, validationResult } from 'express-validator';
 
 /**
  * Extract a canonical 11-character YouTube video ID from any URL format:
@@ -26,8 +27,18 @@ function extractYouTubeId(url) {
 export default function createSongRoutes(songService, auditRepository, techniqueRepository) {
   const router = express.Router();
 
+  const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  };
+
   // ── Import song from YouTube URL ─────────────────────────────────────────
-  router.post('/import', async (req, res) => {
+  router.post('/import', [
+    body('youtubeUrl').isString().notEmpty().trim().withMessage('YouTube URL required'),
+  ], handleValidationErrors, async (req, res) => {
     try {
       const { youtubeUrl } = req.body;
       const userId = req.userId;

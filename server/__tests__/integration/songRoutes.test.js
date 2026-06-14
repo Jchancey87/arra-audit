@@ -57,7 +57,11 @@ describe('Song Routes Integration', () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/required/i);
+      expect(res.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ msg: expect.stringMatching(/required/i) }),
+        ])
+      );
     });
   });
 

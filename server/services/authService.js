@@ -3,8 +3,11 @@ import bcrypt from 'bcryptjs';
 
 export class AuthService {
   constructor(userRepository) {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
     this.userRepository = userRepository;
-    this.secret = process.env.JWT_SECRET || 'your-secret';
+    this.secret = process.env.JWT_SECRET;
   }
 
   async register(data) {
@@ -113,32 +116,8 @@ export class AuthService {
   }
 
   async changePassword(userId, oldPassword, newPassword) {
-    if (this.userRepository.model) {
-      // Production path (Mongoose)
-      const userDoc = await this.userRepository.model.findById(userId);
-      if (!userDoc) {
-        throw new Error('User not found');
-      }
-      const isValid = await bcrypt.compare(oldPassword, userDoc.password);
-      if (!isValid) {
-        throw new Error('Invalid credentials');
-      }
-      userDoc.password = newPassword;
-      await userDoc.save();
-    } else {
-      // Test/In-Memory path
-      const user = await this.userRepository.findById(userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-      const isValid = await bcrypt.compare(oldPassword, user.password);
-      if (!isValid) {
-        throw new Error('Invalid credentials');
-      }
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(newPassword, salt);
-      await this.userRepository.updateById(userId, { password: hashedPassword });
-    }
+    const user = await this.userRepository.verifyPassword(userId, oldPassword);
+    await this.userRepository.setPassword(user._id || user.id, newPassword);
     return true;
   }
 

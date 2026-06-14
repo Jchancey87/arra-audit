@@ -1,4 +1,5 @@
 import express from 'express';
+import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import TasteProfile from '../models/TasteProfile.js';
 
@@ -17,11 +18,21 @@ import TasteProfile from '../models/TasteProfile.js';
  *   POST /api/audits/:id/steps/skip      → skip current guided step
  */
 
-export default function createAuditRoutes(auditService, templateComposer) {
+export default function createAuditRoutes(auditService, templateComposer, techniqueRepository) {
   const router = express.Router();
 
+  const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  };
+
   // ── Create audit (single-step: generate template + save) ──────────────────
-  router.post('/', async (req, res) => {
+  router.post('/', [
+    body('songId').isString().notEmpty().trim().withMessage('songId is required'),
+  ], handleValidationErrors, async (req, res) => {
     try {
       const { songId, lenses, lensSelection, workflowType = 'quick' } = req.body;
       const userId = req.userId;

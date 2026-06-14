@@ -47,26 +47,7 @@ export default function createStudyProgressRoutes(curriculumService) {
 
   async function populateProgress(progress) {
     if (!progress) return null;
-    // Handle mongoose document to object conversion if necessary
-    const doc = progress.toObject ? progress.toObject() : progress;
-    
-    if (curriculumService.studyProgressRepository.model) {
-      return await curriculumService.studyProgressRepository.model.findById(doc._id)
-        .populate('curriculumId')
-        .populate('dayProgress.songId')
-        .lean();
-    } else {
-      const pCloned = JSON.parse(JSON.stringify(doc));
-      const curriculum = await curriculumService.curriculumRepository.findById(pCloned.curriculumId);
-      pCloned.curriculumId = curriculum || pCloned.curriculumId;
-      for (const dp of pCloned.dayProgress) {
-        if (dp.songId) {
-          const song = await curriculumService.songRepository.findById(dp.songId);
-          dp.songId = song || dp.songId;
-        }
-      }
-      return pCloned;
-    }
+    return curriculumService.getPopulatedStudyProgress(progress._id);
   }
 
   // GET /api/study-progress/active - Returns active planner progress

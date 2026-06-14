@@ -30,6 +30,17 @@ export class IRepository {
   }
 
   /**
+   * Find a document by ID and populate related fields
+   * @param {string} id - Document ID
+   * @param {Array<string|{path: string, resolver?: Function}>} relations - Paths to populate, optionally with resolver functions for in-memory adapters
+   * @returns {Promise<Object|null>} Document if found, null otherwise
+   * @throws {Error} if query fails
+   */
+  async findByIdWithRelations(id, relations = []) {
+    throw new Error('findByIdWithRelations() not implemented');
+  }
+
+  /**
    * Find documents by query criteria
    * @param {Object} query - MongoDB query object
    * @param {Object} options - { lean?: boolean, sort?: Object, limit?: number }
@@ -99,5 +110,27 @@ export class IRepository {
    */
   async exists(query) {
     throw new Error('exists() not implemented');
+  }
+
+  /**
+   * Verify an entity's password
+   * @param {string} entityId - Document ID
+   * @param {string} candidatePassword - Plaintext password to verify
+   * @returns {Promise<Object>} The entity if verification succeeds
+   * @throws {Error} if entity not found or password does not match
+   */
+  async verifyPassword(entityId, candidatePassword) {
+    throw new Error('verifyPassword() not implemented');
+  }
+
+  /**
+   * Hash and persist a new password for an entity
+   * @param {string} entityId - Document ID
+   * @param {string} newPassword - Plaintext new password
+   * @returns {Promise<Object>} Updated entity
+   * @throws {Error} if entity not found or update fails
+   */
+  async setPassword(entityId, newPassword) {
+    throw new Error('setPassword() not implemented');
   }
 }

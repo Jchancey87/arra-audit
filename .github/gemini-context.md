@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v6.14.0 on 2026-06-13T14:21:08.519Z.
+The following code signatures were extracted by SigMap v6.14.0 on 2026-06-13T14:30:40.646Z.
 
 These signatures represent every public function, class, and type in the project.
 Refer to them when answering questions about code structure, APIs, and implementation.
@@ -25,17 +25,8 @@ analysis_service/analyzer.py ← requests
 
 ## changes (last 5 commits — 0 seconds ago)
 ```
-server/adapters/MongooseRepository.js         +CurriculumRepository  +StudyProgressRepository  ~MongooseRepository
-server/bin/seedCurriculum.js                  +formatLabel  +seed
-server/routes/curricula.js                    +formatLabel  +createCurriculumRoutes
-server/services/curriculumService.js          +CurriculumService
-client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
-client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
-client/src/ports/IBackendService.js           ~IBackendService
-analysis_service/analyzer.py                  ~ClapAnalyzer
-.github/context-cold.md                       ~ClapAnalyzer  ~__init__  ~analyze_features  ~get_clap_analyzer
-.github/copilot-instructions.md               +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
-.github/gemini-context.md                     +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
+.github/copilot-instructions.md               +App  ~App  ~download_and_analyze  ~InMemoryBackendAdapter
+.github/gemini-context.md                     +App  ~App  ~download_and_analyze  ~InMemoryBackendAdapter
 ```
 
 ## .github
@@ -75,7 +66,7 @@ h2 Auto-generated signatures
 h2 SigMap commands
 h1 Code signatures
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -86,6 +77,7 @@ h2 client
 h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/pages/AuditForm.jsx
 h3 client/src/ports/IBackendService.js
 h2 server
@@ -101,7 +93,7 @@ code-fence plain
 h2 Auto-generated signatures
 h2 Code Signatures
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -112,6 +104,7 @@ h2 client
 h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/pages/AuditForm.jsx
 h3 client/src/ports/IBackendService.js
 h2 server

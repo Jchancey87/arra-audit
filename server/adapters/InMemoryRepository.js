@@ -1,4 +1,5 @@
 import { IRepository } from '../ports/IRepository.js';
+import bcrypt from 'bcryptjs';
 
 /**
  * InMemoryRepository - Test implementation of IRepository
@@ -96,6 +97,44 @@ export class InMemoryRepository extends IRepository {
     return doc ? this._clone(doc) : null;
   }
 
+  async findByIdWithRelations(id, relations = []) {
+    const doc = await this.findById(id);
+    if (!doc) return null;
+
+    const populated = this._clone(doc);
+
+    for (const relation of relations) {
+      if (typeof relation === 'string' || typeof relation.resolver !== 'function') {
+        continue;
+      }
+
+      const { path, resolver } = relation;
+      const parts = path.split('.');
+
+      if (parts.length === 1) {
+        const value = populated[path];
+        if (value != null) {
+          const resolved = await resolver(value);
+          populated[path] = resolved != null ? resolved : value;
+        }
+      } else if (parts.length === 2) {
+        const [arrayField, subField] = parts;
+        const array = populated[arrayField];
+        if (Array.isArray(array)) {
+          for (const item of array) {
+            const value = item[subField];
+            if (value != null) {
+              const resolved = await resolver(value);
+              item[subField] = resolved != null ? resolved : value;
+            }
+          }
+        }
+      }
+    }
+
+    return populated;
+  }
+
   async find(query = {}, options = {}) {
     const results = [];
 
@@ -188,6 +227,39 @@ export class InMemoryRepository extends IRepository {
       }
     }
     return false;
+  }
+
+  async verifyPassword(entityId, candidatePassword) {
+    const doc = this.storage.get(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const isValid = await bcrypt.compare(candidatePassword, doc.password);
+    if (!isValid) {
+      throw new Error('Invalid credentials');
+    }
+
+    return this._clone(doc);
+  }
+
+  async setPassword(entityId, newPassword) {
+    const doc = this.storage.get(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    const updated = {
+      ...doc,
+      password: hashedPassword,
+      updatedAt: new Date(),
+    };
+
+    this.storage.set(entityId, updated);
+    return this._clone(updated);
   }
 
   /**

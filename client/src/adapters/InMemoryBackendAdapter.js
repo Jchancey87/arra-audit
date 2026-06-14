@@ -13,7 +13,8 @@ export class InMemoryBackendAdapter extends IBackendService {
     this.tastes = [];
     this.currentUser = null;
     this.studyProgress = [];
-    
+    this.curricula = [];
+
     // Seed default curriculum
     const formatLabel = (key) => key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const rawDays = [
