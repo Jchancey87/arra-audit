@@ -6,6 +6,47 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-14: Architecture Audit — Implementation & Deployment Summary
+
+- **Context**: Used SigMap + direct file reads to audit the Arra codebase for glaring architecture/security/runtime issues.
+- **Commits**:
+  - `2cc8bf1` — `fix: architecture audit — runtime, security, and cleanup`
+  - `ed9c8c6` — `docs: sync auto-generated SigMap context files`
+- **Runtime fixes**:
+  - Pass `techniqueRepository` into `createAuditRoutes` so `DELETE /trash/purge-all` no longer throws `ReferenceError`.
+  - Initialize `this.curricula = []` in `InMemoryBackendAdapter` constructor before seed push.
+- **Security hardening**:
+  - Require `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` on `POST /api/public/songs/:id/analysis-completed`.
+  - Restrict backend CORS to `CLIENT_ORIGIN` (default `http://localhost:5173`).
+  - Restrict analysis-service CORS to `ALLOWED_ORIGINS` (no wildcard with credentials).
+  - Remove JWT fallback secret; app now fails closed if `JWT_SECRET` is missing.
+  - Add global rate limit (100 req / 15 min / IP) and auth rate limit (5 req / 15 min / IP).
+  - Add `express-validator` input validation on `/register`, `/login`, `/api/songs/import`, and `POST /api/audits`.
+- **Architecture cleanup**:
+  - Move password `verifyPassword` / `setPassword` behind `IRepository` port; implement in both adapters.
+  - Move `studyProgress` Mongoose `.populate().lean()` behind `curriculumService.getPopulatedStudyProgress` / repository `findByIdWithRelations`.
+  - Remove Mongoose model leakage from `authService.changePassword`.
+- **Data/schema cleanup**:
+  - Remove `'form'` lens from `Curriculum` enum, seed data, route data, and AI prompt; map days 4/12 to `arrangement`.
+  - Standardize soft-delete queries: active `{ deletedAt: null }`, deleted `{ deletedAt: { $ne: null } }`.
+- **Tooling/config cleanup**:
+  - Disable SigMap `autoMaxTokens` so the `maxTokens: 10000` budget is honored.
+  - Make Vite `/api` and `/uploads` proxy targets env-driven (`VITE_API_PROXY_TARGET`).
+  - Add `.context/`, `server/uploads/`, `.venv/`, `__pycache__/` to `.gitignore`; remove tracked pycache file.
+  - Replace `analysis_service/analyzer.py` `sonic_dna_temp_` prefix with `arra_temp_` and `md5` with `sha256`.
+- **Test hygiene**:
+  - Delete stale root `/tests` directory and `server/tests` symlink.
+  - Update `agent_memory.md` to point to `server/__tests__/`.
+  - Update audit/song route tests for new signatures.
+- **Verification**:
+  - `npm test` in `server/` — **8 suites, 44/44 passed**.
+  - `npm run build` in `client/` — **succeeded** (pre-existing chunk-size warning).
+  - `python3 -m py_compile analysis_service/analyzer.py` — **passed**.
+  - Smoke test on port 5051 against real MongoDB: `/health` OK, validation errors return `400`, rate limiting returns `429`.
+- **Deployment**:
+  - Restarted `arra-server` via PM2 on port 5050.
+  - Verified `/health` on port 5050 returns `{"status":"ok"}`.
+
 ### 2026-06-14: Add Rate Limiting and Input Validation
 
 - **Problem**: Sensitive endpoints (auth, song import, audit creation) lacked rate limiting and input validation, increasing abuse/bug risk.

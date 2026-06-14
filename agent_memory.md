@@ -1,8 +1,8 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: GTX 1050 Ti GPU setup for CLAP semantic audio analysis.
-- **Status**: ✅ Complete — torch 2.6.0+cu126 (sm_61 compatible), transformers 5.11.0, CLAP model loaded on cuda, inference verified at 4.23GB VRAM.
+- **Goal**: Architecture audit — identify and fix glaring runtime, security, and architecture issues across the Arra codebase.
+- **Status**: ✅ Complete — all audited issues implemented, committed (`2cc8bf1`, `ed9c8c6`), server tests pass (44/44), and `arra-server` restarted on port 5050.
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -25,15 +25,8 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-14 | Add rate limiting and express-validator input validation to auth, song import, and audit creation endpoints | `-` |
-| 2026-06-14 | Remove Mongoose populate/lean leakage from studyProgress route via repository `findByIdWithRelations` port | `-` |
-| 2026-06-14 | Standardize soft-delete query patterns: active `deletedAt: null`, deleted `deletedAt: { $ne: null }` across SongService and AuditService | `-` |
-| 2026-06-14 | Remove deprecated 'form' lens from curriculum domain; migrate days 4/12 to arrangement, update prompts | `-` |
-| 2026-06-14 | Phase 4 build-mode fix: remove Mongoose leakage from authService.changePassword via repository port methods | `-` |
-| 2026-06-14 | Phase 3 security hardening: webhook secret, CORS env-driven, JWT fallback removed | `-` |
-| 2026-06-14 | Phase 5 tooling/config fixes: SigMap autoMaxTokens off, Vite proxy env-driven, .gitignore gaps | `-` |
-| 2026-06-14 | Remove stale root `/tests` dir and `server/tests` symlink; update agent_memory.md test paths to `server/__tests__/` | `-` |
-| 2026-06-14 | Fix build-mode runtime crashes: undefined `techniqueRepository` in audit purge route, uninitialized `curricula` in InMemoryBackendAdapter | `-` |
+| 2026-06-14 | Architecture audit implementation: runtime fixes, security hardening, auth/repository abstraction, curriculum cleanup, rate limiting, config fixes, and dev-server restart | `2cc8bf1` |
+| 2026-06-14 | Sync auto-generated SigMap context files after architecture audit changes | `ed9c8c6` |
 | 2026-06-13 | Rebrand emoji icons to clean DAW-aligned inline SVGs across client pages | `a875e5c` |
 | 2026-06-13 | Fix study progress day completion 500 error due to confidence field type mismatch | `f870e3d` |
 | 2026-06-13 | Implement daily study session workspace page, uploader, populates, and verify builds | `ebaae66` |
