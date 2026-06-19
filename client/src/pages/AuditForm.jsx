@@ -202,6 +202,26 @@ const AuditForm = () => {
     return () => setActiveAudit(null);
   }, [audit, setActiveAudit]);
 
+  // Notebook tab — song-filtered techniques list (defined before the useEffect that depends on it)
+  const loadNotebookTechniques = useCallback(async (songId) => {
+    if (!songId) {
+      setNotebookTechniques([]);
+      return;
+    }
+    setNotebookLoading(true);
+    setNotebookError('');
+    try {
+      const res = await backend.getTechniques({ songId, sortBy: 'createdAt', order: 'desc', limit: 200 });
+      const list = Array.isArray(res?.techniques) ? res.techniques : [];
+      setNotebookTechniques(list);
+    } catch (err) {
+      setNotebookError(err.response?.data?.error || err.message || 'Failed to load techniques');
+      setNotebookTechniques([]);
+    } finally {
+      setNotebookLoading(false);
+    }
+  }, [backend]);
+
   // Notebook tab — refresh when songId changes or new technique saved
   useEffect(() => {
     const songId = song?._id;
@@ -486,25 +506,6 @@ const AuditForm = () => {
   };
 
   // Notebook tab — song-filtered techniques list
-  const loadNotebookTechniques = useCallback(async (songId) => {
-    if (!songId) {
-      setNotebookTechniques([]);
-      return;
-    }
-    setNotebookLoading(true);
-    setNotebookError('');
-    try {
-      const res = await backend.getTechniques({ songId, sortBy: 'createdAt', order: 'desc', limit: 200 });
-      const list = Array.isArray(res?.techniques) ? res.techniques : [];
-      setNotebookTechniques(list);
-    } catch (err) {
-      setNotebookError(err.response?.data?.error || err.message || 'Failed to load techniques');
-      setNotebookTechniques([]);
-    } finally {
-      setNotebookLoading(false);
-    }
-  }, [backend]);
-
   const handleDeleteNotebookTechnique = async (id) => {
     if (!id) return;
     const prev = notebookTechniques;

@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T12:16:32.716Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T12:31:44.068Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -31,15 +31,13 @@ client/src/context/AudioContext.jsx ← BackendContext
 client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/audit/AuditPanelHeader, components/audit/AuditTabBar, components/audit/TrackAnalysisModules
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## changes (last 5 commits — 1 second ago)
 ```
-server/services/auditService.js               ~AuditService
-client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
 client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
 client/src/pages/AuditForm.jsx                ~formatTime
 .github/context-cold.md                       +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
-.github/copilot-instructions.md               +HttpBackendAdapter  +useAutosave  +formatTime  ~ClapAnalyzer
-.github/gemini-context.md                     +HttpBackendAdapter  +useAutosave  +formatTime  ~ClapAnalyzer
+.github/copilot-instructions.md               +HttpBackendAdapter  ~ClapAnalyzer  ~__init__  ~analyze_features
+.github/gemini-context.md                     +HttpBackendAdapter  ~ClapAnalyzer  ~__init__  ~analyze_features
 ```
 
 ## .github
