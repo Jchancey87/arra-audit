@@ -6,7 +6,35 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
-### 2026-06-19: Audit Panel Phase 2 — Track Analysis + Timeline
+### 2026-06-19: Audit Panel Phase 2.3+2.4+2.5 — Lens/Sources/Capture
+
+- **Context**: Session 2 of Audit Panel Phase 2 handoff. Scope: 3.3 LensPanel real curriculum data, 3.4 Sources tab polish, 3.5 Capture Technique keyboard + tag suggestions.
+- **Commit**: `88df2c3` — `feat(audit): Phase 2.3+2.4+2.5 — LensPanel focus/count, SourcesPanel polish, CaptureTechnique shortcuts`
+- **Phase 2.3 — LensPanel.jsx**:
+  - Header description row: prefers `listeningFocus` prop → `lensDescription` → `template.lenses[lens].description` fallback. Wraps with "Today's focus: …" unless already prefixed.
+  - Prompt count: `answeredCount/prompts.length answered` chip in header, green when complete.
+  - `customPrompts` prop override: when template provides `template.lenses[lens].prompts` (array of `{title, question}`), use it instead of `LENS_PROMPTS`.
+  - `AuditForm.answeredPrompts` useMemo now reads customPrompts so the Complete button gating matches the header count.
+  - Removed redundant `<ListeningFocus>` block; same text now lives in the header.
+- **Phase 2.4 — SourcesPanel.jsx** (rewrite):
+  - `pickDotColor(source, url)`: case-insensitive source → full hostname → domain-root → default. Added lowercase keys (`youtube`, `youtu.be`, `genius.com`, `wikipedia.org`, etc.).
+  - URL validation in `useMemo`: filters sources through `new URL(s.url)` try/catch, surfaces skipped count in footer.
+  - `+ Add Source` button: stub toast `Manual source addition coming in Phase 3`. Parent can override via `onAddSource` prop.
+  - Empty-state CTA `Import research on this song`: stub toast, parent can override via `onReimportResearch` prop.
+  - Video detector (`VIDEO_HOSTNAMES` set): appends `· video` suffix when URL hostname is YouTube/Vimeo/Dailymotion but source name doesn't already say "video".
+- **Phase 2.5 — CaptureTechnique.jsx**:
+  - Tag suggestions: `useEffect` on mount fetches `backend.getTechniques({ sortBy: 'createdAt', order: 'desc', limit: 50 })`, dedupes tags in recency order, shows top 5 as ghost buttons above the tag input. Refreshes when `savedIndicator` ticks.
+  - Localized error: try/catch around `onSubmit`, displays dismissable alert block under the action row. Parent re-throws via `handleCaptureTechniqueSubmit` to trigger it.
+  - Keyboard: `form onKeyDown` handles `Ctrl/Cmd+Enter` to save (gated on `canSave`) and `Escape` to trigger the discard confirm.
+  - Shortcut hint footer `Ctrl+Enter to save · Esc to discard`.
+- **AuditForm.jsx**:
+  - `parseTimestamp(raw)` helper: accepts `m:ss` strings or numbers.
+  - `getTechniqueTimestamp(tech)`: tries `tech.timestamp` (m:ss) then `tech.exampleTimestamp` (number).
+  - Saved-list rendering now shows a clickable timestamp button (small playhead dot + `m:ss`) that calls `seekTo(ts)`.
+  - `handleCaptureTechniqueSubmit` re-throws after `setError` so CaptureTechnique's local error fires.
+- **Build**: 1069 KB / +7 KB from Phase 1, 44/44 server tests pass.
+
+### 2026-06-19: Audit Panel Phase 2.1+2.2 — Track Analysis + Timeline
 
 - **Context**: Continue from Analysis Panel Phase 1 handoff. Session 1 scope: Phase 2.1 (Track Analysis override) + Phase 2.2 (Timeline markers + keyboard). Open Q1-Q6 all defaulted per handoff §2.
 - **Commit**: `09ff8ef` — `feat(audit): Phase 2.1+2.2 — track analysis override flow, timeline markers + keyboard shortcuts`
