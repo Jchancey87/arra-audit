@@ -26,7 +26,7 @@
 | Date | Summary | Commit |
 |---|---|---|
 | 2026-06-19 | Audit Panel Phase 2.3+2.4+2.5: LensPanel focus + count + customPrompts, SourcesPanel URL guard + hostname dot color + add/reimport stubs, CaptureTechnique tag suggestions + Ctrl+Enter/Esc + localized error, saved-list clickable timestamp | `88df2c3` |
-| 2026-06-19 | Audit Panel Phase 2.6+2.7: Header Save Draft + Saving state + inline completion warning, completionReason useMemo (3 msgs) + hasAnyResponse gate, NotebookPanel rewrite (search/sort/delete/seek) + 2-step confirm, InMemoryBackendAdapter songId/auditId/artist/tags/sortBy parity | pending |
+| 2026-06-19 | Audit Panel Phase 2.6+2.7: Header Save Draft + Saving state + inline completion warning, completionReason useMemo (3 msgs) + hasAnyResponse gate, NotebookPanel rewrite (search/sort/delete/seek) + 2-step confirm, InMemoryBackendAdapter songId/auditId/artist/tags/sortBy parity | `e19adb6` |
 | 2026-06-19 | Audit Panel Phase 2.1+2.2: Tap Tempo, Reset, edit indicator on Track Analysis; marker CRUD (M key, right-click menu), Space play/pause, click-anywhere-seek on all 6 lanes, inline section add form, beat-envelope synthetic waveform | `09ff8ef` |
 | 2026-06-19 | Analysis Panel redesign Phase 1: tab system (Analysis/Lens/Sources/Notebook), new header, Capture Technique sticky footer, design tokens (JetBrains Mono, surface scale), Track Analysis modules with scale degree row, multi-lane timeline, Sources panel | `—` |
 | 2026-06-18 | Start all services (backend, client, analysis) via PM2 ecosystem config. Tests pass. | - |

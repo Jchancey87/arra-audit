@@ -405,8 +405,8 @@ These items from the original spec are **deferred** to later work:
 | 2 | 2.3 | LensPanel real curriculum data + prompt count (3.3) | 2h | ✅ Shipped | `88df2c3` |
 | 2 | 2.4 | Sources tab type detection + add button stub (3.4) | 1h | ✅ Shipped | `88df2c3` |
 | 2 | 2.5 | Capture Technique polish (3.5) | 1h | ✅ Shipped | `88df2c3` |
-| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h | ✅ Shipped | pending |
-| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h | ✅ Shipped | pending |
+| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h | ✅ Shipped | `e19adb6` |
+| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h | ✅ Shipped | `e19adb6` |
 | 4 | 3.* | Visual polish sweep (4.1–4.5) | 3h | ⬜ Pending | — |
 | 5 | 4.1 | Accessibility pass + AC checklist (5.1) | 4h | ⬜ Pending | — |
 | 5 | 4.3 | Performance (code-split, memoize) (5.3) | 2h | ⬜ Pending | — |
