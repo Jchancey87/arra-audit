@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:42.700Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:25:50.895Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -58,6 +58,7 @@ h3 client/index.html
 h3 client/public/index.html
 h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
 h3 client/src/hooks/useAudit.js
@@ -66,14 +67,13 @@ h3 client/src/hooks/useAuditShortcuts.js
 h3 client/src/hooks/useAudits.js
 h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useCurricula.js
+h3 client/src/hooks/useDeepLinkParams.js
 h3 client/src/hooks/useSong.js
 h3 client/src/hooks/useStudyProgress.js
 h3 client/src/hooks/useTasteProfiles.js
 h3 client/src/hooks/useTechniques.js
+h3 client/src/utils/deepLinks.js
 h2 server
-h3 server/adapters/InMemoryRepository.js
-h3 server/adapters/MockAIAdapter.js
-h3 server/adapters/MockSearchAdapter.js
 ```
 
 ### .github/copilot-instructions.md
@@ -82,7 +82,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -96,13 +96,13 @@ h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
-h3 client/src/hooks/useDeepLinkParams.js
 h3 client/src/hooks/useSketches.js
 h3 client/src/pages/SketchCompare.jsx
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
+h3 client/src/ports/IBackendService.js
+h3 client/src/utils/pdfData.js
 ```
 
 ### .github/gemini-context.md
@@ -111,7 +111,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -125,13 +125,13 @@ h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
-h3 client/src/hooks/useDeepLinkParams.js
 h3 client/src/hooks/useSketches.js
 h3 client/src/pages/SketchCompare.jsx
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
+h3 client/src/ports/IBackendService.js
+h3 client/src/utils/pdfData.js
 ```
 
 ## analysis_service
