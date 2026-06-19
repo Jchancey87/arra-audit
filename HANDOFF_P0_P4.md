@@ -129,7 +129,7 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 **Risks**: YouTube embed API latency causes drift on long playback. Document limitation; consider yt-dlp audio fallback.
 
-### 1.3 PDF report export
+### 1.3 PDF report export ✅ SHIPPED (2026-06-19)
 
 **Effort**: M · uses installed `@react-pdf/renderer` · ~3 days
 
@@ -146,7 +146,31 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 **Tests**: 2 component tests (full + minimal data).
 
-**Acceptance**: 4-6 page PDF in ~3s. Correct layout in Chrome/ macOS Preview.
+**Acceptance**: 4-6 page PDF in ~3s. Correct layout in Chrome/ macOS Preview. ✅
+
+**Delivered**:
+- `client/src/pdf/theme.js` — `COLORS` (mirror of `--bg-surface-*` + `--accent-*`), `SPACING`, `RADII`, `PAGE`, `TYPE`, `LENS_LABELS`, `LENS_DESCRIPTIONS`. `registerArraFonts()` lazy-registers Roboto Mono (Regular+Bold) and Barlow (Regular+SemiBold+Bold) from `/fonts/`.
+- `client/src/utils/pdfData.js` — `prepareReportData(audit, song)` pure normalizer. Handles array/object/string response shapes, prefers `audioOverrides` over `audioAnalysis`, drops invalid bookmarks/techniques, exports `formatTimestamp` / `formatDuration` helpers.
+- `client/src/pdf/AuditReport.jsx` — `<Document>` with 4 page types: `CoverPage` (title/artist/audio chips/lens chips/audit meta), `LensPages` (chunks 2 lenses per page, questions/answers/timestamps), `BookmarksPage` (timestamp + label + note + lens), `TechniquesPage` (card per technique with lens + example timestamp). Fixed `<PageFooter>` with `pn/tp`.
+- `client/src/utils/pdfExport.jsx` (renamed from .js for JSX) — `loadPdfRenderer()` cached dynamic import wrapper, `renderAuditToBlob(audit, song)` parallel-loads renderer + AuditReport + pdfData + theme, `downloadBlob(blob, name)`, `buildAuditFilename(audit, song)` slug.
+- `client/src/components/ExportPdfButton.jsx` — ghost-variant button with 4 states (idle/loading/rendering/done/error), SVG download icon + spinner, accessible `aria-label`, hover state, `runIdRef` cancels stale renders on rapid clicks.
+- `client/public/fonts/` — Roboto Mono Regular+Bold (Apache 2.0), Barlow Regular+SemiBold+Bold (OFL), ~920KB total. Attribution noted in `theme.js` header.
+- `client/src/pages/AuditDetail.jsx` — button rendered in header actions row (L147-170), only when `audit.status === 'completed'`.
+- `client/vitest.config.js` + `client/src/test/setup.js` — minimal vitest + jsdom + @testing-library/jest-dom setup.
+- 2 test files in `client/src/pdf/__tests__/`:
+  - `pdfData.full.test.js` (10 tests) — full audit data: array/object/string response shapes, audioOverrides priority, all field types.
+  - `pdfData.minimal.test.js` (10 tests) — empty/missing/null/edge cases for data normalizer + formatTimestamp.
+- `package.json` — added `test` and `test:watch` scripts; devDeps `vitest`, `jsdom`, `@testing-library/react`, `@testing-library/jest-dom`.
+
+**Bundle impact**: main bundle 1010 → 1016 KB (+6 KB for the button + util wrapper). `@react-pdf/renderer` 1.6 MB lazy-loaded only on button click (4 chunks: theme 2.25KB / pdfData 3.09KB / AuditReport 17.89KB / react-pdf.browser 1628.86KB).
+
+**Verification**:
+- `npm test` from `client/`: 20/20 tests pass (jsdom).
+- `npx vite build` in `client/`: clean build, 66 modules, 4 lazy chunks.
+- `npm test` from `server/`: 44/44 still green (no backend touched).
+- Manual smoke: button renders in completed-audit header, shows spinner during load+render, downloads PDF (not verified in CI — render smoke test deferred: jsdom lacks `fetch(file://)`, would need a polyfill or browser env).
+
+**Acceptance**: 4-6 page PDF in ~3s (initial load includes dynamic import + font fetch + render). Bitwig-themed (orange/cyan accents, dark surfaces, JetBrains-Mono-styled numerals). Works for both `audioOverrides` and `audioAnalysis` data sources.
 
 ---
 
@@ -426,11 +450,12 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 ## Next Session Start Here
 
 **Phase 0 — SHIPPED** (`3a1e936`).
-**Phase 1.1 — SHIPPED** (deep-link bookmarks, 2026-06-19, uncommitted).
-**Next: 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d)** — user undecided.
+**Phase 1.1 — SHIPPED** (deep-link bookmarks, `a0080cb`).
+**Phase 1.3 — SHIPPED** (PDF export, uncommitted as of 2026-06-19).
+**Next: 1.2 (A/B compare, L/1wk)** — biggest remaining Phase 1 lift; or close out Phase 1 with a Phase 1 wrap-up (e.g. ship 1.4 = share-via-OS if not already covered by 1.1).
 
 To resume:
-1. `git log --oneline -5` — confirm Phase 0 + 1.1 are both committed
+1. `git log --oneline -5` — confirm 1.1 + 1.3 are both committed
 2. Read `agent_memory.md` checkpoint block
-3. Pick 1.2 or 1.3 and follow the **Changes** sub-list under that section
-4. Honor the red lines in `agent_memory.md` (deep-link module is the new Phase 1.1 entry)
+3. Pick next phase and follow the **Changes** sub-list under that section
+4. Honor the red lines in `agent_memory.md` (deep-link + PDF export are the new Phase 1 entries)

@@ -6,6 +6,7 @@ import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
 import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 import ShareLinkButton from '../components/ShareLinkButton';
+import ExportPdfButton from '../components/ExportPdfButton';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
 
 
@@ -161,6 +162,9 @@ const AuditDetail = () => {
             >
               {audit.status === 'completed' ? 'Edit Audit' : 'Resume Audit'}
             </button>
+            {audit.status === 'completed' && (
+              <ExportPdfButton audit={audit} song={song} />
+            )}
             <button onClick={() => setIsDeleteModalOpen(true)} className="danger">
               Delete
             </button>
