@@ -231,6 +231,23 @@ const AuditForm = () => {
     try { sessionStorage.setItem(`audit-tab-${auditId}`, activeTab); } catch {}
   }, [activeTab, auditId]);
 
+  // Active lens for the Lens tab (must be above render guards per Rules of Hooks)
+  const [activeLens, setActiveLens] = useState('harmony');
+  useEffect(() => {
+    if (audit?.lensSelection && audit.lensSelection.length > 0) {
+      const l = audit.lensSelection[0].toLowerCase();
+      if (LENS_PROMPTS[l]) setActiveLens(l);
+    }
+  }, [audit?.lensSelection]);
+
+  // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
+  const answeredPrompts = useMemo(() => {
+    if (activeTab !== 'lens') return 0;
+    const prompts = LENS_PROMPTS[activeLens] || [];
+    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length > 10).length;
+  }, [activeTab, activeLens, responses]);
+  const canComplete = techniques.length >= 1 || answeredPrompts >= 2;
+
   // ── Render guards ────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading audit workspace...</div>;
   if (error && !audit) return <div className="error">{error}</div>;
@@ -243,27 +260,6 @@ const AuditForm = () => {
   const stepIndex = isGuided ? audit.guidedSteps.findIndex((s) => s.status === 'active') : -1;
 
   const researchSources = song?.researchSummary?.results || [];
-
-  // Active lens for the Lens tab — derived from audit.lensSelection
-  const initialLens = useMemo(() => {
-    if (audit.lensSelection && audit.lensSelection.length > 0) {
-      const l = audit.lensSelection[0].toLowerCase();
-      if (LENS_PROMPTS[l]) return l;
-    }
-    return 'harmony';
-  }, [audit.lensSelection]);
-  const [activeLens, setActiveLens] = useState(initialLens);
-  useEffect(() => {
-    setActiveLens(initialLens);
-  }, [initialLens]);
-
-  // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
-  const answeredPrompts = useMemo(() => {
-    if (activeTab !== 'lens') return 0;
-    const prompts = LENS_PROMPTS[activeLens] || [];
-    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length > 10).length;
-  }, [activeTab, activeLens, responses]);
-  const canComplete = techniques.length >= 1 || answeredPrompts >= 2;
 
   // Tab definitions
   const tabs = [
