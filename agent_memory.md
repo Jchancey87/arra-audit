@@ -2,12 +2,11 @@
 
 ## 🎯 Active Session Focus (Intent)
 - **Goal**: P0–P4 Phase 1 (Sharing & Export) — 1.1 deep-link bookmarks done, 1.2 A/B compare + 1.3 PDF export pending.
-- **Status**: 🟡 In progress — 1.1 shipped (deepLinks util + useDeepLinkParams hook + ShareLinkButton + AudioContext.highlightBookmark + AuditDetail wiring). Vite build clean.
+- **Status**: 🟡 In progress — 1.1 committed (`a0080cb`). 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d) next.
 
 ## ⏸️ Resume Point (checkpoint 2026-06-19)
-- **Done**: Phase 1.1 deep-link bookmarks — uncommitted. 4 new files + AudioContext ext + AuditDetail wiring.
+- **Done**: Phase 1.1 deep-link bookmarks committed `a0080cb`. 4 new files + AudioContext ext + AuditDetail wiring + HANDOFF_P0_P4.md updated.
 - **Next**: Phase 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d) — user undecided.
-- **No commit yet** for Phase 1.1. Run `git status` to inspect, then commit with message like `Phase 1.1: deep-link bookmarks (?t=&bookmark=)`.
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -41,7 +40,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-19 | Phase 1.1 deep-link bookmarks: deepLinks util + useDeepLinkParams hook + ShareLinkButton (navigator.share→clipboard) + AudioContext.highlightBookmark + AuditDetail wiring. Vite clean. | uncommitted |
+| 2026-06-19 | Phase 1.1 deep-link bookmarks: deepLinks util + useDeepLinkParams hook + ShareLinkButton (navigator.share→clipboard) + AudioContext.highlightBookmark + AuditDetail wiring. Vite clean. | `a0080cb` |
 | 2026-06-19 | P0–P4 Phase 0: 0.1a/b/c leaks fixed, IUserRepository split, IAIModelService → ICompletionService rename, 7 client data hooks, AuditForm 1040→461 lines consuming hooks (no `backend.*` in pages), 6 extracted subcomponents + 3 utility hooks. Server 44/44, Vite clean. | `3a1e936` |
 | 2026-06-19 | Audit Panel Phase 3 + 4: polish, a11y (ErrorBoundary, prefers-contrast, AC_AUDIT.md), perf (lazy 8 audit chunks + useMemo), Tailwind CDN removal, responsive (audit-modules 2x2, mobile lane heights) | `b6bb792` |
 | 2026-06-19 | Audit Panel Phase 2.3+2.4+2.5: LensPanel focus + count + customPrompts, SourcesPanel URL guard + hostname dot color + add/reimport stubs, CaptureTechnique tag suggestions + Ctrl+Enter/Esc + localized error, saved-list clickable timestamp | `88df2c3` |
