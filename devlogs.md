@@ -1207,3 +1207,108 @@ Increase audit questions label font size to 18px.
   - Sketch `durationSeconds` populated only if Python returns it.
   - No cascade: if a song is deleted, its sketches are orphaned.
 - **Status**: Committed `af34984`. agent_memory.md updated with `af34984` + new red-line entry for A/B compare module. **Phase 1 complete** — 1.1 / 1.2 / 1.3 all shipped. Next: Phase 2 (2.1 promote-to-technique S/1d, 2.3 per-bookmark CLAP M-L/5d, etc.).
+
+---
+
+## 2026-06-19 — Session Wrap-up (Phase 1 complete)
+
+**Goal for the session**: ship all 3 Phase 1 P0 features from `HANDOFF_P0_P4.md`. Started with Phase 1.1 (deep-link bookmarks) uncommitted, ended with full Phase 1 closed.
+
+### Commits (6 total — 3 features + 3 doc/hash commits)
+
+| # | Hash | Subject |
+|---|---|---|
+| 1 | `a0080cb` | Phase 1.1: deep-link bookmarks (?t=&bookmark=) |
+| 2 | `0d46754` | docs: record Phase 1.1 commit hash a0080cb |
+| 3 | `c322c95` | Phase 1.3: PDF report export for completed audits |
+| 4 | `e5b1e22` | docs: record Phase 1.3 commit hash c322c95 + sigmap regen |
+| 5 | `af34984` | Phase 1.2: A/B compare mode (DAW sketch vs YouTube reference) |
+| 6 | `1eb84c8` | docs: record Phase 1.2 commit hash af34984 + sigmap regen |
+
+### Files added/touched
+
+**Phase 1.1 (3 new + 4 modified)**:
+- `client/src/utils/deepLinks.js` (40L) — `buildAuditLink` / `parseDeepLinkParams` / `DEEP_LINK_KEYS`
+- `client/src/hooks/useDeepLinkParams.js` (22L) — react-router `useSearchParams` wrapper
+- `client/src/components/ShareLinkButton.jsx` (109L) — `navigator.share` → clipboard → execCommand fallback
+- Modified: `client/src/context/AudioContext.jsx` (added `highlightBookmark` + `highlightBookmarkId`)
+- Modified: `client/src/pages/AuditDetail.jsx` (350ms seek delay, applies `?t=` + `?bookmark=`, renders ShareLinkButton on each card)
+- Modified: `HANDOFF_P0_P4.md`, `agent_memory.md`, `devlogs.md`, `.github/*` (sigmap regen)
+
+**Phase 1.3 (8 new + 4 modified)**:
+- `client/public/fonts/{RobotoMono-{Regular,Bold},Barlow-{Regular,SemiBold,Bold}}.ttf` (919KB, Apache 2.0 + OFL)
+- `client/src/pdf/theme.js` (90L) — `COLORS` / `SPACING` / `RADII` / `PAGE` / `TYPE` / `LENS_LABELS` / `LENS_DESCRIPTIONS` + `registerArraFonts()`
+- `client/src/utils/pdfData.js` (155L) — `prepareReportData(audit, song)` pure normalizer; array/object/string response shapes; audioOverrides priority; drops invalid bookmarks/techniques
+- `client/src/pdf/AuditReport.jsx` (497L) — Document with `CoverPage` + `LensPages` + `BookmarksPage` + `TechniquesPage` + fixed page footer
+- `client/src/utils/pdfExport.jsx` (renamed from .js for JSX, 50L) — `loadPdfRenderer()` cached dynamic import + `renderAuditToBlob` + `downloadBlob` + `buildAuditFilename`
+- `client/src/components/ExportPdfButton.jsx` (110L) — 4-state ghost button (idle/loading/rendering/done/error), SVG icons, `runIdRef` cancel
+- `client/vitest.config.js` + `client/src/test/setup.js` — minimal vitest+jsdom+@testing-library/jest-dom setup
+- `client/src/pdf/__tests__/pdfData.full.test.js` (10 tests) + `pdfData.minimal.test.js` (10 tests)
+- Modified: `client/src/pages/AuditDetail.jsx` (button only for `status === 'completed'`)
+- Modified: `client/package.json` — `test` + `test:watch` scripts; devDeps vitest, jsdom, @testing-library/react, @testing-library/jest-dom
+- Modified: `HANDOFF_P0_P4.md`, `agent_memory.md`, `devlogs.md`
+
+**Phase 1.2 (12 new + 9 modified)**:
+- `server/models/SongSketch.js` (35L) — soft-delete + `analysis` Mixed + `analysisStatus` enum
+- `server/services/SketchService.js` (175L) — createSketch (ext+size guard, ownership) / getSketchesForSong / getSketch / deleteSketch (soft+unlink) / analyzeSketch (Python 15s timeout)
+- `server/routes/sketches.js` (130L) — multer 100MB, mp3/wav/m4a/aac/flac, `_sanitizeSketch`
+- `server/__tests__/unit/SketchService.test.js` (8 tests)
+- `analysis_service/analyzer.py` — `analyze_sketch_file(file_path, sketch_id, callback_url)` reuses `analyze_audio_file` sync
+- `analysis_service/app.py` — `SketchAnalysisRequest` + `POST /analyze-sketch` (sync, 404 on missing file, 500 on failure)
+- `client/src/ports/IBackendService.js` — 5 new methods (getSketches/getSketch/uploadSketch/deleteSketch/analyzeSketch)
+- `client/src/adapters/HttpBackendAdapter.js` — FormData upload mirroring `uploadAudioSketch`
+- `client/src/adapters/InMemoryBackendAdapter.js` — `this.sketches = []` + 5 mock methods
+- `client/src/hooks/useSketches.js` (100L) — list + optimistic upload + filter remove + merge analyze
+- `client/src/hooks/__tests__/useSketches.test.jsx` (3 tests)
+- `client/src/components/ComparePlayer.jsx` (300L) — YouTube master clock + hidden `<audio>` + 500ms drift sync (>0.4s threshold) + Web Audio `AnalyserNode` 96-bar canvas + side-by-side metadata + BPM delta bar + key-match indicator
+- `client/src/components/__tests__/ComparePlayer.test.jsx` (2 tests)
+- `client/src/pages/SketchCompare.jsx` (170L) — `/compare/:songId/:sketchId` with upload + per-sketch Analyze/Delete
+- Modified: `server/server.js` (registers SongSketch + sketchRepository + sketchService + `app.use('/api/sketches', authMiddleware, ...)`)
+- Modified: `client/src/App.jsx` (2 new routes + import)
+- Modified: `client/src/pages/AuditDetail.jsx` (A/B Compare button)
+- Modified: `client/src/hooks/index.js` (re-export useSketches)
+- Modified: `HANDOFF_P0_P4.md`, `agent_memory.md`, `devlogs.md`
+
+### Test coverage
+
+| Suite | Count | Source |
+|---|---|---|
+| Server pre-Phase 1 | 44 | 8 test files |
+| + Phase 1.1 | 44 | (no new — pure utility, frontend-only) |
+| + Phase 1.3 | 44 | (no new server tests; vitest+jsdom added on client) |
+| + Phase 1.2 | **53** | + 9 from `SketchService.test.js` (8 functional + 1 sub-test) |
+| **Server total** | **53/53** ✓ | |
+| Client pre-Phase 1 | 0 | (no infra) |
+| + Phase 1.1 | 0 | (no new tests) |
+| + Phase 1.3 | 20 | `pdfData.full.test.js` (10) + `pdfData.minimal.test.js` (10) |
+| + Phase 1.2 | 5 | `useSketches.test.jsx` (3) + `ComparePlayer.test.jsx` (2) |
+| **Client total** | **25/25** ✓ | |
+| Python (ast.parse) | OK | `analyzer.py` + `app.py` syntax-validated |
+
+### Bundle deltas
+
+| Stage | Main bundle | Lazy chunks |
+|---|---|---|
+| Before session (Phase 0) | 1010 KB | — |
+| + Phase 1.1 | 1010 KB | — |
+| + Phase 1.3 | 1016 KB (+6) | `theme-*.js` 2.25 KB · `pdfData-*.js` 3.09 KB · `AuditReport-*.js` 17.89 KB · `react-pdf.browser-*.js` 1628.86 KB |
+| + Phase 1.2 | 1043 KB (+27) | (route-split via React Router) |
+| **Net session change** | **+33 KB** | **+1.65 MB lazy** |
+
+### Handoff state
+
+`HANDOFF_P0_P4.md` updated:
+- 1.1, 1.2, 1.3 all marked **✅ SHIPPED (2026-06-19)** with full delivery lists
+- "Next Session Start Here" updated to point to Phase 2 (2.1 promote-to-technique S/1d or 2.3 per-bookmark CLAP M-L/5d)
+
+`agent_memory.md` updated:
+- "Active Session Focus" reset to "Phase 1 complete; Phase 2 next"
+- "Resume Point" notes all 3 commits with hashes
+- 3 new red-line entries: deep-link bookmarks, PDF export, A/B compare
+
+### Known v2 follow-ups (per HANDOFF risk register)
+
+- **A/B compare**: YouTube IFrame drift on long playback (≥0.4s threshold in v1); no yt-dlp fallback for embed-blocked videos; no sample-level delta waveform (v1 shows sketch energy only); no cascade on song delete
+- **PDF export**: jsdom lacks `fetch(file://)` — render smoke test deferred to browser
+- **Deep links**: 350ms seek delay is a heuristic; may need re-tune for slow networks
+- **General**: main bundle still > 800 KB (the open TODO from `agent_memory.md` "Code-split Dashboard + remaining pages to drop main bundle below 800KB")

@@ -4,8 +4,9 @@
 - **Goal**: P0–P4 Phase 1 (Sharing & Export) — 1.1 / 1.2 / 1.3 all done. Phase 2 next.
 - **Status**: ✅ Phase 1 complete. 1.1 deep-link bookmarks (`a0080cb`), 1.3 PDF export (`c322c95`), 1.2 A/B compare (`af34984`). Next: Phase 2 educational value.
 
-## ⏸️ Resume Point (checkpoint 2026-06-19)
-- **Done**: All 3 Phase 1 features shipped. 53/53 server + 25/25 client tests green, Vite build clean, Python files pass ast.parse.
+## ⏸️ Resume Point (checkpoint 2026-06-19, session wrap-up)
+- **Done**: All 3 Phase 1 features shipped in a single session. 6 commits (3 features + 3 doc/hash). 53/53 server + 25/25 client tests green, Vite build clean, Python files pass ast.parse.
+- **Session wrap-up**: full inventory in `devlogs.md` "## 2026-06-19 — Session Wrap-up (Phase 1 complete)" — files touched, test coverage, bundle deltas, v2 follow-ups.
 - **Next**: Phase 2 — 2.1 promote-to-technique (S/1d) is the smallest lift; 2.3 per-bookmark CLAP analysis (M-L/5d) is the biggest. User undecided.
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
@@ -43,6 +44,8 @@
 | Date | Summary | Commit |
 |---|---|---|
 | 2026-06-19 | Phase 1.2 A/B compare: SongSketch model + SketchService + sketches route + 5 client port methods + useSketches hook + ComparePlayer (YouTube master clock + sketch audio + drift sync + Web Audio canvas) + SketchCompare page + Python /analyze-sketch endpoint. 8+3+2 tests. Main 1016→1043KB. | `af34984` |
+| 2026-06-19 | docs: record Phase 1.2 commit hash af34984 + sigmap regen | `1eb84c8` |
+| 2026-06-19 | Session wrap-up: full inventory (files/tests/bundle/v2 follow-ups) appended to devlogs.md | (wrap-up entry) |
 | 2026-06-19 | Phase 1.3 PDF export: theme.js (Bitwig tokens + font reg), pdfData.js (normalizer), AuditReport.jsx (Document w/ 4 page types), pdfExport.jsx (dynamic-import wrapper), ExportPdfButton.jsx (4 states), fonts/ (Roboto Mono + Barlow), AuditDetail wiring, vitest+jsdom setup, 20 tests. Main 1010→1016KB; react-pdf 1.6MB lazy. | `c322c95` |
 | 2026-06-19 | Phase 1.1 deep-link bookmarks: deepLinks util + useDeepLinkParams hook + ShareLinkButton (navigator.share→clipboard) + AudioContext.highlightBookmark + AuditDetail wiring. Vite clean. | `a0080cb` |
 | 2026-06-19 | P0–P4 Phase 0: 0.1a/b/c leaks fixed, IUserRepository split, IAIModelService → ICompletionService rename, 7 client data hooks, AuditForm 1040→461 lines consuming hooks (no `backend.*` in pages), 6 extracted subcomponents + 3 utility hooks. Server 44/44, Vite clean. | `3a1e936` |
