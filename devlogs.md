@@ -331,6 +331,17 @@ This log tracks architectural decisions, workflows, key configurations, and lear
   - `getTechniques` now supports `songId`, `auditId`, `artist`, `tags` (CSV, AND-match), `sortBy`, `order` filters — all matching the real backend shape. Required for offline / dev-mode testing.
 - **Verification**: `vite build` ✓ (1082 KB, +13 KB), server tests 44/44 ✓, HMR green across all 4 modified files.
 
+### 2026-06-19: Phase 2.6+2.7 follow-up — TDZ fix + deploy
+- **Context**: After committing `e19adb6` + `7a2359e`, dev server loaded AuditForm with `ReferenceError: Cannot access 'loadNotebookTechniques' before initialization`. Root cause: the `useEffect` that listed `loadNotebookTechniques` in its dep array (line 230) was declared BEFORE the `useCallback` that defined it (line 489). `const` declarations sit in the TDZ until their statement executes, so the synchronous dep array eval threw.
+- **Commit**: `0d25b42` — `fix(audit): hoist loadNotebookTechniques useCallback above dependent useEffect`
+- **Fix**: Moved the `useCallback` block from line 488 to line 206 (right after the `setActiveAudit` effect, immediately before the notebook refresh effect). Mirrors the file's existing pattern of grouping related effects before unrelated handlers (see Rules of Hooks guard comment at line 309).
+- **Lesson**: Build (`vite build`) and server tests pass TDZ-free code at compile time but don't execute it. Only client runtime + a smoke test of `/audit/form/:id` would have caught it. Need a client-side test harness (deferred to §5.1 / §5.3 in the handoff).
+- **Deploy**: Pushed `0d25b42` to `origin/main`, ran `./deploy.sh`. All 3 PM2 services restarted cleanly:
+  - `arra-server` PID 11816 (online, 0% CPU after warmup)
+  - `arra-client` PID 11844 (online, HMR client rebuilt)
+  - `arra-analysis` PID 11875 (online)
+- **Verification post-deploy**: `curl /api/audits` → 401 (auth gating works), `curl :3050/` → 200 (vite serves).
+
 ---
 
 ## Standard Workflows & Commands
