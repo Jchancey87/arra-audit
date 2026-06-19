@@ -342,6 +342,23 @@ This log tracks architectural decisions, workflows, key configurations, and lear
   - `arra-analysis` PID 11875 (online)
 - **Verification post-deploy**: `curl /api/audits` → 401 (auth gating works), `curl :3050/` → 200 (vite serves).
 
+### 2026-06-19: New handoff — Phase 3+4 polish/a11y/perf/responsive
+- **Context**: Phase 2 closed (7/7 line items shipped). Remaining work split into fresh doc so the closed Phase 2 handoff stays as a historical record.
+- **File**: `HANDOFF_AUDIT_PANEL_PHASE_3_4.md` v1.0 — covers Phase 3 (visual polish, ~3h) + Phase 4 (a11y/perf/responsive/Tailwind, ~11h).
+- **Phase 3 (Session 4, 3h)**:
+  - **3.1** Verify zero `box-shadow` / `border-radius` (non-50%) in `audit/*.jsx` — already clean per `rg`. 5min audit only.
+  - **3.2** `.locked` class in `global.js` (opacity 0.4, pointer-events none, cursor not-allowed). Hover brightness via existing `--bg-surface-hover` token — no `filter` compositing cost.
+  - **3.3** Tooltip sweep: confidence dots (dynamic %), override button (verified already), marker (note + ts + lens), lens prompts (full question on hover), tag suggestions.
+  - **3.4** Focus mode context-aware: `App.jsx` EXIT FOCUS in `/audit/*` → `navigate('/planner')` not just toggle. Tab switch → focus first interactive in new tab body.
+  - **3.5** Scrub tooltip: +80px X offset (label column), 100ms fade-in, `bar N/total` content when BPM known.
+- **Phase 4 (Sessions 5–6, 11h)**:
+  - **5.1 A11y**: `UI/AC_AUDIT.md` walkthrough file, `<ErrorBoundary>` in `App.jsx`, ARIA sweep, `prefers-contrast: more` media query. Lighthouse a11y ≥ 95.
+  - **5.3 Perf**: `React.lazy()` for audit components, `useMemo` scale-degree + lens prompt count, tab content lazy-mount. Initial bundle ≤ 800 KB (down from 1082).
+  - **5.4 Tailwind removal**: strip `cdn.tailwindcss.com` script, port ~20 utility classes to inline (3 files: Dashboard, AuditDetail, StudySessionWorkspace). Option A — no PostCSS setup. Build exits zero warnings.
+  - **5.2 Responsive**: tablet 768–1199 (2-col metric grid, capture footer collapsed, narrower lane labels), mobile <768 (hide header chips, scroll tab bar, 28px lane height, touch targets ≥ 32px). Lighthouse mobile ≥ 90.
+- **Open Qs (7)**: hover brightness approach (background vs filter), locked class vs inline, Tailwind Option A vs B, mobile Capture footer behavior, error boundary placement (Routes vs AuditForm), perf budget (800 KB), a11y audit (Lighthouse + manual AC).
+- **Status**: 0/9 line items. Total 14h est across 3 sessions. No commits yet — awaiting kickoff.
+
 ---
 
 ## Standard Workflows & Commands
