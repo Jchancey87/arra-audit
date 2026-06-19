@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 // Adapters & Repositories
 import { OpenAIAdapter } from './adapters/OpenAIAdapter.js';
 import { TavilyAdapter } from './adapters/TavilyAdapter.js';
-import { MongooseRepository } from './adapters/MongooseRepository.js';
+import { MongooseRepository, UserRepository } from './adapters/MongooseRepository.js';
 
 // Models
 import User from './models/User.js';
@@ -96,7 +96,7 @@ mongoose
 const aiAdapter = new OpenAIAdapter();
 const searchAdapter = new TavilyAdapter();
 
-const userRepository = new MongooseRepository(User);
+const userRepository = new UserRepository(User);
 const songRepository = new MongooseRepository(Song);
 const auditRepository = new MongooseRepository(Audit);
 const techniqueRepository = new MongooseRepository(TechniqueEntry);

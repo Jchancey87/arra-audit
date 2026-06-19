@@ -1,32 +1,33 @@
 /**
- * IAIModelService - Port (interface) for AI model services
- * 
- * Any class implementing this interface must provide a way to generate
- * templated content from a prompt. This allows production code to use real
- * APIs (OpenAI, Anthropic) while tests use mock implementations.
- * 
- * Contract: generateTemplate(prompt) MUST return a JSON string with the
- * template structure, or throw an error.
+ * IAIModelService - DEPRECATED port for AI model services.
+ *
+ * Replaced by ICompletionService in Phase 0.3. Kept here as a compatibility
+ * shim so external consumers / older code keeps importing the old name.
+ * Will be removed in Phase 2.
+ *
+ * Prefer: `import { ICompletionService } from './ICompletionService.js'`
  */
 
-export class IAIModelService {
+import { ICompletionService } from './ICompletionService.js';
+
+/** @deprecated use ICompletionService */
+export class IAIModelService extends ICompletionService {
   /**
-   * Generate template content from a prompt
-   * @param {string} prompt - The full prompt to send to the AI model
-   * @returns {Promise<string>} JSON string of the template
-   * @throws {Error} if API fails or response cannot be parsed
+   * @deprecated use completeText()
+   * @param {string} prompt
+   * @returns {Promise<string>}
    */
-  async generateTemplate(prompt) {
-    throw new Error('generateTemplate() not implemented');
+  async generateCompletion(prompt) {
+    return this.completeText(prompt);
   }
 
   /**
-   * Generate general text content from a prompt
-   * @param {string} prompt - The full prompt
-   * @returns {Promise<string>} Plain text response
-   * @throws {Error} if API fails
+   * @deprecated use completeJson()
+   * @param {string} prompt
+   * @returns {Promise<string>} JSON string (kept for back-compat; use completeJson for object)
    */
-  async generateCompletion(prompt) {
-    throw new Error('generateCompletion() not implemented');
+  async generateTemplate(prompt) {
+    const obj = await this.completeJson(prompt);
+    return JSON.stringify(obj);
   }
 }

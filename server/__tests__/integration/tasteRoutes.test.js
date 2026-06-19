@@ -26,7 +26,7 @@ describe('Taste Routes Integration', () => {
     };
 
     mockAiService = {
-      generateCompletion: jest.fn().mockResolvedValue('Synthesized style summary from search.'),
+      completeText: jest.fn().mockResolvedValue('Synthesized style summary from search.'),
     };
 
     tasteService = new TasteService(tasteProfileRepository, mockSearchService, mockAiService);
@@ -85,7 +85,7 @@ describe('Taste Routes Integration', () => {
         'Jamerson signature rhythm music production techniques analysis style',
         10
       );
-      expect(mockAiService.generateCompletion).toHaveBeenCalled();
+      expect(mockAiService.completeText).toHaveBeenCalled();
     });
 
     test('should return 400 if lens or name are missing', async () => {

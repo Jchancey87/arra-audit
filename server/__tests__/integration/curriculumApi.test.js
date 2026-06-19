@@ -321,7 +321,7 @@ describe('Curriculum & Study Progress API Integration Tests', () => {
         ]
       };
 
-      aiAdapter.responseOverride = JSON.stringify(mockPlan);
+      aiAdapter.responseOverride = mockPlan;
 
       const genRes = await request(app)
         .post('/api/curricula/generate')

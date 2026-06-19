@@ -1010,3 +1010,101 @@ Increase audit questions label font size to 18px.
 - `npm test` in `server/`: 8 suites, 44/44 pass.
 - `rg "\.(model|populate|lean)\b" server/routes/studyProgress.js`: zero matches.
 
+
+---
+
+### 2026-06-19: P0–P4 Phase 0 — Refactor Foundation
+
+**Commit:** `(pending)`
+
+**Goal:** Ship all 4 sub-phases of Phase 0 from `HANDOFF_P0_P4.md` to unlock Phase 1 features. Refactor-first: fix leaks, split ports, then build the client data-hooks layer.
+
+**Tasks:**
+
+**0.1a — `_buildFallbackTemplate` → `fallbackTemplate` (public)**
+- `server/services/templateComposer.js`: renamed method, removed `@private` JSDoc, kept JSDoc with public rationale.
+- `server/routes/audits.js`: route now calls `templateComposer.fallbackTemplate(...)` directly. No more `?.` chain that allowed silent no-op fallback.
+
+**0.1b — `AuditService.getSongContext(songId, userId)`**
+- `server/services/auditService.js`: new public method, returns `null` on missing/deleted/forbidden song or repo error. Logs warning on error.
+- `server/routes/audits.js`: removed `try { song = await auditService.songRepository?.findOne(...) }`. Now `const song = await auditService.getSongContext(songId, userId)`.
+
+**0.1c — `SongService.researchSong(title, artist)`**
+- `server/services/songService.js`: new public method, returns `null` on missing adapter or error. Logs warning.
+- `server/routes/songs.js`: removed 8-line `if (songService.searchService) { try { ... } catch { ... } }` block. Now one-liner: `const research = await songService.researchSong(title, artistName)`.
+
+**0.2 — `IUserRepository` split**
+- New `server/ports/IUserRepository.js` extends `IRepository` with `verifyPassword` and `setPassword`.
+- `server/ports/IRepository.js`: removed the two auth methods (now 114 lines, down from 136).
+- `server/adapters/MongooseRepository.js`: removed the two methods from base class, added `UserRepository` and `MongooseUserRepository` (concrete wrapper bound to `User` model).
+- `server/adapters/InMemoryRepository.js`: removed the two methods, added `InMemoryUserRepository` (composes a private `InMemoryRepository`).
+- `server/server.js`: `userRepository = new UserRepository(User)` (was `new MongooseRepository(User)`).
+- `MongooseUserRepository` available for tests/dev where the production `User` model should be exercised.
+
+**0.3 — `IAIModelService` → `ICompletionService` rename**
+- New `server/ports/ICompletionService.js` with clean two-method surface: `completeText(prompt) → string` and `completeJson(prompt) → object` (adapters parse JSON internally — no more `JSON.parse` in service code).
+- `server/ports/IAIModelService.js` is now a deprecated shim whose `generateCompletion` calls `completeText` and `generateTemplate` returns `JSON.stringify(completeJson(...))` for back-compat. Scheduled for removal in Phase 2.
+- `MockAIAdapter` + `OpenAIAdapter` both reworked to extend `ICompletionService`. `OpenAIAdapter` now has private `_callOpenAI(prompt, maxTokens)` to dedupe request boilerplate.
+- Migrated consumers: `TemplateComposer.generateTemplate` (removed `JSON.parse`), `SongService.importSong` AI summary branch (removed `JSON.parse`), `CurriculumService.generateAICurriculum` (removed `JSON.parse` + try/catch wrapper), `TasteService.executeDeepDive` (`generateCompletion` → `completeText`).
+- Updated 2 test fixtures: `curriculumApi.test.js` (responseOverride: JSON string → object) and `tasteRoutes.test.js` (mock `generateCompletion` → `completeText`).
+
+**0.4 — Client data hooks layer**
+- New `client/src/hooks/` directory with 7 deep-module hooks:
+  - `useSong(songId, { skip })` — single song + refetch + triggerAnalysis + saveOverrides + update
+  - `useAudits(filters)` — list + createAudit + deleteAudit + restoreAudit + purgeAudit (optimistic removal)
+  - `useAudit(auditId, { skip })` — single audit + state machine (advanceStep / goBackStep / skipStep) + bookmark CRUD + saveResponses + setStatus
+  - `useTechniques(filters)` — list + grouped + add + update + remove
+  - `useStudyProgress()` — active progress + start + linkSong + logDay + completeDay + uploadSketch + submitReview (all require active progress)
+  - `useCurricula()` — list + generate + save
+  - `useTasteProfiles()` — list + research
+- Each hook: `useBackend()` to access adapter, `useState` for state, `useCallback` for stable action refs, `useRef` for AbortController on in-flight fetches, fetches on mount and filter changes.
+- `client/src/hooks/index.js` re-exports all 7 for clean `import { useSong, ... } from '../hooks'`.
+- Vite build clean (no warnings), all 7 hooks export verified via Node smoke check.
+- **Follow-up (out of scope for Phase 0):** `AuditForm.jsx` (1040 lines) and `TechniqueNotebook.jsx` (1043 lines) still call `backend.*` directly. Hook layer is ready; refactor of these two files to use the hooks is next-session work to hit the 500-line target.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `npx vite build` in `client/`: 163 modules transformed, clean build, no errors.
+- Node smoke test of `client/src/hooks/*.js`: all 7 export a function with the expected name.
+- `rg "searchService\." server/routes/`: zero matches (no route reaches into service internals for search).
+- `rg "songRepository\." server/routes/`: zero matches.
+- `rg "_buildFallbackTemplate" server/`: zero matches.
+- `rg "verifyPassword|setPassword" server/ports/IRepository.js`: zero matches (moved to IUserRepository).
+- `rg "aiService\.generate" server/services/`: zero matches (all use completeText/completeJson).
+
+---
+
+### 2026-06-19: P0–P4 Phase 0 AuditForm Refactor + Final Commit
+
+**Commit:** `(pending)`
+
+**Follow-up:** With the hooks layer in place, finish the AuditForm migration.
+
+**Tasks:**
+
+**AuditForm data-layer migration**
+- Replaced 17 direct `backend.*` calls with hook calls. AuditForm now consumes `useAudit`, `useSong`, `useTechniques` exclusively. `rg "backend\." client/src/pages/AuditForm.jsx`: zero matches.
+- Inlined the `useAutosave` helper into a reusable `useAuditAutosave` hook that accepts any `save` callback (uses `useAudit`'s `saveResponses`).
+- Extracted polling + progress-sim effects into `useAnalysisPolling` and `useAnalysisProgressSim` hooks (both in `useAuditAutosave.js`).
+- Extracted the global M/Space keyboard handler into `useAuditShortcuts`.
+- Extracted the AC-08 completion logic (3 useMemos) into `useCompletionCheck`.
+- Added `skip` option to `useTechniques` to defer fetch when songId is unknown.
+- Replaced local `useState` for audit/song/techniques with hook-managed state. `useState` now only for `responses`, `sessionTechniques`, `error/success/isSaving/captureSavedTick` (transient UI state).
+
+**Component extraction (to hit ≤500 line target)**
+- `client/src/components/audit/AnalysisPipelineStates.jsx` (59 lines) — 3 states (not_started, pending spinner, failed).
+- `client/src/components/audit/GuidedStepBar.jsx` (48 lines) — step hint + back/skip/next/complete controls.
+- `client/src/components/audit/GuidedListenEmpty.jsx` (28 lines) — Step 1 (Listen) empty state.
+- `client/src/components/audit/FallbackTemplateNotice.jsx` (13 lines) — warning banner.
+- `client/src/components/audit/LoggedThisSession.jsx` (67 lines) — session-techniques grid.
+- `client/src/components/audit/SessionBookmarks.jsx` (31 lines) — bookmark chip strip.
+- `client/src/components/audit/AuditAnalysisTab.jsx` (97 lines) — composes the Analysis tab body. Receives data + handlers as props.
+
+**Verification:**
+- `wc -l client/src/pages/AuditForm.jsx`: **1040 → 461** (55.7% reduction, under 500-line target).
+- `npx vite build` in `client/`: 163 modules, clean build, no errors.
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- 10 hooks total in `client/src/hooks/`:
+  - 7 data hooks (useSong, useAudits, useAudit, useTechniques, useStudyProgress, useCurricula, useTasteProfiles)
+  - 3 page-specific utility hooks (useAuditAutosave incl. polling + progress sim, useCompletionCheck, useAuditShortcuts)
+- `rg "backend\." client/src/pages/AuditForm.jsx`: zero matches.

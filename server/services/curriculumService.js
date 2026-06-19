@@ -65,12 +65,10 @@ CRITICAL RULES:
 3. Set the "logFields" to include a field for general notes and always include a "steal_move" field so they can log a key takeaway.
 4. All text fields should be detailed, encouraging, and pedagogically sound.`;
 
-    const responseJsonStr = await this.aiAdapter.generateTemplate(prompt);
     try {
-      const parsedData = JSON.parse(responseJsonStr);
-      return parsedData;
+      return await this.aiAdapter.completeJson(prompt);
     } catch (error) {
-      console.error('Failed to parse AI response:', responseJsonStr);
+      console.error('Failed to parse AI response:', error.message);
       throw new Error(`AI generated invalid JSON: ${error.message}`);
     }
   }

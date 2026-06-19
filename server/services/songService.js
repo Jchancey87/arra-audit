@@ -94,8 +94,8 @@ You MUST respond with a JSON object in this exact format (do not include markdow
   "arrangement": "Details about the song structure, sections, key transitions, and dynamic build-ups."
 }`;
 
-        const aiResponse = await this.aiService.generateTemplate(aiPrompt);
-        const aiSummary = JSON.parse(aiResponse);
+        const aiResponse = await this.aiService.completeJson(aiPrompt);
+        const aiSummary = aiResponse;
         
         if (aiSummary && aiSummary.overview) {
           const compiledSummary = `### 💿 Production Overview\n${aiSummary.overview}\n\n` +
@@ -150,6 +150,27 @@ You MUST respond with a JSON object in this exact format (do not include markdow
   }
 
   // ─── Read ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Look up research context for a song via the injected search service.
+   * Public façade so route handlers don't reach into .searchService directly.
+   * Returns null on missing adapter or any error.
+   *
+   * @param {string} title
+   * @param {string} artist
+   * @returns {Promise<Object|null>}
+   */
+  async researchSong(title, artist) {
+    if (!this.searchService || typeof this.searchService.searchSongInfo !== 'function') {
+      return null;
+    }
+    try {
+      return await this.searchService.searchSongInfo(title, artist);
+    } catch (err) {
+      console.warn(`[SongService] researchSong failed for "${title}" by ${artist}: ${err.message}`);
+      return null;
+    }
+  }
 
   async getUserSongs(userId, filters = {}) {
     const query = { userId, deletedAt: null };

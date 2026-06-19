@@ -22,11 +22,11 @@ const LENS_DESCRIPTIONS = {
 };
 
 export class TemplateComposer {
-  constructor(aiModelService) {
-    if (!aiModelService) {
-      throw new Error('TemplateComposer requires an IAIModelService adapter');
+  constructor(completionService) {
+    if (!completionService) {
+      throw new Error('TemplateComposer requires an ICompletionService adapter');
     }
-    this.aiService = aiModelService;
+    this.aiService = completionService;
   }
 
   /**
@@ -55,16 +55,13 @@ export class TemplateComposer {
       // Build the prompt
       const prompt = this._buildPrompt(songTitle, artist, lenses, researchSummary, tastes);
 
-      // Call the AI adapter (production or mock)
-      const responseJson = await this.aiService.generateTemplate(prompt);
-
-      // Parse and validate response
-      const template = JSON.parse(responseJson);
+      // Call the AI adapter (production or mock) — adapter handles JSON parsing
+      const template = await this.aiService.completeJson(prompt);
       return template;
     } catch (error) {
       // If AI service fails, fall back to hardcoded template
       console.warn(`Template generation failed (${error.message}), using fallback`);
-      return this._buildFallbackTemplate(songTitle, artist, lenses, tastes);
+      return this.fallbackTemplate(songTitle, artist, lenses, tastes);
     }
   }
 
@@ -139,12 +136,16 @@ Only include the lenses specified: ${lenses.join(', ')}`;
   }
 
   /**
-   * Generate a fallback template when AI service fails
-   * Uses the same structure as AI-generated templates
-   * 
-   * @private
+   * Generate a fallback template when AI service fails.
+   * Public so route handlers can call it directly when needed.
+   *
+   * @param {string} songTitle
+   * @param {string} artist
+   * @param {string[]} lenses
+   * @param {Object|null} tastes
+   * @returns {Object} Fallback template
    */
-  _buildFallbackTemplate(songTitle, artist, lenses, tastes) {
+  fallbackTemplate(songTitle, artist, lenses, tastes) {
     const lensTemplates = {
       rhythm: {
         description: LENS_DESCRIPTIONS.rhythm,

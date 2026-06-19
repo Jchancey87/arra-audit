@@ -91,11 +91,8 @@ export default function createAuditRoutes(auditService, templateComposer, techni
       const promptVersion = 'v1';
 
       if (templateComposer) {
-        // Fetch song for context
-        let song = null;
-        try {
-          song = await auditService.songRepository?.findOne({ _id: songId, userId, deletedAt: null });
-        } catch (_) {}
+        // Fetch song for context via the service — no repository leakage in routes
+        const song = await auditService.getSongContext(songId, userId);
 
         // Issue 4: build richer context from full source content, not just the pre-computed snippet
         const researchData = song?.researchSummary;
@@ -124,12 +121,12 @@ export default function createAuditRoutes(auditService, templateComposer, techni
           console.log(`[Audit Create] ✓ AI template generated successfully using model: ${modelUsed}`);
         } catch (err) {
           console.warn(`[Audit Create] ✗ AI template generation failed (${err.message}), using FALLBACK generic template`);
-          templateQuestions = templateComposer._buildFallbackTemplate?.(
+          templateQuestions = templateComposer.fallbackTemplate(
             song?.title || 'Unknown',
             song?.artistName || song?.artist || 'Unknown',
             resolvedLenses,
             enrichedTastes || tastes
-          ) || null;
+          );
         }
       }
 

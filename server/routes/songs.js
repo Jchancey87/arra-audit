@@ -76,15 +76,8 @@ export default function createSongRoutes(songService, auditRepository, technique
         title = parts.slice(1).join(' - ').trim();
       }
 
-      // Fetch research via search service
-      let research = null;
-      if (songService.searchService) {
-        try {
-          research = await songService.searchService.searchSongInfo(title, artistName);
-        } catch (err) {
-          console.warn('Research fetch failed:', err.message);
-        }
-      }
+      // Fetch research via the service façade
+      const research = await songService.researchSong(title, artistName);
 
       const song = await songService.importSong(
         {

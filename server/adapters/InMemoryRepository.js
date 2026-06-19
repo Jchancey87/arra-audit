@@ -1,4 +1,5 @@
 import { IRepository } from '../ports/IRepository.js';
+import { IUserRepository } from '../ports/IUserRepository.js';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -229,39 +230,6 @@ export class InMemoryRepository extends IRepository {
     return false;
   }
 
-  async verifyPassword(entityId, candidatePassword) {
-    const doc = this.storage.get(entityId);
-    if (!doc) {
-      throw new Error('User not found');
-    }
-
-    const isValid = await bcrypt.compare(candidatePassword, doc.password);
-    if (!isValid) {
-      throw new Error('Invalid credentials');
-    }
-
-    return this._clone(doc);
-  }
-
-  async setPassword(entityId, newPassword) {
-    const doc = this.storage.get(entityId);
-    if (!doc) {
-      throw new Error('User not found');
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    const updated = {
-      ...doc,
-      password: hashedPassword,
-      updatedAt: new Date(),
-    };
-
-    this.storage.set(entityId, updated);
-    return this._clone(updated);
-  }
-
   /**
    * Clear all data (useful for test teardown)
    * @internal
@@ -281,5 +249,80 @@ export class InMemoryRepository extends IRepository {
       results.push(this._clone(doc));
     }
     return results;
+  }
+}
+
+/**
+ * InMemoryUserRepository - Test implementation of IUserRepository.
+ *
+ * Mirrors the InMemoryRepository CRUD surface, plus the password methods
+ * that live on IUserRepository (not on IRepository).
+ */
+export class InMemoryUserRepository extends IUserRepository {
+  constructor() {
+    super();
+    this._store = new InMemoryRepository();
+  }
+
+  async create(data) {
+    return this._store.create(data);
+  }
+
+  async findById(id) {
+    return this._store.findById(id);
+  }
+
+  async findOne(query) {
+    return this._store.findOne(query);
+  }
+
+  async updateById(id, data) {
+    return this._store.updateById(id, data);
+  }
+
+  async deleteById(id) {
+    return this._store.deleteById(id);
+  }
+
+  async exists(query) {
+    return this._store.exists(query);
+  }
+
+  async find(query, options) {
+    return this._store.find(query, options);
+  }
+
+  async count(query) {
+    return this._store.count(query);
+  }
+
+  async deleteMany(query) {
+    return this._store.deleteMany(query);
+  }
+
+  async verifyPassword(entityId, candidatePassword) {
+    const doc = await this._store.findById(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const isValid = await bcrypt.compare(candidatePassword, doc.password);
+    if (!isValid) {
+      throw new Error('Invalid credentials');
+    }
+
+    return doc;
+  }
+
+  async setPassword(entityId, newPassword) {
+    const doc = await this._store.findById(entityId);
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    return this._store.updateById(entityId, { password: hashedPassword });
   }
 }

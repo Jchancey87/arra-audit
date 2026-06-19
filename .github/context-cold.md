@@ -26,7 +26,8 @@ server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+server/services/auditService.js ← models/Audit
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
@@ -57,21 +58,23 @@ POST /analyze  →  trigger_analysis()  :44-65
 
 ## client
 
-### client/index.html
-```
-title: Arra Audit
-div#root
-```
-
 ### client/public/index.html
 ```
 title: Arra Audit
 div#root
 ```
 
-### client/src/App.jsx
+### client/src/adapters/HttpBackendAdapter.js
 ```
-function App()  :721-733
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
 ```
 
 ### client/src/components/ResearchSummaryRenderer.jsx
@@ -238,6 +241,19 @@ function _sanitizeSong(song)  :263-289
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
 async function callOpenAI(prompt)  :2-24
 function generateFallbackTemplate(songTitle, artist, lenses)  :110-161
+```
+
+### server/services/auditService.js
+```
+export class AuditService  :13-157
+  constructor(auditRepository, techniqueRepository, songRepository)  :14-21
+  if(!auditRepository)  :15-17
+  async createAudit(auditData) → Promise<Object>  :33-91
+  if(lensSelection.length === 0)  :49-51
+  if(this.songRepository)  :54-57
+  async getAudit(auditId, userId)  :95-101
+  async getAuditsForSong(songId, userId)  :103-112
+  if(this.songRepository)  :104-107
 ```
 
 ### server/services/authService.js

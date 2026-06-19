@@ -92,6 +92,25 @@ export class AuditService {
 
   // ─── Read ─────────────────────────────────────────────────────────────────
 
+  /**
+   * Fetch the song context (the song document) for an audit creation request.
+   * Returns null if the song is missing, soft-deleted, or does not belong to the user.
+   * Public method so route handlers don't have to reach into the repository.
+   *
+   * @param {string} songId
+   * @param {string} userId
+   * @returns {Promise<Object|null>}
+   */
+  async getSongContext(songId, userId) {
+    if (!this.songRepository) return null;
+    try {
+      return await this.songRepository.findOne({ _id: songId, userId, deletedAt: null });
+    } catch (err) {
+      console.warn('[AuditService] getSongContext failed:', err.message);
+      return null;
+    }
+  }
+
   async getAudit(auditId, userId) {
     const audit = await this.auditRepository.findById(auditId);
     if (!audit || audit.deletedAt) return null;

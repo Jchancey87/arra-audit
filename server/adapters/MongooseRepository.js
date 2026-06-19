@@ -1,7 +1,9 @@
 import { IRepository } from '../ports/IRepository.js';
+import { IUserRepository } from '../ports/IUserRepository.js';
 import bcrypt from 'bcryptjs';
 import Curriculum from '../models/Curriculum.js';
 import StudyProgress from '../models/StudyProgress.js';
+import User from '../models/User.js';
 
 /**
  * MongooseRepository - Production implementation of IRepository
@@ -140,6 +142,84 @@ export class MongooseRepository extends IRepository {
       throw new Error(`Failed to check existence: ${error.message}`);
     }
   }
+}
+
+export class CurriculumRepository extends MongooseRepository {
+  constructor() {
+    super(Curriculum);
+  }
+}
+
+export class StudyProgressRepository extends MongooseRepository {
+  constructor() {
+    super(StudyProgress);
+  }
+}
+
+/**
+ * UserRepository - Mongoose-backed implementation of IUserRepository.
+ *
+ * Adds password verify/change on top of the base MongooseRepository CRUD.
+ */
+export class UserRepository extends IUserRepository {
+  constructor(model) {
+    super();
+    if (!model) {
+      throw new Error('UserRepository requires a Mongoose model');
+    }
+    this.model = model;
+  }
+
+  async create(data) {
+    try {
+      const doc = new this.model(data);
+      return await doc.save();
+    } catch (error) {
+      throw new Error(`Failed to create ${this.model.modelName}: ${error.message}`);
+    }
+  }
+
+  async findById(id) {
+    try {
+      return await this.model.findById(id).lean();
+    } catch (error) {
+      throw new Error(`Failed to find ${this.model.modelName} by id: ${error.message}`);
+    }
+  }
+
+  async findOne(query) {
+    try {
+      return await this.model.findOne(query).lean();
+    } catch (error) {
+      throw new Error(`Failed to find one ${this.model.modelName}: ${error.message}`);
+    }
+  }
+
+  async updateById(id, data) {
+    try {
+      const doc = await this.model.findByIdAndUpdate(id, data, {
+        returnDocument: 'after',
+        runValidators: true,
+      });
+
+      if (!doc) {
+        throw new Error(`${this.model.modelName} not found`);
+      }
+
+      return doc;
+    } catch (error) {
+      throw new Error(`Failed to update ${this.model.modelName}: ${error.message}`);
+    }
+  }
+
+  async deleteById(id) {
+    try {
+      const result = await this.model.findByIdAndDelete(id);
+      return !!result;
+    } catch (error) {
+      throw new Error(`Failed to delete ${this.model.modelName}: ${error.message}`);
+    }
+  }
 
   async verifyPassword(entityId, candidatePassword) {
     const doc = await this.model.findById(entityId);
@@ -169,15 +249,9 @@ export class MongooseRepository extends IRepository {
   }
 }
 
-export class CurriculumRepository extends MongooseRepository {
+export class MongooseUserRepository extends UserRepository {
   constructor() {
-    super(Curriculum);
-  }
-}
-
-export class StudyProgressRepository extends MongooseRepository {
-  constructor() {
-    super(StudyProgress);
+    super(User);
   }
 }
 

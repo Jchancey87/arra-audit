@@ -75,7 +75,7 @@ Be highly technical and actionable. Do not use generic fluff.`;
     if (this.aiService) {
       try {
         console.log(`[Taste Deep Dive] Synthesizing style profile for "${trimmedName}"...`);
-        summary = await this.aiService.generateCompletion(prompt);
+        summary = await this.aiService.completeText(prompt);
       } catch (err) {
         console.error(`[Taste Deep Dive] AI synthesis failed: ${err.message}`);
         summary = `Failed to synthesize style profile from sources. Reason: ${err.message}`;

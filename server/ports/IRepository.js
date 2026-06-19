@@ -111,26 +111,4 @@ export class IRepository {
   async exists(query) {
     throw new Error('exists() not implemented');
   }
-
-  /**
-   * Verify an entity's password
-   * @param {string} entityId - Document ID
-   * @param {string} candidatePassword - Plaintext password to verify
-   * @returns {Promise<Object>} The entity if verification succeeds
-   * @throws {Error} if entity not found or password does not match
-   */
-  async verifyPassword(entityId, candidatePassword) {
-    throw new Error('verifyPassword() not implemented');
-  }
-
-  /**
-   * Hash and persist a new password for an entity
-   * @param {string} entityId - Document ID
-   * @param {string} newPassword - Plaintext new password
-   * @returns {Promise<Object>} Updated entity
-   * @throws {Error} if entity not found or update fails
-   */
-  async setPassword(entityId, newPassword) {
-    throw new Error('setPassword() not implemented');
-  }
 }
