@@ -31,7 +31,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-19 | Audit Panel Phase 3 + 4: polish, a11y (ErrorBoundary, prefers-contrast, AC_AUDIT.md), perf (lazy 8 audit chunks + useMemo), Tailwind CDN removal, responsive (audit-modules 2x2, mobile lane heights) | `—` |
+| 2026-06-19 | Audit Panel Phase 3 + 4: polish, a11y (ErrorBoundary, prefers-contrast, AC_AUDIT.md), perf (lazy 8 audit chunks + useMemo), Tailwind CDN removal, responsive (audit-modules 2x2, mobile lane heights) | `b6bb792` |
 | 2026-06-19 | Audit Panel Phase 2.3+2.4+2.5: LensPanel focus + count + customPrompts, SourcesPanel URL guard + hostname dot color + add/reimport stubs, CaptureTechnique tag suggestions + Ctrl+Enter/Esc + localized error, saved-list clickable timestamp | `88df2c3` |
 | 2026-06-19 | Audit Panel Phase 2.6+2.7: Header Save Draft + Saving state + inline completion warning, completionReason useMemo (3 msgs) + hasAnyResponse gate, NotebookPanel rewrite (search/sort/delete/seek) + 2-step confirm, InMemoryBackendAdapter songId/auditId/artist/tags/sortBy parity | `e19adb6` |
 | 2026-06-19 | Fix TDZ: hoist loadNotebookTechniques useCallback above dependent useEffect in AuditForm; push to origin; deploy via deploy.sh — all 3 PM2 services online | `0d25b42` |
