@@ -29,12 +29,14 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
+client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
 client/src/hooks/useCurricula.js ← context/BackendContext
+client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
 client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
@@ -93,6 +95,12 @@ class ErrorBoundary  :3-106
 export const parseSummaryText = (text) =>  :49-90
 ```
 
+### client/src/context/AudioContext.jsx
+```
+export const AudioProvider = ({ children }) =>  :8-150
+export const useAudio = () =>  :375-381
+```
+
 ### client/src/context/AuthContext.jsx
 ```
 export const AuthProvider = ({ children }) =>  :6-114
@@ -137,6 +145,11 @@ export function useCompletionCheck(audit, responses, activeLens, sessionTechniqu
 export function useCurricula()  :10-64
 ```
 
+### client/src/hooks/useDeepLinkParams.js
+```
+export function useDeepLinkParams()  :13-19
+```
+
 ### client/src/hooks/useSong.js
 ```
 export function useSong(songId, { skip = false } = {})  :13-78
@@ -155,6 +168,12 @@ export function useTasteProfiles()  :12-58
 ### client/src/hooks/useTechniques.js
 ```
 export function useTechniques(filters = {}, { skip = false } = {})  :14-87
+```
+
+### client/src/utils/deepLinks.js
+```
+export const buildAuditLink = (auditId, { timestampSeconds, bookmarkId } = {}) =>  :22-33
+export const parseDeepLinkParams = (searchString) =>  :35-44
 ```
 
 ## server

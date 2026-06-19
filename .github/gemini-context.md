@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:36.096Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:42.700Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -29,9 +29,7 @@ client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/components/ComparePlayer.jsx ← context/AudioContext
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
-client/src/context/AudioContext.jsx ← BackendContext
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
-client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
 client/src/hooks/useSketches.js ← context/BackendContext
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
@@ -40,11 +38,11 @@ analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
-.github/context-cold.md                       +ErrorBoundary  ~ClapAnalyzer  ~__init__  ~analyze_features
-.github/copilot-instructions.md               +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
-.github/gemini-context.md                     +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
+.github/context-cold.md                       +ErrorBoundary  +useAudit  +useAuditAutosave  +useAnalysisPolling
+.github/copilot-instructions.md               ~ErrorBoundary  ~useAudit  ~useAuditAutosave  ~useAnalysisPolling
+.github/gemini-context.md                     ~ErrorBoundary  ~useAudit  ~useAuditAutosave  ~useAnalysisPolling
 ```
 
 ## .github
@@ -62,20 +60,20 @@ h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
+h3 client/src/hooks/useAudit.js
+h3 client/src/hooks/useAuditAutosave.js
+h3 client/src/hooks/useAuditShortcuts.js
+h3 client/src/hooks/useAudits.js
+h3 client/src/hooks/useCompletionCheck.js
+h3 client/src/hooks/useCurricula.js
+h3 client/src/hooks/useSong.js
+h3 client/src/hooks/useStudyProgress.js
+h3 client/src/hooks/useTasteProfiles.js
+h3 client/src/hooks/useTechniques.js
 h2 server
+h3 server/adapters/InMemoryRepository.js
+h3 server/adapters/MockAIAdapter.js
 h3 server/adapters/MockSearchAdapter.js
-h3 server/adapters/TavilyAdapter.js
-h3 server/bin/seedCurriculum.js
-h3 server/middleware/auth.js
-h3 server/ports/ISearchService.js
-h3 server/routes/curricula.js
-h3 server/services/auditGenerator.js
-h3 server/services/authService.js
-h3 server/services/tavilySearch.js
-h3 server/services/techniqueService.js
-h2 skills
-h3 skills/handoff_runner.md
-code-fence plain
 ```
 
 ### .github/copilot-instructions.md
@@ -84,7 +82,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -100,11 +98,11 @@ h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
-h3 client/src/hooks/useAudit.js
-h3 client/src/hooks/useAuditAutosave.js
-h3 client/src/hooks/useAuditShortcuts.js
-h3 client/src/hooks/useAudits.js
-h3 client/src/hooks/useCompletionCheck.js
+h3 client/src/hooks/useDeepLinkParams.js
+h3 client/src/hooks/useSketches.js
+h3 client/src/pages/SketchCompare.jsx
+h3 client/src/pdf/AuditReport.jsx
+h3 client/src/pdf/theme.js
 ```
 
 ### .github/gemini-context.md
@@ -113,7 +111,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -129,11 +127,11 @@ h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
-h3 client/src/hooks/useAudit.js
-h3 client/src/hooks/useAuditAutosave.js
-h3 client/src/hooks/useAuditShortcuts.js
-h3 client/src/hooks/useAudits.js
-h3 client/src/hooks/useCompletionCheck.js
+h3 client/src/hooks/useDeepLinkParams.js
+h3 client/src/hooks/useSketches.js
+h3 client/src/pages/SketchCompare.jsx
+h3 client/src/pdf/AuditReport.jsx
+h3 client/src/pdf/theme.js
 ```
 
 ## analysis_service
@@ -206,21 +204,10 @@ function StubAudioProvider({ children })  :12-15
 function makeWrapper(backend)  :17-25
 ```
 
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :8-150
-export const useAudio = () =>  :375-381
-```
-
 ### client/src/hooks/__tests__/useSketches.test.jsx
 ```
 function makeWrapper(backend)  :8-12
 function makeFile(name = 'sketch.wav', size = 2048, type = 'audio/wav')  :14-16
-```
-
-### client/src/hooks/useDeepLinkParams.js
-```
-export function useDeepLinkParams()  :13-19
 ```
 
 ### client/src/hooks/useSketches.js
@@ -258,12 +245,6 @@ export class IBackendService  :7-70
   async changePassword(oldPassword, newPassword)  :14-14
   async deleteAccount()  :15-15
   async getSongs(filters)  :18-18
-```
-
-### client/src/utils/deepLinks.js
-```
-export const buildAuditLink = (auditId, { timestampSeconds, bookmarkId } = {}) =>  :22-33
-export const parseDeepLinkParams = (searchString) =>  :35-44
 ```
 
 ### client/src/utils/pdfData.js
