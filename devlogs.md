@@ -1133,3 +1133,34 @@ Increase audit questions label font size to 18px.
   - No backend touched; 44/44 server tests still green (caveman rule: skip on frontend-only).
   - No new client test infra (none existed in repo); pure utility `parseDeepLinkParams` is straightforward enough to skip in-session testing.
 - **Status**: Committed `a0080cb`. agent_memory.md updated with `a0080cb` and checkpoint reset.
+
+---
+
+### 2026-06-19: Phase 1.3 — PDF Report Export (committed `c322c95`)
+
+- **Goal**: Completed audit → Bitwig-themed PDF (cover + 4 lenses + bookmarks + techniques). 4-6 pages, ~3s render. Frontend only, no backend.
+- **Stack**: `@react-pdf/renderer` 4.5.1 (already in deps). Lazy-loaded via dynamic import to keep main bundle lean.
+- **New files**:
+  - `client/public/fonts/RobotoMono-{Regular,Bold}.ttf` + `Barlow-{Regular,SemiBold,Bold}.ttf` (919KB total, Apache 2.0 + OFL). Attribution noted in `theme.js` header.
+  - `client/src/pdf/theme.js` (90 lines) — `COLORS` (mirrors `--bg-surface-*` + `--accent-*`), `SPACING`, `RADII`, `PAGE` (A4, 36/48/40 padding), `TYPE`, `LENS_LABELS`, `LENS_DESCRIPTIONS`. `registerArraFonts()` lazy-registers 5 font files via `Font.register`.
+  - `client/src/utils/pdfData.js` (155 lines) — `prepareReportData(audit, song)` pure normalizer. Handles 3 response shapes (array of {question, answer, timestamp}, object {qKey: aValue}, plain string), prefers `audioOverrides` over `audioAnalysis`, drops invalid bookmarks (no valid positive ts) and techniques (no description). Exports `formatTimestamp` / `formatDuration` (M:SS).
+  - `client/src/pdf/AuditReport.jsx` (497 lines) — `<Document>` with 4 page types. `CoverPage` (kicker/title/artist/divider/audio chips/lens chips/audit meta/footer). `LensPages` (chunks 2 lenses/page, badge+name+description+Q&A with optional timestamp). `BookmarksPage` (table: time+label+note+lens). `TechniquesPage` (cards: lens+example ts+description). Fixed `<PageFooter>` with `pn/tp` page numbers via `render` prop.
+  - `client/src/utils/pdfExport.jsx` (renamed from .js for JSX, 50 lines) — `loadPdfRenderer()` cached dynamic import, `renderAuditToBlob(audit, song)` parallel-loads renderer+report+data+theme, `downloadBlob(blob, name)`, `buildAuditFilename(audit, song)` (slugified `arra-{title-artist}-{date}.pdf`).
+  - `client/src/components/ExportPdfButton.jsx` (110 lines) — ghost-variant button, 4 states (idle/loading/rendering/done/error), SVG download icon + spinner, `aria-label`, hover state, `runIdRef` cancels stale renders on rapid clicks.
+  - `client/vitest.config.js` + `client/src/test/setup.js` — minimal vitest+jsdom+@testing-library/jest-dom setup.
+  - `client/src/pdf/__tests__/pdfData.full.test.js` (10 tests) — full audit data: array/object/string response shapes, audioOverrides priority, all field types.
+  - `client/src/pdf/__tests__/pdfData.minimal.test.js` (10 tests) — empty/missing/null/edge cases for normalizer + formatTimestamp.
+- **Modified**:
+  - `client/src/pages/AuditDetail.jsx` — button in header actions row (L147-170), only when `audit.status === 'completed'`.
+  - `client/package.json` — `test` + `test:watch` scripts; devDeps vitest, jsdom, @testing-library/react, @testing-library/jest-dom.
+  - `HANDOFF_P0_P4.md` — 1.3 marked SHIPPED with full delivery list, Next Session Start Here updated.
+- **Bundle**:
+  - Main: 1010 → 1016 KB (+6 KB for button + util wrapper)
+  - Lazy: `theme-*.js` 2.25 KB · `pdfData-*.js` 3.09 KB · `AuditReport-*.js` 17.89 KB · `react-pdf.browser-*.js` 1628.86 KB
+  - 4 chunks load on button click, not on page load.
+- **Verification**:
+  - `npm test` from `client/`: 20/20 tests pass (jsdom).
+  - `npx vite build` in `client/`: clean, 66 modules.
+  - `npm test` from `server/`: 44/44 still green (no backend touched).
+  - **PDF render smoke test deferred**: jsdom lacks `fetch(file://)` for fontkit. Wrote one but it fails on font load. Would need undici polyfill or browser env. Manual smoke in Chrome required for full acceptance.
+- **Status**: Committed `c322c95`. agent_memory.md updated with `c322c95` + new red-line entry for PDF module. Phase 1.2 (A/B compare) is the only remaining Phase 1 feature.

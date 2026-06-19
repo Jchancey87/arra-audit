@@ -1,12 +1,12 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: P0–P4 Phase 1 (Sharing & Export) — 1.1 deep-link bookmarks done, 1.2 A/B compare + 1.3 PDF export pending.
-- **Status**: 🟡 In progress — 1.1 committed (`a0080cb`). 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d) next.
+- **Goal**: P0–P4 Phase 1 (Sharing & Export) — 1.1 deep-link bookmarks + 1.3 PDF export done; 1.2 A/B compare pending.
+- **Status**: 🟡 In progress — 1.1 (`a0080cb`) + 1.3 (`c322c95`) shipped. 1.2 (A/B compare, L/1wk) remaining.
 
 ## ⏸️ Resume Point (checkpoint 2026-06-19)
-- **Done**: Phase 1.1 deep-link bookmarks committed `a0080cb`. 4 new files + AudioContext ext + AuditDetail wiring + HANDOFF_P0_P4.md updated.
-- **Next**: Phase 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d) — user undecided.
+- **Done**: Phase 1.1 deep-link bookmarks (`a0080cb`) + Phase 1.3 PDF export (`c322c95`). HANDOFF_P0_P4.md updated with both delivery lists.
+- **Next**: Phase 1.2 (A/B compare, L/1wk) — biggest remaining Phase 1 lift. Or close out Phase 1 if user wants to move to Phase 2.
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -27,6 +27,7 @@
 - **ICompletionService port**: Replaces `IAIModelService` (kept as deprecated shim, removed in Phase 2). Two clean methods: `completeText(prompt) → string` and `completeJson(prompt) → object` (adapters parse JSON internally). Production: `OpenAIAdapter`. Tests: `MockAIAdapter`. Migrated consumers: `TemplateComposer`, `SongService`, `CurriculumService`, `TasteService`.
 - **Client data hooks (Phase 0.4)**: `client/src/hooks/` holds 7 deep-module hooks wrapping `IBackendService`: `useSong`, `useAudits`, `useAudit`, `useTechniques`, `useStudyProgress`, `useCurricula`, `useTasteProfiles`. Each provides `{ state, loading, error, refetch, action… }`. All use `useBackend()` to access the adapter (which works with both `HttpBackendAdapter` prod and `InMemoryBackendAdapter` test). AuditForm/TechniqueNotebook refactor to use the hooks is a follow-up task — the layer is now in place.
 - **Deep-link bookmarks (Phase 1.1)**: `/audit/:id?t=<sec>&bookmark=<id>` opens audit, seeks player, pulses matching bookmark card for 4s. `client/src/utils/deepLinks.js` (buildAuditLink/parseDeepLinkParams/DEEP_LINK_KEYS), `client/src/hooks/useDeepLinkParams.js` (react-router `useSearchParams` wrapper), `client/src/components/ShareLinkButton.jsx` (`navigator.share` → clipboard fallback with "Copied"/"Copy failed" feedback). `AudioContext` exposes `highlightBookmark(id, {durationMs})` + `highlightBookmarkId`. `AuditDetail` consumes all three: applies deep-link once on mount (with 350ms seek delay for YouTube player mount), renders `ShareLinkButton` on each bookmark card with `compact` style, highlights matching card via `box-shadow` + orange border.
+- **PDF report export (Phase 1.3)**: Bitwig-themed PDF for completed audits via `@react-pdf/renderer` 4.5.1. `client/src/pdf/theme.js` (COLORS/SPACING/RADII/PAGE/TYPE/LENS_LABELS/LENS_DESCRIPTIONS + `registerArraFonts()` for Roboto Mono + Barlow from `/fonts/`). `client/src/utils/pdfData.js` (`prepareReportData(audit, song)` pure normalizer — handles array/object/string response shapes, prefers `audioOverrides` over `audioAnalysis`, drops invalid bookmarks/techniques). `client/src/pdf/AuditReport.jsx` (Document with Cover + Lens + Bookmarks + Techniques pages, fixed footer). `client/src/utils/pdfExport.jsx` (renamed from .js for JSX; `loadPdfRenderer()` cached dynamic-import + `renderAuditToBlob` + `downloadBlob` + `buildAuditFilename`). `client/src/components/ExportPdfButton.jsx` (ghost-variant, 4 states, SVG icons, runIdRef cancel). `client/public/fonts/` ships Roboto Mono Regular+Bold (Apache 2.0) + Barlow Regular+SemiBold+Bold (OFL) — 919KB total. `AuditDetail` renders button in header actions only for `status === 'completed'`. **Bundle impact**: main 1010→1016KB (+6KB), react-pdf 1.6MB lazy-loaded on click. **Tests**: vitest+jsdom setup (`client/vitest.config.js` + `client/src/test/setup.js`); 20 tests across `pdfData.full.test.js` (10) + `pdfData.minimal.test.js` (10) covering normalizeResponseEntry/normalizeBookmark/normalizeTechnique + formatTimestamp. **Run**: `npm test` from `client/`. **Caveat**: end-to-end PDF render smoke test deferred — jsdom lacks `fetch(file://)`; would need polyfill or browser env. Manual smoke in Chrome/Preview still required before claiming full acceptance.
 
 ## 🛠️ Open Priority TODOs
 - [x] Time signature selector (3/4, 6/8) in ArrangementTimelineWidget.
@@ -40,6 +41,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-19 | Phase 1.3 PDF export: theme.js (Bitwig tokens + font reg), pdfData.js (normalizer), AuditReport.jsx (Document w/ 4 page types), pdfExport.jsx (dynamic-import wrapper), ExportPdfButton.jsx (4 states), fonts/ (Roboto Mono + Barlow), AuditDetail wiring, vitest+jsdom setup, 20 tests. Main 1010→1016KB; react-pdf 1.6MB lazy. | `c322c95` |
 | 2026-06-19 | Phase 1.1 deep-link bookmarks: deepLinks util + useDeepLinkParams hook + ShareLinkButton (navigator.share→clipboard) + AudioContext.highlightBookmark + AuditDetail wiring. Vite clean. | `a0080cb` |
 | 2026-06-19 | P0–P4 Phase 0: 0.1a/b/c leaks fixed, IUserRepository split, IAIModelService → ICompletionService rename, 7 client data hooks, AuditForm 1040→461 lines consuming hooks (no `backend.*` in pages), 6 extracted subcomponents + 3 utility hooks. Server 44/44, Vite clean. | `3a1e936` |
 | 2026-06-19 | Audit Panel Phase 3 + 4: polish, a11y (ErrorBoundary, prefers-contrast, AC_AUDIT.md), perf (lazy 8 audit chunks + useMemo), Tailwind CDN removal, responsive (audit-modules 2x2, mobile lane heights) | `b6bb792` |

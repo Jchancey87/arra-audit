@@ -23,7 +23,7 @@ server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
-client/src/context/AudioContext.jsx ← BackendContext
+client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 analysis_service/analyzer.py ← requests
@@ -72,15 +72,15 @@ export class HttpBackendAdapter  :8-172
   async deleteAccount()  :55-58
 ```
 
+### client/src/adapters/InMemoryBackendAdapter.js
+```
+export class InMemoryBackendAdapter  :7-31
+  constructor()  :8-31
+```
+
 ### client/src/components/ResearchSummaryRenderer.jsx
 ```
 export const parseSummaryText = (text) =>  :49-90
-```
-
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :8-150
-export const useAudio = () =>  :354-360
 ```
 
 ### client/src/context/AuthContext.jsx
