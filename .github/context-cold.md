@@ -22,33 +22,8 @@ server/adapters/MockSearchAdapter.js ← ports/ISearchService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
-client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
-client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
-analysis_service/analyzer.py ← requests
-analysis_service/app.py ← fastapi, pydantic, analyzer
-```
-
-## analysis_service
-
-### analysis_service/analyzer.py
-```
-class ClapAnalyzer  :44-112
-  def __init__(model_name)
-  def analyze_features(file_path, tags)
-def get_clap_analyzer()  :117-124
-def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
-```
-
-### analysis_service/app.py
-```
-class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
-def health()  :40-41
-def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :44-65  # Triggers an asynchronous audio analysis job
-GET /health  →  health()  :40-41
-POST /analyze  →  trigger_analysis()  :44-65
 ```
 
 ## client
@@ -57,25 +32,6 @@ POST /analyze  →  trigger_analysis()  :44-65
 ```
 title: Arra Audit
 div#root
-```
-
-### client/src/adapters/HttpBackendAdapter.js
-```
-export class HttpBackendAdapter  :8-172
-  constructor(baseURL)  :9-22
-  async login(email, password)  :25-28
-  async register(email, password, name)  :30-33
-  async getUserProfile()  :35-38
-  async updatePreferences(preferences)  :40-43
-  async updateProfile(profileData)  :45-48
-  async changePassword(oldPassword, newPassword)  :50-53
-  async deleteAccount()  :55-58
-```
-
-### client/src/adapters/InMemoryBackendAdapter.js
-```
-export class InMemoryBackendAdapter  :7-31
-  constructor()  :8-31
 ```
 
 ### client/src/components/ResearchSummaryRenderer.jsx
@@ -93,19 +49,6 @@ export const useAuth = () =>  :116-122
 ```
 export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
-```
-
-### client/src/ports/IBackendService.js
-```
-export class IBackendService  :7-63
-  async login(email, password)  :9-9
-  async register(email, password, name)  :10-10
-  async getUserProfile()  :11-11
-  async updatePreferences(preferences)  :12-12
-  async updateProfile(profileData)  :13-13
-  async changePassword(oldPassword, newPassword)  :14-14
-  async deleteAccount()  :15-15
-  async getSongs(filters)  :18-18
 ```
 
 ## server

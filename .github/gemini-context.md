@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:00:54.411Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:13:41.553Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -23,6 +23,7 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+server/__tests__/unit/SketchService.test.js ← ../services/SketchService, ../adapters/InMemoryRepository
 server/adapters/InMemoryRepository.js ← ports/IRepository, ports/IUserRepository
 server/adapters/MockAIAdapter.js ← ports/ICompletionService
 server/adapters/MongooseRepository.js ← ports/IRepository, ports/IUserRepository, models/Curriculum, models/StudyProgress, models/User
@@ -31,50 +32,52 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/services/auditService.js ← models/Audit
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
+client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
+client/src/components/ComparePlayer.jsx ← context/AudioContext
+client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/context/AudioContext.jsx ← BackendContext
+client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
 client/src/hooks/useCurricula.js ← context/BackendContext
 client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
+client/src/hooks/useSketches.js ← context/BackendContext
 client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
 client/src/hooks/useTechniques.js ← context/BackendContext
+client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 client/src/utils/pdfData.js ← pdf/theme
+analysis_service/analyzer.py ← requests
+analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
-server/adapters/InMemoryRepository.js         +InMemoryUserRepository  ~InMemoryRepository
-server/adapters/MockAIAdapter.js              +MockAIAdapter  ~MockAIAdapter
-server/adapters/MongooseRepository.js         +CurriculumRepository  +StudyProgressRepository  +UserRepository  +MongooseUserRepository
-server/adapters/OpenAIAdapter.js              +OpenAIAdapter  ~OpenAIAdapter
-server/ports/IAIModelService.js               +IAIModelService  ~implementing  ~IAIModelService
-server/ports/ICompletionService.js            +ICompletionService
-server/ports/IRepository.js                   ~IRepository
-server/ports/IUserRepository.js               +IUserRepository
-server/services/auditService.js               ~AuditService
-server/services/templateComposer.js           ~TemplateComposer
-client/src/hooks/useAudit.js                  +useAudit
-client/src/hooks/useAuditAutosave.js          +useAuditAutosave  +useAnalysisPolling  +useAnalysisProgressSim
-client/src/hooks/useAuditShortcuts.js         +useAuditShortcuts
-client/src/hooks/useAudits.js                 +useAudits
-client/src/hooks/useCompletionCheck.js        +useCompletionCheck
-client/src/hooks/useCurricula.js              +useCurricula
+server/__tests__/unit/SketchService.test.js   +mockFile
+server/routes/sketches.js                     +_sanitizeSketch  +createSketchRoutes
+server/services/SketchService.js              +SketchService
+client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
+client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
+client/src/components/ComparePlayer.jsx       +formatTime  +readMeta  +MetaRow  +DeltaBar
+client/src/components/__tests__/ComparePlayer.test.jsx +StubAudioProvider  +makeWrapper
+client/src/hooks/__tests__/useSketches.test.jsx +makeWrapper  +makeFile
 client/src/hooks/useDeepLinkParams.js         +useDeepLinkParams
-client/src/hooks/useSong.js                   +useSong
-client/src/hooks/useStudyProgress.js          +useStudyProgress
-client/src/hooks/useTasteProfiles.js          +useTasteProfiles
-client/src/hooks/useTechniques.js             +useTechniques
+client/src/hooks/useSketches.js               +useSketches
+client/src/pages/SketchCompare.jsx            +SketchCompare  +Centered
 client/src/pdf/AuditReport.jsx                +CoverPage  +LensPages  +BookmarksPage  +TechniquesPage
 client/src/pdf/theme.js                       +registerArraFonts
+client/src/ports/IBackendService.js           ~IBackendService
 client/src/utils/pdfData.js                   +formatTimestamp  +formatDuration  +firstDefined  +pickLensAudio
 client/src/utils/pdfExport.jsx                +loadPdfRenderer  +renderAuditToBlob  +downloadBlob  +buildAuditFilename
-.github/context-cold.md                       +HttpBackendAdapter  +InMemoryBackendAdapter  ~App  ~InMemoryRepository
-.github/copilot-instructions.md               +App  +ErrorBoundary  +useAudit  +useAuditAutosave
-.github/gemini-context.md                     +App  +ErrorBoundary  +useAudit  +useAuditAutosave
+analysis_service/analyzer.py                  +analyze_sketch_file  ~download_and_analyze
+analysis_service/app.py                       +SketchAnalysisRequest  +trigger_sketch_analysis  ~AnalysisRequest  ~trigger_analysis
+.github/context-cold.md                       +InMemoryBackendAdapter  ~InMemoryRepository  ~MockAIAdapter  ~MongooseRepository
+.github/copilot-instructions.md               +useAudit  +useAuditAutosave  +useAnalysisPolling  +useAnalysisProgressSim
+.github/gemini-context.md                     +useAudit  +useAuditAutosave  +useAnalysisPolling  +useAnalysisProgressSim
 ```
 
 ## .github
@@ -166,6 +169,31 @@ h3 client/src/hooks/useStudyProgress.js
 h3 client/src/hooks/useTasteProfiles.js
 ```
 
+## analysis_service
+
+### analysis_service/analyzer.py
+```
+class ClapAnalyzer  :44-112
+  def __init__(model_name)
+  def analyze_features(file_path, tags)
+def get_clap_analyzer()  :117-124
+def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
+def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
+def analyze_sketch_file(file_path, sketch_id, callback_url)  :435-469  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
+```
+
+### analysis_service/app.py
+```
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
+class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :39-42
+def health()  :45-46
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :49-70  # Triggers an asynchronous audio analysis job
+def trigger_sketch_analysis(request: SketchAnalysisRequest)  :73-100  # Synchronously analyze an uploaded DAW sketch from a local fi
+GET /health  →  health()  :45-46
+POST /analyze  →  trigger_analysis()  :49-70
+POST /analyze-sketch  →  trigger_sketch_analysis()  :73-100
+```
+
 ## client
 
 ### client/UI/AC_AUDIT.md
@@ -197,7 +225,39 @@ div#root
 
 ### client/src/App.jsx
 ```
-function App()  :733-745
+function App()  :736-748
+```
+
+### client/src/adapters/HttpBackendAdapter.js
+```
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
+```
+
+### client/src/adapters/InMemoryBackendAdapter.js
+```
+export class InMemoryBackendAdapter  :7-32
+  constructor()  :8-32
+```
+
+### client/src/components/ComparePlayer.jsx
+```
+function formatTime(seconds)  :15-21
+function readMeta(analysis)  :23-31
+function MetaRow({ label, ref, sk })  :33-43
+function DeltaBar({ delta })  :45-66
+function DeltaPanel({ refMeta, skMeta })  :68-91
+function SketchEnergyCanvas({ audioRef })  :93-159
+function PlayIcon()  :161-163
+function PauseIcon()  :164-166
+function Panel({ color, label, sublabel, time, duration, onScrub })  :343-367
 ```
 
 ### client/src/components/ErrorBoundary.jsx
@@ -212,10 +272,22 @@ class ErrorBoundary  :3-106
   if(this.state.error)  :27-103
 ```
 
+### client/src/components/__tests__/ComparePlayer.test.jsx
+```
+function StubAudioProvider({ children })  :12-15
+function makeWrapper(backend)  :17-25
+```
+
 ### client/src/context/AudioContext.jsx
 ```
 export const AudioProvider = ({ children }) =>  :8-150
 export const useAudio = () =>  :375-381
+```
+
+### client/src/hooks/__tests__/useSketches.test.jsx
+```
+function makeWrapper(backend)  :8-12
+function makeFile(name = 'sketch.wav', size = 2048, type = 'audio/wav')  :14-16
 ```
 
 ### client/src/hooks/useAudit.js
@@ -255,6 +327,11 @@ export function useCurricula()  :10-64
 export function useDeepLinkParams()  :13-19
 ```
 
+### client/src/hooks/useSketches.js
+```
+export function useSketches(songId = null)  :15-99
+```
+
 ### client/src/hooks/useSong.js
 ```
 export function useSong(songId, { skip = false } = {})  :13-78
@@ -275,6 +352,11 @@ export function useTasteProfiles()  :12-58
 export function useTechniques(filters = {}, { skip = false } = {})  :14-87
 ```
 
+### client/src/pages/SketchCompare.jsx
+```
+function Centered({ children })  :202-208
+```
+
 ### client/src/pdf/AuditReport.jsx
 ```
 function CoverPage({ data })  :280-351
@@ -287,6 +369,19 @@ function PageFooter({ pageNumber, totalPages })  :468-480
 ### client/src/pdf/theme.js
 ```
 export function registerArraFonts()  :18-48
+```
+
+### client/src/ports/IBackendService.js
+```
+export class IBackendService  :7-70
+  async login(email, password)  :9-9
+  async register(email, password, name)  :10-10
+  async getUserProfile()  :11-11
+  async updatePreferences(preferences)  :12-12
+  async updateProfile(profileData)  :13-13
+  async changePassword(oldPassword, newPassword)  :14-14
+  async deleteAccount()  :15-15
+  async getSongs(filters)  :18-18
 ```
 
 ### client/src/utils/deepLinks.js
@@ -317,6 +412,11 @@ export function buildAuditFilename(audit, song)  :52-57
 ```
 
 ## server
+
+### server/__tests__/unit/SketchService.test.js
+```
+function mockFile({ originalname = 'sketch.wav', mimetype = 'audio/wav', size = 1024, filename = 'sketch-1.wav', path: filePath = '/tmp/sketch-1.wav' } = {})  :5-7
+```
 
 ### server/adapters/InMemoryRepository.js
 ```
@@ -423,10 +523,28 @@ export class IUserRepository  :14-36
   async setPassword(entityId, newPassword) → Promise<Object>  :33-35
 ```
 
+### server/routes/sketches.js
+```
+function _sanitizeSketch(s)  :37-58
+```
+
 ### server/routes/songs.js
 ```
 function extractYouTubeId(url)  :13-25
 function _sanitizeSong(song)  :256-282
+```
+
+### server/services/SketchService.js
+```
+export class SketchService  :11-131
+  constructor(sketchRepository, songRepository, { analysisServiceUrl, logger = console } = {})  :12-18
+  async assertSongOwned(songId, userId)  :20-33
+  if(!song)  :23-27
+  async createSketch({ userId, songId, file, title = '', notes = '' })  :35-69
+  if(file.size > DEFAULT_LIMITS.maxFileBytes)  :48-52
+  async getSketchesForSong(songId, userId)  :71-78
+  async getSketch(id, userId)  :80-93
+  if(!sketch || sketch.deletedAt)  :82-86
 ```
 
 ### server/services/auditService.js

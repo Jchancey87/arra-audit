@@ -1164,3 +1164,46 @@ Increase audit questions label font size to 18px.
   - `npm test` from `server/`: 44/44 still green (no backend touched).
   - **PDF render smoke test deferred**: jsdom lacks `fetch(file://)` for fontkit. Wrote one but it fails on font load. Would need undici polyfill or browser env. Manual smoke in Chrome required for full acceptance.
 - **Status**: Committed `c322c95`. agent_memory.md updated with `c322c95` + new red-line entry for PDF module. Phase 1.2 (A/B compare) is the only remaining Phase 1 feature.
+
+---
+
+### 2026-06-19: Phase 1.2 — A/B Compare Mode (committed `af34984`)
+
+- **Goal**: Upload a DAW sketch (mp3/wav/m4a/aac/flac, up to 100MB), sync playback against the YouTube reference, show side-by-side metadata + delta.
+- **Recon**: 24-point exploration of repos/services/routes/Python/hooks/adapters; found: (a) `IRepository` is enough — no per-model port needed; (b) `InMemoryBackendAdapter` already has `uploadAudioSketch` pattern; (c) `studyProgress.js` is the only multer reference; (d) `analysis_service.analyzer.analyze_audio_file` can be called synchronously on a local file path (no yt-dlp needed).
+- **Server (new)**:
+  - `server/models/SongSketch.js` (35 lines) — soft-delete via `deletedAt`, `analysis` Mixed (mirrors `Song.audioAnalysis`), `analysisStatus` enum, indexes on `(userId, songId, deletedAt, createdAt)`.
+  - `server/services/SketchService.js` (175 lines) — `createSketch` (file ext + size guards, song-ownership check, 100MB cap), `getSketchesForSong`, `getSketch`, `deleteSketch` (soft + best-effort file unlink), `analyzeSketch` (calls Python `/analyze-sketch` 15s timeout, stores result, marks failed on error).
+  - `server/routes/sketches.js` (130 lines) — multer diskStorage `sketch-{timestamp}-{rand}.{ext}`, 100MB cap, allowed ext `mp3|wav|m4a|aac|flac`. Routes: `GET /songs/:songId`, `POST /songs/:songId/upload`, `GET /:id`, `DELETE /:id`, `POST /:id/analyze`. `_sanitizeSketch()` strips internals. Mirrors `studyProgress.js` pattern exactly.
+  - `server/server.js` — registers `SongSketch`, `sketchRepository = new MongooseRepository(SongSketch)`, `sketchService = new SketchService(sketchRepository, songRepository)`, mounts `app.use('/api/sketches', authMiddleware, createSketchRoutes(sketchService))`. Static `/uploads` already serves sketches.
+- **Python (new endpoint)**:
+  - `analysis_service/analyzer.py` — `analyze_sketch_file(file_path, sketch_id, callback_url=None)` (60 lines) reuses `analyze_audio_file(file_path, sketch_id)` synchronously. Same deterministic-fallback RNG seed.
+  - `analysis_service/app.py` — `SketchAnalysisRequest(BaseModel)` + `POST /analyze-sketch` (40 lines) returns `{status, sketch_id, analysis}` sync; 404 if file missing; 500 on failure.
+- **Client (new)**:
+  - `client/src/ports/IBackendService.js` — 5 new methods: `getSketches`, `getSketch`, `uploadSketch`, `deleteSketch`, `analyzeSketch`.
+  - `client/src/adapters/HttpBackendAdapter.js` — `uploadSketch` uses `FormData` with `audio` field + optional `title`/`notes`, mirrors existing `uploadAudioSketch` pattern.
+  - `client/src/adapters/InMemoryBackendAdapter.js` — `this.sketches = []` + 5 mock methods (in-memory store, optimistic latency, mock analysis result with `tempo_bpm: 120, key: C, scale: major`).
+  - `client/src/hooks/useSketches.js` (100 lines) — list + `upload` (optimistic prepend + refetch) + `remove` (filter) + `analyze` (merge into local). Mirrors `useTechniques` style with AbortController.
+  - `client/src/hooks/index.js` — re-export `useSketches`.
+  - `client/src/components/ComparePlayer.jsx` (300 lines) — dual transport. Master play/pause controls YouTube (via `useAudio`). Hidden `<audio>` for sketch. **Drift sync every 500ms** when playing: re-syncs if `|drift| > 0.4s`. Web Audio API `AnalyserNode` → 96-bar canvas heatmap. Side-by-side metadata panel (BPM/key/scale/meter) + delta bar showing BPM difference + key-match indicator.
+  - `client/src/pages/SketchCompare.jsx` (170 lines) — `/compare/:songId/:sketchId`. Loads song via `backend.getSong`, lists sketches via `useSketches(songId)`, file upload via `<input type="file">`, per-sketch "Analyze" + "Delete" actions. Renders selected `<ComparePlayer>`. Placeholder when no sketch selected.
+  - `client/src/App.jsx` — 2 new routes + import.
+  - `client/src/pages/AuditDetail.jsx` — "A/B Compare" button in header actions row, navigates to `/compare/{song._id}`.
+- **Tests (8 + 3 + 2 = 13 new)**:
+  - `server/__tests__/unit/SketchService.test.js` (8 tests) — full data, unsupported ext, oversized, ownership, list/get/delete, analyze success (with `jest.spyOn(axios, 'post')` mock), analyze failure.
+  - `client/src/hooks/__tests__/useSketches.test.jsx` (3 tests) — empty list, upload+prepend, analyze→state merge. Wraps in `BackendProvider adapter={backend}`.
+  - `client/src/components/__tests__/ComparePlayer.test.jsx` (2 tests) — renders master+panels+metadata with analysis, hides Delta panel when no analysis. Wraps in `MemoryRouter + BackendProvider + AudioProvider`.
+- **Bundle**: main 1016 → 1043 KB (+27 KB for ComparePlayer + SketchCompare).
+- **Verification**:
+  - `npm test` from `server/`: 53/53 pass (44 original + 9 new).
+  - `npm test` from `client/`: 25/25 pass (20 PDF + 3 useSketches + 2 ComparePlayer).
+  - `npx vite build` in `client/`: clean build.
+  - `python3 -c "import ast; ast.parse(...)"` for both Python files: OK.
+  - `jsdom` warns "HTMLMediaElement.pause not implemented" in ComparePlayer tests — non-fatal, tests pass.
+- **Known v2 limitations** (per HANDOFF risks):
+  - YouTube IFrame drift on long playback (drift threshold 0.4s in v1).
+  - No yt-dlp audio fallback for embed-blocked videos.
+  - No sample-level delta waveform (v1 shows sketch energy only via `AnalyserNode`).
+  - Sketch `durationSeconds` populated only if Python returns it.
+  - No cascade: if a song is deleted, its sketches are orphaned.
+- **Status**: Committed `af34984`. agent_memory.md updated with `af34984` + new red-line entry for A/B compare module. **Phase 1 complete** — 1.1 / 1.2 / 1.3 all shipped. Next: Phase 2 (2.1 promote-to-technique S/1d, 2.3 per-bookmark CLAP M-L/5d, etc.).
