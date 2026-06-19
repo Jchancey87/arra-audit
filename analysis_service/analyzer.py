@@ -430,3 +430,40 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
             except Exception as cb_err:
                 print(f"[Analyzer] Callback notification failed: {cb_err}", file=sys.stderr)
         raise e
+
+
+def analyze_sketch_file(file_path, sketch_id, callback_url=None):
+    """
+    Analyze a user-uploaded DAW sketch (local file path, no yt-dlp).
+    Returns the analysis dict (synchronous). Optional callback is notified
+    on success/failure. Mirrors the shape produced by analyze_audio_file.
+    """
+    print(f"[Analyzer] Starting sketch analysis: id={sketch_id} path={file_path}")
+    if not file_path or not os.path.exists(file_path):
+        raise FileNotFoundError(f"Sketch file not found: {file_path}")
+
+    try:
+        analysis = analyze_audio_file(file_path, sketch_id)
+        if callback_url:
+            try:
+                requests.post(
+                    callback_url,
+                    json={"status": "success", "analysis": analysis},
+                    headers={"Content-Type": "application/json"},
+                    timeout=15,
+                )
+            except Exception as cb_err:
+                print(f"[Analyzer] Sketch callback failed: {cb_err}", file=sys.stderr)
+        return analysis
+    except Exception as e:
+        if callback_url:
+            try:
+                requests.post(
+                    callback_url,
+                    json={"status": "failed", "error": str(e)},
+                    headers={"Content-Type": "application/json"},
+                    timeout=15,
+                )
+            except Exception as cb_err:
+                print(f"[Analyzer] Sketch callback failed: {cb_err}", file=sys.stderr)
+        raise e

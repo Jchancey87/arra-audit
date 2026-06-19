@@ -8,7 +8,7 @@ from typing import Optional
 # Add current folder to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from analyzer import download_and_analyze
+from analyzer import download_and_analyze, analyze_sketch_file
 
 app = FastAPI(
     title="Arra Audio Analysis Service",
@@ -34,6 +34,11 @@ class AnalysisRequest(BaseModel):
     song_id: str
     youtube_url: str
     yt_id: str
+    callback_url: Optional[str] = None
+
+class SketchAnalysisRequest(BaseModel):
+    sketch_id: str
+    file_path: str
     callback_url: Optional[str] = None
 
 @app.get("/health")
@@ -62,6 +67,36 @@ def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks
         "status": "queued",
         "song_id": request.song_id,
         "yt_id": request.yt_id
+    }
+
+@app.post("/analyze-sketch")
+def trigger_sketch_analysis(request: SketchAnalysisRequest):
+    """
+    Synchronously analyze an uploaded DAW sketch from a local file path.
+    Returns the analysis dict in the response body. No yt-dlp required.
+    """
+    if not request.sketch_id or not request.file_path:
+        raise HTTPException(status_code=400, detail="Missing required parameters: sketch_id, file_path")
+
+    if not os.path.exists(request.file_path):
+        raise HTTPException(status_code=404, detail=f"Sketch file not found: {request.file_path}")
+
+    print(f"[API] Analyzing sketch {request.sketch_id} from {request.file_path}")
+    try:
+        analysis = analyze_sketch_file(
+            file_path=request.file_path,
+            sketch_id=request.sketch_id,
+            callback_url=request.callback_url,
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sketch analysis failed: {e}")
+
+    return {
+        "status": "success",
+        "sketch_id": request.sketch_id,
+        "analysis": analysis,
     }
 
 if __name__ == "__main__":

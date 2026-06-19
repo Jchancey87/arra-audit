@@ -60,5 +60,12 @@ export class IBackendService {
   async completeDayProgress(progressId, dayNumber, responses, syncTechnique, techniqueNotes) { throw new Error('Not implemented'); }
   async uploadAudioSketch(progressId, dayNumber, file) { throw new Error('Not implemented'); }
   async submitWeeklyReview(progressId, weekNumber, reviewData) { throw new Error('Not implemented'); }
+
+  // Sketches (A/B compare)
+  async getSketches(songId) { throw new Error('Not implemented'); }
+  async getSketch(id) { throw new Error('Not implemented'); }
+  async uploadSketch(songId, file, { title, notes } = {}) { throw new Error('Not implemented'); }
+  async deleteSketch(id) { throw new Error('Not implemented'); }
+  async analyzeSketch(id) { throw new Error('Not implemented'); }
 }
 

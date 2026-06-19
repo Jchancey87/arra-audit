@@ -14,6 +14,7 @@ import Trash from './pages/Trash';
 import Settings from './pages/Settings';
 import StudyPlannerDashboard from './pages/StudyPlannerDashboard';
 import StudySessionWorkspace from './pages/StudySessionWorkspace';
+import SketchCompare from './pages/SketchCompare';
 import ResearchSummaryRenderer from './components/ResearchSummaryRenderer';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -415,6 +416,8 @@ const AppContent = () => {
                 <Route path="/audit/create/:songId" element={<PrivateRoute><AuditCreate /></PrivateRoute>} />
                 <Route path="/audit/form/:auditId" element={<PrivateRoute><AuditForm /></PrivateRoute>} />
                 <Route path="/audit/:id" element={<PrivateRoute><AuditDetail /></PrivateRoute>} />
+                <Route path="/compare/:songId" element={<PrivateRoute><SketchCompare /></PrivateRoute>} />
+                <Route path="/compare/:songId/:sketchId" element={<PrivateRoute><SketchCompare /></PrivateRoute>} />
                 <Route path="/techniques" element={<PrivateRoute><TechniqueNotebook /></PrivateRoute>} />
                 <Route path="/planner" element={<PrivateRoute><StudyPlannerDashboard /></PrivateRoute>} />
                 <Route path="/planner/session/:dayNumber" element={<PrivateRoute><StudySessionWorkspace /></PrivateRoute>} />

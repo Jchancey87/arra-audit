@@ -107,7 +107,7 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 **Verification**: Vite build clean (184 modules), 44/44 server tests still green, no backend touched.
 
-### 1.2 A/B compare mode
+### 1.2 A/B compare mode ✅ SHIPPED (2026-06-19)
 
 **Effort**: L · new model + Python + component · ~1 week
 
@@ -128,6 +128,45 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 **Tests**: 8 service tests · 3 hook tests · 2 component tests.
 
 **Risks**: YouTube embed API latency causes drift on long playback. Document limitation; consider yt-dlp audio fallback.
+
+**Delivered** (caveman):
+- **Server**:
+  - `server/models/SongSketch.js` (35 lines) — soft-delete via `deletedAt`, `analysis` Mixed (mirrors `Song.audioAnalysis`), `analysisStatus` enum, indexes on `(userId, songId, deletedAt, createdAt)`.
+  - `server/services/SketchService.js` (175 lines) — `createSketch` (file type+size guard, song-ownership check), `getSketchesForSong`, `getSketch`, `deleteSketch` (soft + file unlink), `analyzeSketch` (calls Python `/analyze-sketch` with 15s timeout, stores result).
+  - `server/routes/sketches.js` (130 lines) — multer diskStorage in `server/uploads/` with `sketch-{timestamp}-{rand}.{ext}` filename, 100MB cap, allowed ext `mp3|wav|m4a|aac|flac`. Routes: `GET /songs/:songId` (list), `POST /songs/:songId/upload`, `GET /:id`, `DELETE /:id`, `POST /:id/analyze`. `_sanitizeSketch()` strips internals.
+  - `server/server.js` — registers `SongSketch` model, `sketchRepository = new MongooseRepository(SongSketch)`, `sketchService = new SketchService(...)`, mounts `app.use('/api/sketches', authMiddleware, createSketchRoutes(sketchService))`. Static `/uploads` already serves sketches.
+- **Python**:
+  - `analysis_service/analyzer.py` — `analyze_sketch_file(file_path, sketch_id, callback_url=None)` (60 lines) — calls existing `analyze_audio_file(file_path, sketch_id)` synchronously; optional callback notification; mirrors `/analyze` shape.
+  - `analysis_service/app.py` — `SketchAnalysisRequest(BaseModel)` model + `POST /analyze-sketch` endpoint (40 lines) — synchronous response with `{ status, sketch_id, analysis }`; 404 if file missing; 500 on failure.
+- **Client**:
+  - `client/src/ports/IBackendService.js` — 5 new methods: `getSketches`, `getSketch`, `uploadSketch`, `deleteSketch`, `analyzeSketch`.
+  - `client/src/adapters/HttpBackendAdapter.js` — implements all 5; `uploadSketch` uses `FormData` with `audio` field + optional `title`/`notes`, mirrors existing `uploadAudioSketch` pattern.
+  - `client/src/adapters/InMemoryBackendAdapter.js` — `this.sketches = []` + 5 mock methods (in-memory store, optimistic latency, mock analysis result).
+  - `client/src/hooks/useSketches.js` (100 lines) — list + `upload` (optimistic prepend + refetch) + `remove` (filter) + `analyze` (merge into local). Mirrors `useTechniques` style with AbortController.
+  - `client/src/hooks/index.js` — re-export `useSketches`.
+  - `client/src/components/ComparePlayer.jsx` (300 lines) — dual transport. Master play/pause controls YouTube (via `useAudio`). Hidden `<audio>` for sketch. Drift sync every 500ms when playing (re-syncs if drift > 0.4s). Web Audio API `AnalyserNode` → 96-bar canvas heatmap. Side-by-side metadata panel (BPM/key/scale/meter) + delta bar showing BPM difference + key-match indicator.
+  - `client/src/pages/SketchCompare.jsx` (170 lines) — `/compare/:songId/:sketchId`. Loads song via `backend.getSong`, lists sketches via `useSketches(songId)`, file upload via `<input type="file">`, per-sketch "Analyze" + "Delete" actions. Renders selected `<ComparePlayer>`. Renders placeholder when no sketch selected.
+  - `client/src/App.jsx` — added 2 routes: `/compare/:songId` and `/compare/:songId/:sketchId`; imported `SketchCompare`.
+  - `client/src/pages/AuditDetail.jsx` — added "A/B Compare" button in header actions row that navigates to `/compare/{song._id}`.
+- **Tests**:
+  - `server/__tests__/unit/SketchService.test.js` (8 tests) — full + minimal + extension guard + size guard + ownership + list/get/delete + analyze success/failure (with `jest.spyOn(axios, 'post')`).
+  - `client/src/hooks/__tests__/useSketches.test.jsx` (3 tests) — empty list, upload+prepend, analyze→state merge.
+  - `client/src/components/__tests__/ComparePlayer.test.jsx` (2 tests) — renders master+panels+metadata with analysis, hides Delta panel when no analysis.
+
+**Bundle**: main 1016 → 1043 KB (+27 KB for ComparePlayer + SketchCompare). SketchCompare is route-split (only loads when navigating to `/compare/...`).
+
+**Verification**:
+- `npm test` from `server/`: 53/53 pass (44 original + 9 new).
+- `npm test` from `client/`: 25/25 pass (20 PDF + 3 useSketches + 2 ComparePlayer).
+- `npx vite build` in `client/`: clean build.
+- `python3 -c "import ast; ast.parse(...)"` for both Python files: OK (no runtime test — Python service not started in CI).
+
+**Known limitations / v2 follow-ups**:
+- YouTube IFrame drift on long playback (HANDOFF L130 risk — confirmed in v1; drift threshold 0.4s).
+- No yt-dlp audio fallback for embedded-blocked videos.
+- No actual sample-level delta waveform (v1 shows sketch energy via AnalyserNode; reference energy is metadata-only). Full "delta heatmap" requires Web Audio decode + resample of both sources.
+- Sketch `analysis.durationSeconds` is populated only if Python returns it (librosa-based path). HTTP path may leave it null.
+- Cascade: if a song is deleted, its sketches are orphaned (not auto-soft-deleted). Acceptable for v1.
 
 ### 1.3 PDF report export ✅ SHIPPED (2026-06-19)
 
@@ -450,12 +489,11 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 ## Next Session Start Here
 
 **Phase 0 — SHIPPED** (`3a1e936`).
-**Phase 1.1 — SHIPPED** (deep-link bookmarks, `a0080cb`).
-**Phase 1.3 — SHIPPED** (PDF export, uncommitted as of 2026-06-19).
-**Next: 1.2 (A/B compare, L/1wk)** — biggest remaining Phase 1 lift; or close out Phase 1 with a Phase 1 wrap-up (e.g. ship 1.4 = share-via-OS if not already covered by 1.1).
+**Phase 1 — SHIPPED**: 1.1 deep-link bookmarks (`a0080cb`), 1.3 PDF export (`c322c95`), 1.2 A/B compare (uncommitted as of 2026-06-19).
+**Next: Phase 2** (P1 Educational Value). Top candidates: 2.1 promote-to-technique (S/1d) or 2.3 per-bookmark CLAP analysis (M-L/5d).
 
 To resume:
-1. `git log --oneline -5` — confirm 1.1 + 1.3 are both committed
+1. `git log --oneline -10` — confirm Phase 0 + all 3 Phase 1 features are committed
 2. Read `agent_memory.md` checkpoint block
-3. Pick next phase and follow the **Changes** sub-list under that section
-4. Honor the red lines in `agent_memory.md` (deep-link + PDF export are the new Phase 1 entries)
+3. Pick Phase 2 entry and follow the **Changes** sub-list under that section
+4. Honor the red lines in `agent_memory.md` (Phase 1 entries: deep-link, PDF, sketches/A-B compare)

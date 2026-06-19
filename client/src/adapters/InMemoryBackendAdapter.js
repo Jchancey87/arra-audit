@@ -14,6 +14,7 @@ export class InMemoryBackendAdapter extends IBackendService {
     this.currentUser = null;
     this.studyProgress = [];
     this.curricula = [];
+    this.sketches = [];
 
     // Seed default curriculum
     const formatLabel = (key) => key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -802,13 +803,84 @@ export class InMemoryBackendAdapter extends IBackendService {
     if (!progress) throw new Error('Progress not found');
     const review = progress.weeklyReviews.find((r) => r.weekNumber === Number(weekNumber));
     if (!review) throw new Error('Review not found');
-    
+
     review.changedInEars = reviewData.changedInEars || '';
     review.notUnderstood = reviewData.notUnderstood || '';
     review.nextInvestigationQuestion = reviewData.nextInvestigationQuestion || '';
     review.completedAt = new Date().toISOString();
 
     return progress;
+  }
+
+  // ── Sketches (A/B compare) ─────────────────────────────────────────────────
+  async getSketches(songId) {
+    return this.sketches
+      .filter((s) => s.songId === songId && !s.deletedAt)
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      .map((s) => ({ ...s }));
+  }
+
+  async getSketch(id) {
+    const s = this.sketches.find((x) => x._id === id && !x.deletedAt);
+    if (!s) throw new Error('Sketch not found');
+    return { ...s };
+  }
+
+  async uploadSketch(songId, file, { title, notes } = {}) {
+    if (!file) throw new Error('File is required');
+    const song = this.songs.find((s) => s._id === songId && !s.deletedAt);
+    if (!song) throw new Error('Song not found');
+    const ext = (file.name || 'sketch.wav').split('.').pop().toLowerCase();
+    const sketch = {
+      _id: `sketch-${Date.now()}`,
+      userId: this.currentUser?.id || 'mock-user',
+      songId,
+      title: title || (file.name || 'sketch').replace(/\.[^.]+$/, ''),
+      fileName: `mock-sketch-${Date.now()}.${ext}`,
+      originalName: file.name || 'sketch.wav',
+      filePath: `/uploads/mock-sketch-${Date.now()}.${ext}`,
+      publicUrl: `/uploads/mock-sketch-${Date.now()}.${ext}`,
+      mimeType: file.type || `audio/${ext}`,
+      sizeBytes: file.size || 1024,
+      analysis: null,
+      analysisStatus: 'not_started',
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.sketches.push(sketch);
+    return { ...sketch };
+  }
+
+  async deleteSketch(id) {
+    const idx = this.sketches.findIndex((s) => s._id === id);
+    if (idx === -1) throw new Error('Sketch not found');
+    const s = this.sketches[idx];
+    s.deletedAt = new Date().toISOString();
+    s.updatedAt = new Date().toISOString();
+    return { deleted: true, sketch: { ...s } };
+  }
+
+  async analyzeSketch(id) {
+    const s = this.sketches.find((x) => x._id === id && !x.deletedAt);
+    if (!s) throw new Error('Sketch not found');
+    // Simulate analysis latency
+    await new Promise((r) => setTimeout(r, 50));
+    s.analysis = {
+      tempo_bpm: 120,
+      tempo_confidence: 0.92,
+      key: 'C',
+      scale: 'major',
+      key_confidence: 0.81,
+      estimated_meter: '4/4',
+      meter_confidence: 0.95,
+      loudness_integrated: -14.0,
+      duration_seconds: 60,
+      analysis_notes: 'mock sketch analysis (in-memory adapter)',
+    };
+    s.analysisStatus = 'success';
+    s.updatedAt = new Date().toISOString();
+    return { queued: false, analysis: s.analysis, sketch: { ...s } };
   }
 }
 

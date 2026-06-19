@@ -22,6 +22,7 @@ import TechniqueEntry from './models/TechniqueEntry.js';
 import TasteProfile from './models/TasteProfile.js';
 import Curriculum from './models/Curriculum.js';
 import StudyProgress from './models/StudyProgress.js';
+import SongSketch from './models/SongSketch.js';
 
 // Services
 import { AuthService } from './services/authService.js';
@@ -31,6 +32,7 @@ import { TechniqueService } from './services/techniqueService.js';
 import { TemplateComposer } from './services/templateComposer.js';
 import { TasteService } from './services/tasteService.js';
 import { CurriculumService } from './services/curriculumService.js';
+import { SketchService } from './services/SketchService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
@@ -40,6 +42,7 @@ import createTechniqueRoutes from './routes/techniques.js';
 import createTasteRoutes from './routes/tastes.js';
 import createCurriculumRoutes from './routes/curricula.js';
 import createStudyProgressRoutes from './routes/studyProgress.js';
+import createSketchRoutes from './routes/sketches.js';
 
 import { authMiddleware } from './middleware/auth.js';
 
@@ -103,6 +106,7 @@ const techniqueRepository = new MongooseRepository(TechniqueEntry);
 const tasteProfileRepository = new MongooseRepository(TasteProfile);
 const curriculumRepository = new MongooseRepository(Curriculum);
 const studyProgressRepository = new MongooseRepository(StudyProgress);
+const sketchRepository = new MongooseRepository(SongSketch);
 
 const authService = new AuthService(userRepository);
 const songService = new SongService(songRepository, searchAdapter, aiAdapter);
@@ -118,6 +122,7 @@ const curriculumService = new CurriculumService(
   techniqueRepository,
   aiAdapter
 );
+const sketchService = new SketchService(sketchRepository, songRepository);
 
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
@@ -163,6 +168,7 @@ app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueServic
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));
 app.use('/api/study-progress', authMiddleware, createStudyProgressRoutes(curriculumService));
+app.use('/api/sketches',       authMiddleware, createSketchRoutes(sketchService));
 
 // Static file serving for audio uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

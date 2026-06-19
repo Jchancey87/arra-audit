@@ -12,6 +12,7 @@ export { useTechniques } from './useTechniques.js';
 export { useStudyProgress } from './useStudyProgress.js';
 export { useCurricula } from './useCurricula.js';
 export { useTasteProfiles } from './useTasteProfiles.js';
+export { useSketches } from './useSketches.js';
 export { useAuditAutosave, useAnalysisPolling, useAnalysisProgressSim } from './useAuditAutosave.js';
 export { useCompletionCheck } from './useCompletionCheck.js';
 export { useAuditShortcuts } from './useAuditShortcuts.js';

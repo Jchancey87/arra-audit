@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:00:15.154Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:00:54.411Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -72,7 +72,7 @@ client/src/pdf/AuditReport.jsx                +CoverPage  +LensPages  +Bookmarks
 client/src/pdf/theme.js                       +registerArraFonts
 client/src/utils/pdfData.js                   +formatTimestamp  +formatDuration  +firstDefined  +pickLensAudio
 client/src/utils/pdfExport.jsx                +loadPdfRenderer  +renderAuditToBlob  +downloadBlob  +buildAuditFilename
-.github/context-cold.md                       +HttpBackendAdapter  ~App  ~InMemoryRepository  ~MockAIAdapter
+.github/context-cold.md                       +HttpBackendAdapter  +InMemoryBackendAdapter  ~App  ~InMemoryRepository
 .github/copilot-instructions.md               +App  +ErrorBoundary  +useAudit  +useAuditAutosave
 .github/gemini-context.md                     +App  +ErrorBoundary  +useAudit  +useAuditAutosave
 ```
@@ -114,7 +114,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -143,7 +143,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md

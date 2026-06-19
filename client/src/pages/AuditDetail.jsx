@@ -165,6 +165,13 @@ const AuditDetail = () => {
             {audit.status === 'completed' && (
               <ExportPdfButton audit={audit} song={song} />
             )}
+            <button
+              onClick={() => navigate(`/compare/${song._id || song.id}`)}
+              className="secondary"
+              title="A/B compare this song against your DAW sketch"
+            >
+              A/B Compare
+            </button>
             <button onClick={() => setIsDeleteModalOpen(true)} className="danger">
               Delete
             </button>

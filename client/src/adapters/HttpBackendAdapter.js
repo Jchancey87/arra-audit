@@ -301,5 +301,37 @@ export class HttpBackendAdapter extends IBackendService {
     const res = await this.api.post(`/study-progress/${progressId}/week/${weekNumber}/review`, reviewData);
     return res.data;
   }
+
+  // Sketches (A/B compare)
+  async getSketches(songId) {
+    const res = await this.api.get(`/sketches/songs/${songId}`);
+    return res.data;
+  }
+
+  async getSketch(id) {
+    const res = await this.api.get(`/sketches/${id}`);
+    return res.data;
+  }
+
+  async uploadSketch(songId, file, { title, notes } = {}) {
+    const formData = new FormData();
+    formData.append('audio', file);
+    if (title) formData.append('title', title);
+    if (notes) formData.append('notes', notes);
+    const res = await this.api.post(`/sketches/songs/${songId}/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  }
+
+  async deleteSketch(id) {
+    const res = await this.api.delete(`/sketches/${id}`);
+    return res.data;
+  }
+
+  async analyzeSketch(id) {
+    const res = await this.api.post(`/sketches/${id}/analyze`);
+    return res.data;
+  }
 }
 
