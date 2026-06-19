@@ -18,12 +18,39 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+server/adapters/InMemoryRepository.js ← ports/IRepository
 server/adapters/MockAIAdapter.js ← ports/IAIModelService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
+server/adapters/MongooseRepository.js ← ports/IRepository, models/Curriculum, models/StudyProgress
 server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
+server/bin/seedCurriculum.js ← models/Curriculum
+server/routes/curricula.js ← models/Curriculum
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
+analysis_service/analyzer.py ← requests
+analysis_service/app.py ← fastapi, pydantic, analyzer
+```
+
+## analysis_service
+
+### analysis_service/analyzer.py
+```
+class ClapAnalyzer  :44-112
+  def __init__(model_name)
+  def analyze_features(file_path, tags)
+def get_clap_analyzer()  :117-124
+def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
+def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
+```
+
+### analysis_service/app.py
+```
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
+def health()  :40-41
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :44-65  # Triggers an asynchronous audio analysis job
+GET /health  →  health()  :40-41
+POST /analyze  →  trigger_analysis()  :44-65
 ```
 
 ## client
@@ -72,6 +99,19 @@ export class IBackendService  :7-63
 
 ## server
 
+### server/adapters/InMemoryRepository.js
+```
+export class InMemoryRepository  :20-188
+  constructor()  :21-25
+  if(op === '$ne')  :54-60
+  if(opVal === null)  :55-57
+  if(opVal === null)  :61-63
+  if(docVal !== null && docVal !== undefined)  :70-72
+  if(docVal !== value)  :75-77
+  async create(data)  :83-93
+  async findById(id)  :95-98
+```
+
 ### server/adapters/MockAIAdapter.js
 ```
 export class MockAIAdapter  :15-79
@@ -88,6 +128,23 @@ export class MockSearchAdapter  :21-52
   constructor(responseOverride = null)  :22-25
   async searchSongInfo(title, artist)  :27-51
   if(this.responseOverride)  :29-36
+```
+
+### server/adapters/MongooseRepository.js
+```
+export class MongooseRepository  :17-170
+  constructor(model)  :18-24
+  if(!model)  :20-22
+  async create(data)  :26-33
+  async findById(id)  :35-41
+  async findByIdWithRelations(id, relations = [])  :43-56
+  for(const relation of relations)  :47-50
+  async find(query = {}, options = {})  :58-82
+  if(options.sort)  :63-65
+export class CurriculumRepository  :172-176
+  constructor()  :173-175
+export class StudyProgressRepository  :178-182
+  constructor()  :179-181
 ```
 
 ### server/adapters/OpenAIAdapter.js
@@ -114,11 +171,35 @@ export class TavilyAdapter  :15-153
 function cleanQueryTerm(text)  :200-206
 ```
 
+### server/bin/seedCurriculum.js
+```
+function formatLabel(key)  :14-24
+async function seed()  :193-212
+```
+
+### server/middleware/auth.js
+```
+export const authMiddleware = (req, res, next) =>  :11-25
+```
+
 ### server/ports/IAIModelService.js
 ```
 export class IAIModelService  :12-32
   async generateTemplate(prompt) → Promise<string>  :19-21
   async generateCompletion(prompt) → Promise<string>  :29-31
+```
+
+### server/ports/IRepository.js
+```
+export class IRepository  :11-136
+  async create(data) → Promise<Object>  :18-20
+  async findById(id) → Promise<Object|null>  :28-30
+  async findByIdWithRelations(id, relations = []) → Promise<Object|null>  :39-41
+  async find(query, options = {}) → Promise<Array>  :50-52
+  async findOne(query) → Promise<Object|null>  :60-62
+  async updateById(id, data) → Promise<Object>  :71-73
+  async deleteById(id) → Promise<boolean>  :81-83
+  async deleteMany(query) → Promise<number>  :91-93
 ```
 
 ### server/ports/ISearchService.js
@@ -128,11 +209,56 @@ export class ISearchService  :12-33
   async search(query, maxResults = 10) → Promise<{query: string, r  :30-32
 ```
 
+### server/routes/curricula.js
+```
+function formatLabel(key)  :4-14
+```
+
+### server/routes/songs.js
+```
+function extractYouTubeId(url)  :13-25
+function _sanitizeSong(song)  :263-289
+```
+
 ### server/services/auditGenerator.js
 ```
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
 async function callOpenAI(prompt)  :2-24
 function generateFallbackTemplate(songTitle, artist, lenses)  :110-161
+```
+
+### server/services/authService.js
+```
+export class AuthService  :4-128
+  constructor(userRepository)  :5-11
+  if(!process.env.JWT_SECRET)  :6-8
+  async register(data)  :13-34
+  if(!email || !password)  :16-18
+  if(existingUser)  :21-23
+  async login(email, password)  :36-60
+  if(!email || !password)  :37-39
+  if(!user)  :44-46
+```
+
+### server/services/curriculumService.js
+```
+export class CurriculumService  :1-98
+  constructor(curriculumRepository, studyProgressRepository, songRepository, auditService, techniqueRepository, aiAdapter)  :2-9
+  async generateAICurriculum(userId, focusArea, pastTechniques = []) → Promise<Object>  :19-76
+  if(!this.aiAdapter)  :20-22
+  async saveCustomCurriculum(userId, curriculumData)  :81-90
+  async getPopulatedStudyProgress(id)  :95-98
+```
+
+### server/services/songService.js
+```
+export class SongService  :11-116
+  constructor(songRepository, searchService, aiService)  :12-17
+  async importSong(songData, research) → Promise<Object>  :31-116
+  if(!title || !resolvedSourceId || !userId)  :55-57
+  if(existing)  :67-72
+  if(research && research.results?.length > 0 && this.aiService)  :75-116
+  if(aiSummary && aiSummary.overview)  :100-112
 ```
 
 ### server/services/tasteService.js

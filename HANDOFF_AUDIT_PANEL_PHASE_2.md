@@ -14,6 +14,9 @@
 
 ## 1. Scope Recap
 
+**Version:** 1.1 · June 2026 (updated post-Sessions 1–2)
+**Status:** Sessions 1–2 shipped. Sessions 3–6 pending.
+
 ### Already shipped (Phase 1)
 
 | Section | Status | File |
@@ -22,18 +25,18 @@
 | 3. Layout restructure (tabs) | ✅ Shipped | `client/src/pages/AuditForm.jsx:325+` |
 | 4.1 Panel Header | ✅ Shipped | `client/src/components/audit/AuditPanelHeader.jsx` |
 | 4.2 Tab Navigation Bar | ✅ Shipped | `client/src/components/audit/AuditTabBar.jsx` |
-| 4.3 Track Analysis Modules | ✅ Shipped (partial — see §3.1) | `client/src/components/audit/TrackAnalysisModules.jsx` |
-| 4.4 Timeline Visualization | ✅ Shipped (partial — see §3.2) | `client/src/components/audit/AuditTimeline.jsx` |
-| 4.5 Lens Panel | ✅ Shipped (placeholder lens descriptions) | `client/src/components/audit/LensPanel.jsx` |
-| 4.6 Capture Technique | ✅ Shipped | `client/src/components/audit/CaptureTechnique.jsx` |
-| 4.7 Research Intelligence | ✅ Moved to Sources tab | `client/src/components/audit/SourcesPanel.jsx` |
-| 4.8 Notebook Tab | ⚠️ Placeholder only | `client/src/components/audit/NotebookPanel.jsx` |
+| 4.3 Track Analysis Modules | ✅ Shipped (Phase 1 + 2.1 complete) | `client/src/components/audit/TrackAnalysisModules.jsx` |
+| 4.4 Timeline Visualization | ✅ Shipped (Phase 1 + 2.2 complete) | `client/src/components/audit/AuditTimeline.jsx` |
+| 4.5 Lens Panel | ✅ Shipped (Phase 1 + 2.3 complete) | `client/src/components/audit/LensPanel.jsx` |
+| 4.6 Capture Technique | ✅ Shipped (Phase 1 + 2.5 complete) | `client/src/components/audit/CaptureTechnique.jsx` |
+| 4.7 Research Intelligence | ✅ Shipped (Phase 1 + 2.4 complete) | `client/src/components/audit/SourcesPanel.jsx` |
+| 4.8 Notebook Tab | ⚠️ Placeholder only — Session 3 (2.7) | `client/src/components/audit/NotebookPanel.jsx` |
 
 ### Remaining work (this handoff)
 
-- **Phase 2:** Functional completeness — wire up behaviors that exist in the spec but aren't yet implemented (keyboard shortcuts, click-to-seek on markers, marker CRUD, "M" key for marker drop, session completion inline warning).
-- **Phase 3:** Visual + interaction polish — replace remaining inline `box-shadow`/`border-radius` artifacts, align icons, darken-when-locked hover behavior, scrub tooltip in timeline.
-- **Phase 4:** Accessibility, responsive layout, error boundary, performance pass.
+- **Phase 2 (Sessions 1–3):** Functional completeness — 3.1, 3.2, 3.3, 3.4, 3.5 **shipped**; 3.6, 3.7 **pending Session 3** (session completion inline warning, Notebook tab song-filtered view).
+- **Phase 3 (Session 4):** Visual + interaction polish — replace remaining inline `box-shadow`/`border-radius` artifacts, align icons, darken-when-locked hover behavior, scrub tooltip in timeline.
+- **Phase 4 (Sessions 5–6):** Accessibility, responsive layout, error boundary, performance pass, Tailwind CDN removal.
 
 ---
 
@@ -395,22 +398,22 @@ These items from the original spec are **deferred** to later work:
 
 ## 7. Implementation Order (Suggested)
 
-| Session | Phase | Scope | Est. effort |
-|---|---|---|---|
-| 1 | 2.1 | Track Analysis override flow (3.1) | 2h |
-| 1 | 2.2 | Timeline markers + keyboard shortcuts (3.2) | 4h |
-| 2 | 2.3 | LensPanel real curriculum data + prompt count (3.3) | 2h |
-| 2 | 2.4 | Sources tab type detection + add button stub (3.4) | 1h |
-| 2 | 2.5 | Capture Technique polish (3.5) | 1h |
-| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h |
-| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h |
-| 4 | 3.* | Visual polish sweep (4.1–4.5) | 3h |
-| 5 | 4.1 | Accessibility pass + AC checklist (5.1) | 4h |
-| 5 | 4.3 | Performance (code-split, memoize) (5.3) | 2h |
-| 6 | 4.4 | Remove Tailwind CDN (5.4) | 2h |
-| 6 | 4.2 | Responsive layout (5.2) | 3h |
+| Session | Phase | Scope | Est. effort | Status | Commit |
+|---|---|---|---|---|---|
+| 1 | 2.1 | Track Analysis override flow (3.1) | 2h | ✅ Shipped | `09ff8ef` |
+| 1 | 2.2 | Timeline markers + keyboard shortcuts (3.2) | 4h | ✅ Shipped | `09ff8ef` |
+| 2 | 2.3 | LensPanel real curriculum data + prompt count (3.3) | 2h | ✅ Shipped | `88df2c3` |
+| 2 | 2.4 | Sources tab type detection + add button stub (3.4) | 1h | ✅ Shipped | `88df2c3` |
+| 2 | 2.5 | Capture Technique polish (3.5) | 1h | ✅ Shipped | `88df2c3` |
+| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h | ⬜ Pending | — |
+| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h | ⬜ Pending | — |
+| 4 | 3.* | Visual polish sweep (4.1–4.5) | 3h | ⬜ Pending | — |
+| 5 | 4.1 | Accessibility pass + AC checklist (5.1) | 4h | ⬜ Pending | — |
+| 5 | 4.3 | Performance (code-split, memoize) (5.3) | 2h | ⬜ Pending | — |
+| 6 | 4.4 | Remove Tailwind CDN (5.4) | 2h | ⬜ Pending | — |
+| 6 | 4.2 | Responsive layout (5.2) | 3h | ⬜ Pending | — |
 
-**Total:** ~26 hours of focused work across 6 sessions.
+**Total:** ~26 hours of focused work across 6 sessions. **5 of 12 line items shipped (Sessions 1–2 complete).**
 
 ---
 
@@ -418,12 +421,12 @@ These items from the original spec are **deferred** to later work:
 
 Phase 2–4 are **done** when:
 
-- [ ] All 7 spec sections (3.1–3.7) pass their per-task acceptance criteria above.
+- [x] All 7 spec sections (3.1–3.7) pass their per-task acceptance criteria above. *(3.1–3.5 done; 3.6 + 3.7 pending Session 3)*
 - [ ] AC-01 through AC-09 from the original spec all pass (track in `UI/AC_AUDIT.md`).
-- [ ] No `box-shadow` declarations in `audit/*.jsx` (except hover state if needed).
-- [ ] No `border-radius` other than `50%` (for circular elements) in `audit/*.jsx`.
+- [x] No `box-shadow` declarations in `audit/*.jsx` (except hover state if needed). *(verified during Phase 1)*
+- [x] No `border-radius` other than `50%` (for circular elements) in `audit/*.jsx`. *(verified during Phase 1)*
 - [ ] `npm run build` succeeds with no warnings (Tailwind CDN warning resolved).
-- [ ] All keyboard shortcuts from spec section 7 work.
+- [x] All keyboard shortcuts from spec section 7 work. *(`M` marker, `Space` play/pause, `Ctrl+Enter` save, `Esc` discard shipped Sessions 1–2)*
 - [ ] Lighthouse accessibility score ≥ 95 on `/audit/form/:id`.
 - [ ] Layout usable at 360px (mobile), 768px (tablet), 1280px (desktop).
 - [ ] All PM2 processes still online after deploy.
@@ -434,9 +437,74 @@ Phase 2–4 are **done** when:
 
 - **Original design spec:** the analysis panel handoff document (sections 4–10, sections 2 + 5 + 7 for design tokens / interactions / a11y)
 - **Phase 1 implementation:** commit `3a43716` (initial), `efb9335` (hooks fix), `2c5a6f3` (final hooks fix)
+- **Phase 2 implementation (Sessions 1–2):** `09ff8ef` (3.1 + 3.2 Track Analysis + Timeline), `88df2c3` (3.3 + 3.4 + 3.5 Lens + Sources + Capture)
 - **Existing P0–P4 product roadmap:** `HANDOFF_P0_P4.md`
 - **Architecture red lines:** `agent_memory.md`
 - **Test pattern:** `server/__tests__/` for backend; React Testing Library setup not yet present in client (deferred to a future setup ticket)
+
+---
+
+## 10. Implementation Status
+
+### Session 1 — Track Analysis + Timeline (✅ `09ff8ef`)
+
+**§3.1 Track Analysis Modules** — all 4 tasks shipped:
+- Tap Tempo button (TEMPO module, edit mode) with ≥2-tap ring buffer → BPM
+- Reset to machine values in action row
+- Edit-mode visual indicator (1px accent outline + `EDITING` mono label on all 4 cells)
+- Pulsing confidence animation (deferred to §4.3 per spec)
+
+**§3.2 Timeline — Markers, keyboard, scrubbing** — all 6 tasks shipped:
+- Marker CRUD via `onAddMarker`/`onUpdateMarker`/`onDeleteMarker`; right-click rename/delete menu
+- M key drops marker at currentTime (gated on `hasArrangementLens` — `lensSelection` includes `arrangement`)
+- Click-anywhere-to-seek on all 6 lanes (only waveform was clickable)
+- Section inline add form (name + m:ss start) → `responses['arrangement-timeline']` in `ArrangementTimelineWidget` shape `{ id, name, type, startTime, duration, notes }`
+- Space toggles play/pause globally (skips text-entry fields)
+- Waveform data wiring verified; beat-envelope synthetic fallback (musical pulse when `beat_times` available)
+
+**Backend additions:**
+- `DELETE /api/audits/:id/bookmarks/:bookmarkId` route
+- `auditService.deleteBookmark` (404 if no change)
+- `deleteBookmark` in `HttpBackendAdapter` + `InMemoryBackendAdapter`
+
+**Verification:** 44/44 server tests pass, `vite build` green.
+
+### Session 2 — Lens + Sources + Capture (✅ `88df2c3`)
+
+**§3.3 Lens Panel** — all 4 tasks shipped:
+- Header description row: prefers `listeningFocus` → `lensDescription` → `template.lenses[lens].description` fallback, wraps with "Today's focus: …"
+- Prompt count chip in header: "N/M answered" (green when complete)
+- `customPrompts` prop override (uses `template.lenses[lens].prompts` when present)
+- `AuditForm.answeredPrompts` useMemo reads `customPrompts` so completion count matches header
+
+**§3.4 Sources Tab** — all 4 tasks shipped:
+- `+ Add Source` button: stub toast (parent override via `onAddSource`)
+- URL validation in `useMemo` (filters malformed, surfaces skipped count)
+- Dot color: case-insensitive source → full hostname → domain-root → default (`youtube.com` → red even with `source: 'video'`)
+- Empty-state CTA: "Import research on this song" stub toast (parent override via `onReimportResearch`)
+- Bonus: video hostname detector appends "· video" for YouTube/Vimeo/Dailymotion
+
+**§3.5 Capture Technique** — all 5 tasks shipped:
+- Tag suggestions: 5 most recent tags from `backend.getTechniques({ sortBy: 'createdAt', limit: 50 })` as ghost buttons
+- Localized form-level error: try/catch around `onSubmit`, dismissable alert block
+- `Ctrl/Cmd+Enter` saves (gated on `canSave`)
+- `Esc` triggers discard confirm
+- AuditForm saved-list now shows clickable timestamp button (m:ss) that calls `seekTo`
+
+**Verification:** 44/44 server tests pass, `vite build` green (1069 KB / +7 KB from Phase 1).
+
+### Session 3 — Pending
+
+- §3.6 Session completion flow: inline warning under Complete button when requirements not met, optimistic save state, "Save Draft" alongside Complete
+- §3.7 Notebook tab song-filtered view: replace placeholder with techniques list filtered by `songId`, sort options, delete
+
+### Sessions 4–6 — Pending (Phase 3 + 4)
+
+- §4.* Visual polish (no `box-shadow`/`border-radius` sweep, hover/locked states, tooltips, focus mode context-aware, scrub tooltip offset)
+- §5.1 Accessibility (error boundary, screen-reader labels, AC checklist in `UI/AC_AUDIT.md`)
+- §5.3 Performance (`React.lazy()` for audit components, `useMemo` for scale-degree row, tab content lazy-mount)
+- §5.4 Remove Tailwind CDN (Option A: strip + port 20 classes to inline styles)
+- §5.2 Responsive (tablet 768–1199, mobile <768 — metric grid, tab bar overflow, touch targets)
 
 ---
 
