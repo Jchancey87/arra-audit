@@ -39,6 +39,31 @@
 - [ ] Lighthouse CI gate + a11y/manual walkthrough (Phase 4.1 follow-up; AC_AUDIT.md created).
 - [ ] Live-region for playhead time updates (AC-06 follow-up).
 - [ ] Code-split Dashboard + remaining pages to drop main bundle below 800KB.
+- [ ] Remove `.git/hooks/post-commit` sigmap regen (causes 4-6 noise commits per feature; batch or disable).
+
+## 🚧 Phase 1 v2 follow-ups (1.1 / 1.2 / 1.3, ship 2026-06-19)
+Tracked separately from the strategic TODOs above. Each has a non-trivial scope — promote to a proper HANDOFF entry when work begins.
+
+### 1.1 Deep-link bookmarks
+- [ ] **Re-tune 350ms `seekTo` delay** — current value is a heuristic for YouTube IFrame mount latency. Slow networks / mobile may need 500-800ms. Add a `?t=`-then-wait-for-player-ready poll instead of a fixed delay.
+- [ ] **Click-through analytics** — no count of how many deep links are opened, from which source. Add a `LinkOpen` event + view in a future "Share insights" panel.
+
+### 1.2 A/B compare mode
+- [ ] **Sample-level delta waveform** — v1 only renders sketch energy via `AnalyserNode`; reference energy is metadata-only. Full delta requires Web Audio decode of both sources + resample + abs diff + canvas render. ~1-2d additional work.
+- [ ] **yt-dlp audio fallback** — when YouTube embed is blocked (codes 101/150), `useAudio` shows a "Watch on YouTube" link. For compare, this breaks the master clock. Fallback: download via yt-dlp → `<audio>` for both sources → drift is trivially synced.
+- [ ] **Cascade sketch soft-delete on song delete** — current `SongService.deleteSong` doesn't touch `SongSketch`. Orphan sketches accumulate. Add a soft-delete pass in `songService.deleteSong` for all sketches with matching `songId`.
+- [ ] **Drift on long playback** — 0.4s threshold works for ≤3 min sketches. For longer mixes, drift accumulates between YouTube's 250ms-1s `getCurrentTime` granularity and the sketch `<audio>` element. Consider 100ms polling or accepting that A/B compare is best for short loops.
+- [ ] **Sketch `durationSeconds` not auto-populated on upload** — only set after Python `analyze_sketch_file` returns it. Add client-side probe via `audio.duration` on `<audio>` `loadedmetadata` and PATCH back to server.
+- [ ] **`AnalyserNode` AudioContext leak** — `SketchEnergyCanvas` creates an `AudioContext` on mount and closes it on unmount, but the `MediaElementSource` node stays attached to the `<audio>` element. Re-mounting the component creates a new context. Document or use a shared context via the existing `useAudio`.
+- [ ] **Multer file-type MIME regex too permissive** — `mp3|wav|m4a|aac|flac|mpeg|x-wav` is a substring match (not anchored); e.g. `video/mp4-mp3` would pass. Switch to anchored regex or explicit allow-list.
+- [ ] **No playback rate slider** — sketches uploaded at different tempos than the reference don't auto-stretch. Add a master "rate" slider (0.5x–1.5x) that affects both sources.
+
+### 1.3 PDF report export
+- [ ] **End-to-end render smoke in CI** — jsdom can't load `file://` fonts, so `renderToBuffer` test was removed. Options: (a) `undici` polyfill with `file://` reader, (b) Playwright headless render in CI, (c) snapshot binary comparison.
+- [ ] **Hide lens sections with 0 responses** — currently shows "No lens responses captured" placeholder. Could either skip the section entirely or show a "0 questions answered" badge.
+- [ ] **Custom branding support** — `theme.js` tokens are hardcoded. Add `pdfOptions({ color, font, logoUrl })` for per-org PDF variants.
+- [ ] **Page numbers on cover page** — body pages show `pn/tp` via the fixed `<PageFooter>`, but the cover page omits the page number. Add "1 / N" to the cover footer for clarity.
+- [ ] **Long audit truncation** — 50+ bookmarks or 100+ techniques overflows into a 2nd page of bookmarks/techniques (works), but the canvas doesn't word-wrap long technique descriptions, causing overflow. Add `wrap` or text overflow handling.
 
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |

@@ -476,6 +476,33 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 ---
 
+## Phase 1 v2 Follow-ups (catalogued 2026-06-19, after 1.1 / 1.2 / 1.3 ship)
+
+Promote any of these to its own HANDOFF entry when work begins. Cross-referenced in `agent_memory.md` → "Phase 1 v2 follow-ups" section.
+
+### 1.1 Deep-link bookmarks
+1. **Re-tune 350ms `seekTo` delay** — current value is a heuristic for YouTube IFrame mount latency. Slow networks / mobile may need 500-800ms.
+2. **Click-through analytics** — no count of how many deep links are opened, from which source.
+
+### 1.2 A/B compare mode
+1. **Sample-level delta waveform** — v1 only renders sketch energy via `AnalyserNode`; reference energy is metadata-only. Full delta requires Web Audio decode + resample + abs diff + canvas. ~1-2d.
+2. **yt-dlp audio fallback** — when YouTube embed is blocked (codes 101/150), the master clock breaks. Fallback: download via yt-dlp → `<audio>` for both sources.
+3. **Cascade sketch soft-delete on song delete** — `SongService.deleteSong` doesn't touch `SongSketch`. Orphan sketches accumulate.
+4. **Drift on long playback** — 0.4s threshold works for ≤3 min. Longer mixes accumulate drift between YouTube's `getCurrentTime` granularity and the sketch `<audio>`.
+5. **Sketch `durationSeconds` not auto-populated on upload** — only set after Python analysis. Probe client-side via `audio.duration` on `loadedmetadata`.
+6. **`AnalyserNode` AudioContext leak** — `MediaElementSource` stays attached after component unmount. Re-mount creates a new context.
+7. **Multer file-type MIME regex too permissive** — substring match (not anchored). E.g. `video/mp4-mp3` would pass. Switch to anchored regex.
+8. **No playback rate slider** — sketches uploaded at different tempos than the reference don't auto-stretch.
+
+### 1.3 PDF report export
+1. **End-to-end render smoke in CI** — jsdom can't load `file://` fonts, so `renderToBuffer` test was removed. Options: undici polyfill / Playwright headless / binary snapshot.
+2. **Hide lens sections with 0 responses** — currently shows "No lens responses captured" placeholder. Skip section or show "0 answered" badge.
+3. **Custom branding support** — `theme.js` tokens are hardcoded. Add `pdfOptions({ color, font, logoUrl })`.
+4. **Page numbers on cover page** — body pages show `pn/tp` via fixed `<PageFooter>`, cover omits. Add "1 / N" to cover footer.
+5. **Long audit truncation** — 50+ bookmarks / 100+ techniques overflows; canvas doesn't word-wrap long technique descriptions.
+
+---
+
 ## Acceptance Gates (per phase)
 
 1. All new code has tests; existing tests still pass (51 server + existing client)
