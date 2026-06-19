@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:25:50.895Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:26:00.237Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -32,13 +32,11 @@ client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../con
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useSketches.js ← context/BackendContext
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
-client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
-client/src/utils/pdfData.js ← pdf/theme
 analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## changes (last 5 commits — 1 second ago)
 ```
 .github/context-cold.md                       +ErrorBoundary  +useAudit  +useAuditAutosave  +useAnalysisPolling
 .github/copilot-instructions.md               ~ErrorBoundary  ~useAudit  ~useAuditAutosave  ~useAnalysisPolling
@@ -220,20 +218,6 @@ export function useSketches(songId = null)  :15-99
 function Centered({ children })  :202-208
 ```
 
-### client/src/pdf/AuditReport.jsx
-```
-function CoverPage({ data })  :280-351
-function LensPages({ data })  :353-408
-function BookmarksPage({ data })  :410-436
-function TechniquesPage({ data })  :438-466
-function PageFooter({ pageNumber, totalPages })  :468-480
-```
-
-### client/src/pdf/theme.js
-```
-export function registerArraFonts()  :18-48
-```
-
 ### client/src/ports/IBackendService.js
 ```
 export class IBackendService  :7-70
@@ -245,27 +229,6 @@ export class IBackendService  :7-70
   async changePassword(oldPassword, newPassword)  :14-14
   async deleteAccount()  :15-15
   async getSongs(filters)  :18-18
-```
-
-### client/src/utils/pdfData.js
-```
-export function prepareReportData(audit, song)  :116-156
-function formatTimestamp(seconds)  :11-17
-function formatDuration(seconds)  :19-25
-function firstDefined(obj, keys)  :27-33
-function pickLensAudio(song)  :35-45
-function normalizeResponseEntry(raw)  :47-62
-function lensEntriesFor(responses, lens)  :64-85
-function normalizeBookmark(bm)  :87-100
-function normalizeTechnique(t)  :102-114
-```
-
-### client/src/utils/pdfExport.jsx
-```
-export async function loadPdfRenderer()  :6-20
-export async function renderAuditToBlob(audit, song)  :22-37
-export function downloadBlob(blob, filename)  :39-50
-export function buildAuditFilename(audit, song)  :52-57
 ```
 
 ## server

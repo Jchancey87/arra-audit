@@ -41,6 +41,8 @@ client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
 client/src/hooks/useTechniques.js ← context/BackendContext
+client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
+client/src/utils/pdfData.js ← pdf/theme
 ```
 
 ## client
@@ -170,10 +172,45 @@ export function useTasteProfiles()  :12-58
 export function useTechniques(filters = {}, { skip = false } = {})  :14-87
 ```
 
+### client/src/pdf/AuditReport.jsx
+```
+function CoverPage({ data })  :280-351
+function LensPages({ data })  :353-408
+function BookmarksPage({ data })  :410-436
+function TechniquesPage({ data })  :438-466
+function PageFooter({ pageNumber, totalPages })  :468-480
+```
+
+### client/src/pdf/theme.js
+```
+export function registerArraFonts()  :18-48
+```
+
 ### client/src/utils/deepLinks.js
 ```
 export const buildAuditLink = (auditId, { timestampSeconds, bookmarkId } = {}) =>  :22-33
 export const parseDeepLinkParams = (searchString) =>  :35-44
+```
+
+### client/src/utils/pdfData.js
+```
+export function prepareReportData(audit, song)  :116-156
+function formatTimestamp(seconds)  :11-17
+function formatDuration(seconds)  :19-25
+function firstDefined(obj, keys)  :27-33
+function pickLensAudio(song)  :35-45
+function normalizeResponseEntry(raw)  :47-62
+function lensEntriesFor(responses, lens)  :64-85
+function normalizeBookmark(bm)  :87-100
+function normalizeTechnique(t)  :102-114
+```
+
+### client/src/utils/pdfExport.jsx
+```
+export async function loadPdfRenderer()  :6-20
+export async function renderAuditToBlob(audit, song)  :22-37
+export function downloadBlob(blob, filename)  :39-50
+export function buildAuditFilename(audit, song)  :52-57
 ```
 
 ## server
