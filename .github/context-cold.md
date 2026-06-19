@@ -18,15 +18,10 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
-server/adapters/InMemoryRepository.js ← ports/IRepository
-server/adapters/MockAIAdapter.js ← ports/IAIModelService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
-server/adapters/MongooseRepository.js ← ports/IRepository, models/Curriculum, models/StudyProgress
-server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
-server/services/auditService.js ← models/Audit
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
@@ -115,65 +110,12 @@ export class IBackendService  :7-63
 
 ## server
 
-### server/adapters/InMemoryRepository.js
-```
-export class InMemoryRepository  :20-188
-  constructor()  :21-25
-  if(op === '$ne')  :54-60
-  if(opVal === null)  :55-57
-  if(opVal === null)  :61-63
-  if(docVal !== null && docVal !== undefined)  :70-72
-  if(docVal !== value)  :75-77
-  async create(data)  :83-93
-  async findById(id)  :95-98
-```
-
-### server/adapters/MockAIAdapter.js
-```
-export class MockAIAdapter  :15-79
-  constructor(responseOverride = null)  :16-19
-  async generateTemplate(prompt)  :21-71
-  if(this.responseOverride)  :23-25
-  async generateCompletion(prompt)  :73-78
-  if(this.responseOverride)  :74-76
-```
-
 ### server/adapters/MockSearchAdapter.js
 ```
 export class MockSearchAdapter  :21-52
   constructor(responseOverride = null)  :22-25
   async searchSongInfo(title, artist)  :27-51
   if(this.responseOverride)  :29-36
-```
-
-### server/adapters/MongooseRepository.js
-```
-export class MongooseRepository  :17-170
-  constructor(model)  :18-24
-  if(!model)  :20-22
-  async create(data)  :26-33
-  async findById(id)  :35-41
-  async findByIdWithRelations(id, relations = [])  :43-56
-  for(const relation of relations)  :47-50
-  async find(query = {}, options = {})  :58-82
-  if(options.sort)  :63-65
-export class CurriculumRepository  :172-176
-  constructor()  :173-175
-export class StudyProgressRepository  :178-182
-  constructor()  :179-181
-```
-
-### server/adapters/OpenAIAdapter.js
-```
-export class OpenAIAdapter  :18-107
-  constructor(apiKey = process.env.OPENAI_API_KEY)  :19-24
-  async generateTemplate(prompt)  :26-69
-  if(!this.apiKey)  :27-29
-  if(!response.ok)  :51-54
-  if(!jsonMatch)  :61-63
-  async generateCompletion(prompt)  :71-106
-  if(!this.apiKey)  :72-74
-  if(!response.ok)  :96-99
 ```
 
 ### server/adapters/TavilyAdapter.js
@@ -198,26 +140,6 @@ async function seed()  :193-212
 export const authMiddleware = (req, res, next) =>  :11-25
 ```
 
-### server/ports/IAIModelService.js
-```
-export class IAIModelService  :12-32
-  async generateTemplate(prompt) → Promise<string>  :19-21
-  async generateCompletion(prompt) → Promise<string>  :29-31
-```
-
-### server/ports/IRepository.js
-```
-export class IRepository  :11-136
-  async create(data) → Promise<Object>  :18-20
-  async findById(id) → Promise<Object|null>  :28-30
-  async findByIdWithRelations(id, relations = []) → Promise<Object|null>  :39-41
-  async find(query, options = {}) → Promise<Array>  :50-52
-  async findOne(query) → Promise<Object|null>  :60-62
-  async updateById(id, data) → Promise<Object>  :71-73
-  async deleteById(id) → Promise<boolean>  :81-83
-  async deleteMany(query) → Promise<number>  :91-93
-```
-
 ### server/ports/ISearchService.js
 ```
 export class ISearchService  :12-33
@@ -230,30 +152,11 @@ export class ISearchService  :12-33
 function formatLabel(key)  :4-14
 ```
 
-### server/routes/songs.js
-```
-function extractYouTubeId(url)  :13-25
-function _sanitizeSong(song)  :263-289
-```
-
 ### server/services/auditGenerator.js
 ```
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
 async function callOpenAI(prompt)  :2-24
 function generateFallbackTemplate(songTitle, artist, lenses)  :110-161
-```
-
-### server/services/auditService.js
-```
-export class AuditService  :13-157
-  constructor(auditRepository, techniqueRepository, songRepository)  :14-21
-  if(!auditRepository)  :15-17
-  async createAudit(auditData) → Promise<Object>  :33-91
-  if(lensSelection.length === 0)  :49-51
-  if(this.songRepository)  :54-57
-  async getAudit(auditId, userId)  :95-101
-  async getAuditsForSong(songId, userId)  :103-112
-  if(this.songRepository)  :104-107
 ```
 
 ### server/services/authService.js
@@ -267,40 +170,6 @@ export class AuthService  :4-128
   async login(email, password)  :36-60
   if(!email || !password)  :37-39
   if(!user)  :44-46
-```
-
-### server/services/curriculumService.js
-```
-export class CurriculumService  :1-98
-  constructor(curriculumRepository, studyProgressRepository, songRepository, auditService, techniqueRepository, aiAdapter)  :2-9
-  async generateAICurriculum(userId, focusArea, pastTechniques = []) → Promise<Object>  :19-76
-  if(!this.aiAdapter)  :20-22
-  async saveCustomCurriculum(userId, curriculumData)  :81-90
-  async getPopulatedStudyProgress(id)  :95-98
-```
-
-### server/services/songService.js
-```
-export class SongService  :11-116
-  constructor(songRepository, searchService, aiService)  :12-17
-  async importSong(songData, research) → Promise<Object>  :31-116
-  if(!title || !resolvedSourceId || !userId)  :55-57
-  if(existing)  :67-72
-  if(research && research.results?.length > 0 && this.aiService)  :75-116
-  if(aiSummary && aiSummary.overview)  :100-112
-```
-
-### server/services/tasteService.js
-```
-export class TasteService  :1-92
-  constructor(tasteProfileRepository, searchService, aiService)  :2-9
-  if(!tasteProfileRepository)  :3-5
-  async getProfilesForUser(userId) → Promise<Array>  :17-19
-  async executeDeepDive(userId, lens, name) → Promise<Object>  :29-92
-  if(!lens || !name)  :30-32
-  if(this.searchService)  :39-47
-  if(sources.length > 0)  :51-55
-  if(this.aiService)  :75-83
 ```
 
 ### server/services/tavilySearch.js
@@ -320,19 +189,6 @@ export class TechniqueService  :15-166
   if(tags)  :52-55
   if(q)  :58-60
   if(filters.search && !q)  :63-70
-```
-
-### server/services/templateComposer.js
-```
-export class TemplateComposer  :24-121
-  constructor(aiModelService)  :25-30
-  if(!aiModelService)  :26-28
-  async generateTemplate(songTitle, artist, lenses, researchSummary = '', tastes = null) → Promise<Object>  :42-69
-  if(!songTitle || !artist || !lenses || lenses.length === 0)  :44-46
-  if(invalidLenses.length > 0)  :50-52
-  if(tastes)  :83-98
-  if(taste && typeof taste === 'object')  :87-89
-  if(entries)  :94-97
 ```
 
 ## skills

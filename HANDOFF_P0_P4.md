@@ -81,7 +81,7 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 ## Phase 1 — P0: Sharing & Export (3 features)
 
-### 1.1 Shareable deep-link bookmarks
+### 1.1 Shareable deep-link bookmarks ✅ SHIPPED (2026-06-19)
 
 **Effort**: S · frontend only · ~1 day
 
@@ -96,7 +96,16 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 **No backend changes**.
 
-**Acceptance**: copy link → paste → opens at timestamp, bookmark highlighted.
+**Acceptance**: copy link → paste → opens at timestamp, bookmark highlighted. ✅
+
+**Delivered**:
+- `client/src/utils/deepLinks.js` (40 lines) — `buildAuditLink` / `parseDeepLinkParams` / `DEEP_LINK_KEYS`
+- `client/src/hooks/useDeepLinkParams.js` (22 lines) — react-router `useSearchParams` wrapper
+- `client/src/components/ShareLinkButton.jsx` (109 lines) — `navigator.share` → `clipboard.writeText` → execCommand fallback, 1.8s "Copied"/"Copy failed" feedback, `compact` prop
+- `AudioContext.highlightBookmark(id, {durationMs=4000})` + `highlightBookmarkId` exposed in context value
+- `AuditDetail` consumes all three; applies deep-link once on mount with 350ms `seekTo` delay (YouTube player mount). Highlighted card: orange border + box-shadow.
+
+**Verification**: Vite build clean (184 modules), 44/44 server tests still green, no backend touched.
 
 ### 1.2 A/B compare mode
 
@@ -416,9 +425,12 @@ Pages currently call `backend.X()` directly. Build `client/src/hooks/*.js` — h
 
 ## Next Session Start Here
 
-1. Begin **Phase 0.1** — fix the three service encapsulation leaks
-2. Then Phase 0.2 — `IRepository` split
-3. Then Phase 0.3 — `IAIModelService` rename to `ICompletionService`
-4. Then Phase 0.4 — client hooks (useSong, useAudit, etc.)
-5. Ship Phase 0 · verify all existing tests pass
-6. Start Phase 1 — P0 features
+**Phase 0 — SHIPPED** (`3a1e936`).
+**Phase 1.1 — SHIPPED** (deep-link bookmarks, 2026-06-19, uncommitted).
+**Next: 1.2 (A/B compare, L/1wk) or 1.3 (PDF export, M/3d)** — user undecided.
+
+To resume:
+1. `git log --oneline -5` — confirm Phase 0 + 1.1 are both committed
+2. Read `agent_memory.md` checkpoint block
+3. Pick 1.2 or 1.3 and follow the **Changes** sub-list under that section
+4. Honor the red lines in `agent_memory.md` (deep-link module is the new Phase 1.1 entry)

@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
 import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
+import ShareLinkButton from '../components/ShareLinkButton';
+import useDeepLinkParams from '../hooks/useDeepLinkParams';
 
 
 const AuditDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const backend = useBackend();
-  
+  const { timestampSeconds: deepLinkTs, bookmarkId: deepLinkBookmarkId } = useDeepLinkParams();
+
   const {
     loadSong,
     setActiveAudit,
@@ -19,7 +22,11 @@ const AuditDetail = () => {
     isPlaying,
     currentTime,
     duration,
+    highlightBookmark,
+    highlightBookmarkId,
   } = useAudio();
+
+  const deepLinkAppliedRef = useRef(false);
 
   const [audit, setAudit] = useState(null);
   const [song, setSong] = useState(null);
@@ -61,6 +68,30 @@ const AuditDetail = () => {
       setActiveAudit(null);
     };
   }, [audit, setActiveAudit]);
+
+  // Apply deep-link params once data is loaded: seek to ?t= and pulse ?bookmark=
+  useEffect(() => {
+    if (deepLinkAppliedRef.current) return;
+    if (!audit || !audit.bookmarks) return;
+    if (deepLinkTs === null && deepLinkBookmarkId === null) return;
+    deepLinkAppliedRef.current = true;
+
+    let ts = deepLinkTs;
+    if (deepLinkBookmarkId) {
+      const bm = audit.bookmarks.find((b) => (b._id || b.id) === deepLinkBookmarkId);
+      if (bm) {
+        const bmTs = bm.timestampSeconds || bm.timestamp;
+        if (bmTs !== undefined && bmTs !== null) ts = bmTs;
+        highlightBookmark(deepLinkBookmarkId);
+      }
+    }
+    if (ts !== null && Number.isFinite(ts)) {
+      // Small delay lets the YouTube player mount before seeking
+      const timer = setTimeout(() => seekTo(ts), 350);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [audit, deepLinkTs, deepLinkBookmarkId, seekTo, highlightBookmark]);
 
   const handleConfirmDelete = async () => {
     try {
@@ -694,36 +725,52 @@ const AuditDetail = () => {
               Session Bookmarks ({audit.bookmarks.length})
             </h2>
             <div style={{ marginTop: '15px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
-              {audit.bookmarks.map((bookmark, idx) => (
-                <div
-                  key={bookmark._id || idx}
-                  style={{
-                    background: '#0c0c0e',
-                    padding: '15px',
-                    borderRadius: '2px',
-                    border: '1px solid rgba(255,255,255,0.06)'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <strong 
-                      onClick={() => seekTo(bookmark.timestampSeconds || bookmark.timestamp)}
-                      style={{ 
-                        color: '#ff6600', 
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        fontFamily: 'Roboto Mono',
-                        fontSize: '11px'
-                      }}
-                      title="Click to seek in player"
-                    >
-                      {formatTimestamp(bookmark.timestampSeconds || bookmark.timestamp)}
-                    </strong>
-                    {bookmark.lens && <span className="badge" style={{ fontSize: '9px', textTransform: 'uppercase' }}>{bookmark.lens}</span>}
+              {audit.bookmarks.map((bookmark, idx) => {
+                const bmId = bookmark._id || bookmark.id;
+                const isHighlighted = bmId && bmId === highlightBookmarkId;
+                const bmTs = bookmark.timestampSeconds || bookmark.timestamp;
+                return (
+                  <div
+                    key={bmId || idx}
+                    style={{
+                      background: '#0c0c0e',
+                      padding: '15px',
+                      borderRadius: '2px',
+                      border: isHighlighted ? '1px solid #ff6600' : '1px solid rgba(255,255,255,0.06)',
+                      boxShadow: isHighlighted ? '0 0 0 1px rgba(255,102,0,0.35), 0 0 12px rgba(255,102,0,0.25)' : 'none',
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', gap: '6px' }}>
+                      <strong
+                        onClick={() => seekTo(bmTs)}
+                        style={{
+                          color: '#ff6600',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          fontFamily: 'Roboto Mono',
+                          fontSize: '11px'
+                        }}
+                        title="Click to seek in player"
+                      >
+                        {formatTimestamp(bmTs)}
+                      </strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {bookmark.lens && <span className="badge" style={{ fontSize: '9px', textTransform: 'uppercase' }}>{bookmark.lens}</span>}
+                        <ShareLinkButton
+                          auditId={audit._id}
+                          timestampSeconds={bmTs}
+                          bookmarkId={bmId}
+                          label="Share"
+                          compact
+                        />
+                      </div>
+                    </div>
+                    {bookmark.label && <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.9)' }}>{bookmark.label}</div>}
+                    {bookmark.note && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{bookmark.note}</p>}
                   </div>
-                  {bookmark.label && <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.9)' }}>{bookmark.label}</div>}
-                  {bookmark.note && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{bookmark.note}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

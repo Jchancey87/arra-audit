@@ -16,7 +16,7 @@ export const AudioProvider = ({ children }) => {
   const [volume, setVolume] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
-  
+
   // New layout states
   const [videoDock, setVideoDock] = useState('float'); // 'float' | 'left' | 'right'
   const [focusMode, setFocusMode] = useState(false);
@@ -26,6 +26,11 @@ export const AudioProvider = ({ children }) => {
   const [embedError, setEmbedError] = useState(false);
   const [bottomOpen, setBottomOpen] = useState(true);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
+
+  // Deep-link highlight: id of the bookmark currently pulsing in the UI.
+  // Cleared automatically after 4s so the visual cue fades.
+  const [highlightBookmarkId, setHighlightBookmarkId] = useState(null);
+  const highlightTimeoutRef = useRef(null);
 
   const playerRef = useRef(null);
   const timerRef = useRef(null);
@@ -157,6 +162,20 @@ export const AudioProvider = ({ children }) => {
     }
   };
 
+  const highlightBookmark = (bookmarkId, { durationMs = 4000 } = {}) => {
+    if (!bookmarkId) return;
+    setHighlightBookmarkId(bookmarkId);
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightBookmarkId(null);
+      highlightTimeoutRef.current = null;
+    }, durationMs);
+  };
+
+  useEffect(() => () => {
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+  }, []);
+
   const handleReady = (event) => {
     playerRef.current = event.target;
     playerRef.current.setVolume(volume);
@@ -230,6 +249,8 @@ export const AudioProvider = ({ children }) => {
     setVolume: changeVolume,
     toggleMute,
     addGlobalBookmark,
+    highlightBookmark,
+    highlightBookmarkId,
     isAudioLoading,
   };
 

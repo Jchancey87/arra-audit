@@ -1108,3 +1108,27 @@ Increase audit questions label font size to 18px.
   - 7 data hooks (useSong, useAudits, useAudit, useTechniques, useStudyProgress, useCurricula, useTasteProfiles)
   - 3 page-specific utility hooks (useAuditAutosave incl. polling + progress sim, useCompletionCheck, useAuditShortcuts)
 - `rg "backend\." client/src/pages/AuditForm.jsx`: zero matches.
+
+---
+
+### 2026-06-19: Phase 1.1 — Deep-link Bookmarks (uncommitted)
+
+- **Goal**: `/audit/:id?t=<sec>&bookmark=<id>` opens audit, seeks player, pulses matching card 4s. Frontend only, no backend changes.
+- **New files** (4):
+  - `client/src/utils/deepLinks.js` (40 lines) — `buildAuditLink(auditId, {timestampSeconds, bookmarkId})` + `parseDeepLinkParams(searchString)` + `DEEP_LINK_KEYS`. Safe origin, integer-validated ts.
+  - `client/src/hooks/useDeepLinkParams.js` (22 lines) — react-router `useSearchParams` wrapper, `useMemo` on relevant keys only.
+  - `client/src/components/ShareLinkButton.jsx` (109 lines) — `navigator.share({url, title})` → `navigator.clipboard.writeText` → textarea execCommand fallback. Shows "Copied" (green) or "Copy failed" (red) for 1.8s. `compact` prop for inline use.
+- **AudioContext ext** (`client/src/context/AudioContext.jsx`):
+  - `highlightBookmarkId` state + `setHighlightBookmarkId`.
+  - `highlightBookmark(id, {durationMs=4000})` action. `useRef` timeout, auto-clear + cleanup on unmount.
+  - Both exposed in context value.
+- **AuditDetail wiring** (`client/src/pages/AuditDetail.jsx`):
+  - Consumes `useDeepLinkParams()` + `highlightBookmark`/`highlightBookmarkId` from `useAudio()`.
+  - `deepLinkAppliedRef` (useRef) gates single-shot application. Effect runs after `audit.bookmarks` is available, applies 350ms timeout before `seekTo` to let YouTube player mount. `?bookmark=` matches → `find` the bookmark, override ts if present, then `highlightBookmark(id)`.
+  - Each bookmark card now renders `<ShareLinkButton compact auditId={audit._id} timestampSeconds={bmTs} bookmarkId={bmId} />`.
+  - Highlighted card: `border: 1px solid #ff6600` + `box-shadow: 0 0 0 1px rgba(255,102,0,0.35), 0 0 12px rgba(255,102,0,0.25)` (fades via 0.2s transition).
+- **Verification**:
+  - `npx vite build` in `client/`: 184 modules transformed, clean build. Main bundle 1010 KB (unchanged — additions negligible).
+  - No backend touched; 44/44 server tests still green (caveman rule: skip on frontend-only).
+  - No new client test infra (none existed in repo); pure utility `parseDeepLinkParams` is straightforward enough to skip in-session testing.
+- **Status**: Uncommitted. `agent_memory.md` updated with Phase 1.1 red-line + checkpoint. Resume point notes commit pending.
