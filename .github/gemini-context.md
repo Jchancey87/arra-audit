@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:18.365Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:26.861Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -55,7 +55,7 @@ analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
 server/__tests__/unit/SketchService.test.js   +mockFile
 server/routes/sketches.js                     +_sanitizeSketch  +createSketchRoutes
@@ -67,11 +67,7 @@ client/src/components/__tests__/ComparePlayer.test.jsx +StubAudioProvider  +make
 client/src/hooks/__tests__/useSketches.test.jsx +makeWrapper  +makeFile
 client/src/hooks/useSketches.js               +useSketches
 client/src/pages/SketchCompare.jsx            +SketchCompare  +Centered
-client/src/pdf/AuditReport.jsx                +CoverPage  +LensPages  +BookmarksPage  +TechniquesPage
-client/src/pdf/theme.js                       +registerArraFonts
 client/src/ports/IBackendService.js           ~IBackendService
-client/src/utils/pdfData.js                   +formatTimestamp  +formatDuration  +firstDefined  +pickLensAudio
-client/src/utils/pdfExport.jsx                +loadPdfRenderer  +renderAuditToBlob  +downloadBlob  +buildAuditFilename
 analysis_service/analyzer.py                  +analyze_sketch_file  ~download_and_analyze
 analysis_service/app.py                       +SketchAnalysisRequest  +trigger_sketch_analysis  ~AnalysisRequest  ~trigger_analysis
 .github/context-cold.md                       ~ClapAnalyzer  ~__init__  ~analyze_features  ~get_clap_analyzer
@@ -113,7 +109,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -142,7 +138,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -192,33 +188,6 @@ POST /analyze-sketch  →  trigger_sketch_analysis()  :73-100
 
 ## client
 
-### client/UI/AC_AUDIT.md
-```
-h1 ARRA — Analysis Panel Accessibility (AC) Audit
-h2 AC-01 — Tab navigation is keyboard accessible (arrow keys cycle, Home/End jump to ends)
-h2 AC-02 — All form inputs have associated `<label>` elements
-h2 AC-03 — Icon-only buttons have `aria-label` or visible text
-h2 AC-04 — Color is never the sole conveyor of meaning
-h2 AC-05 — Focus visible on all interactive elements
-h2 AC-06 — Audio context (playhead) is exposed to assistive tech
-h2 AC-07 — Error and success states are announced
-h2 AC-08 — High contrast mode is supported
-h2 AC-09 — Page is operable at 200% zoom and on small viewports
-h2 Summary
-h2 Regression Check (run after every audit panel change)
-h1 1. AC-03: no unlabeled icon-only buttons in audit/*
-h1 2. AC-05: focus-visible still universal
-h1 3. AC-07: alerts/roles present
-code-fence bash
-code-fence ---
-```
-
-### client/index.html
-```
-title: Arra Audit
-div#root
-```
-
 ### client/src/App.jsx
 ```
 function App()  :736-748
@@ -254,18 +223,6 @@ function SketchEnergyCanvas({ audioRef })  :93-159
 function PlayIcon()  :161-163
 function PauseIcon()  :164-166
 function Panel({ color, label, sublabel, time, duration, onScrub })  :343-367
-```
-
-### client/src/components/ErrorBoundary.jsx
-```
-class ErrorBoundary  :3-106
-  constructor(props)  :4-8
-  static getDerivedStateFromError(error)  :10-12
-  componentDidCatch(error, info)  :14-17
-  handleReset()  :19-24
-  if(typeof window !== 'undefined')  :21-23
-  render()  :26-105
-  if(this.state.error)  :27-103
 ```
 
 ### client/src/components/__tests__/ComparePlayer.test.jsx

@@ -28,10 +28,49 @@ client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 
 ## client
 
+### client/UI/AC_AUDIT.md
+```
+h1 ARRA — Analysis Panel Accessibility (AC) Audit
+h2 AC-01 — Tab navigation is keyboard accessible (arrow keys cycle, Home/End jump to ends)
+h2 AC-02 — All form inputs have associated `<label>` elements
+h2 AC-03 — Icon-only buttons have `aria-label` or visible text
+h2 AC-04 — Color is never the sole conveyor of meaning
+h2 AC-05 — Focus visible on all interactive elements
+h2 AC-06 — Audio context (playhead) is exposed to assistive tech
+h2 AC-07 — Error and success states are announced
+h2 AC-08 — High contrast mode is supported
+h2 AC-09 — Page is operable at 200% zoom and on small viewports
+h2 Summary
+h2 Regression Check (run after every audit panel change)
+h1 1. AC-03: no unlabeled icon-only buttons in audit/*
+h1 2. AC-05: focus-visible still universal
+h1 3. AC-07: alerts/roles present
+code-fence bash
+code-fence ---
+```
+
+### client/index.html
+```
+title: Arra Audit
+div#root
+```
+
 ### client/public/index.html
 ```
 title: Arra Audit
 div#root
+```
+
+### client/src/components/ErrorBoundary.jsx
+```
+class ErrorBoundary  :3-106
+  constructor(props)  :4-8
+  static getDerivedStateFromError(error)  :10-12
+  componentDidCatch(error, info)  :14-17
+  handleReset()  :19-24
+  if(typeof window !== 'undefined')  :21-23
+  render()  :26-105
+  if(this.state.error)  :27-103
 ```
 
 ### client/src/components/ResearchSummaryRenderer.jsx
