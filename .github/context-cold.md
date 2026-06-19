@@ -22,7 +22,7 @@ server/adapters/MockAIAdapter.js ← ports/IAIModelService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
 server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
-client/src/context/AudioContext.jsx ← BackendContext
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 ```
@@ -41,10 +41,22 @@ title: Arra Audit
 div#root
 ```
 
-### client/src/context/AudioContext.jsx
+### client/src/adapters/HttpBackendAdapter.js
 ```
-export const AudioProvider = ({ children }) =>  :7-148
-export const useAudio = () =>  :276-282
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
+```
+
+### client/src/components/ResearchSummaryRenderer.jsx
+```
+export const parseSummaryText = (text) =>  :49-90
 ```
 
 ### client/src/context/AuthContext.jsx
@@ -57,6 +69,19 @@ export const useAuth = () =>  :116-122
 ```
 export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
+```
+
+### client/src/ports/IBackendService.js
+```
+export class IBackendService  :7-63
+  async login(email, password)  :9-9
+  async register(email, password, name)  :10-10
+  async getUserProfile()  :11-11
+  async updatePreferences(preferences)  :12-12
+  async updateProfile(profileData)  :13-13
+  async changePassword(oldPassword, newPassword)  :14-14
+  async deleteAccount()  :15-15
+  async getSongs(filters)  :18-18
 ```
 
 ## server

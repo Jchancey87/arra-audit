@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
-import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
+import AuditPanelHeader from '../components/audit/AuditPanelHeader';
+import AuditTabBar from '../components/audit/AuditTabBar';
+import TrackAnalysisModules from '../components/audit/TrackAnalysisModules';
+import AuditTimeline from '../components/audit/AuditTimeline';
+import LensPanel, { LENS_PROMPTS, LENS_LABEL } from '../components/audit/LensPanel';
+import SourcesPanel from '../components/audit/SourcesPanel';
+import NotebookPanel from '../components/audit/NotebookPanel';
+import CaptureTechnique from '../components/audit/CaptureTechnique';
 
 // ── Autosave hook ────────────────────────────────────────────────────────────
 function useAutosave(auditId, data, backend, delay = 3000) {
@@ -51,19 +58,6 @@ function formatTime(seconds) {
 }
 const stripTopic = (name) => (name || '').replace(/\s*-\s*Topic\s*$/i, '').replace(/\s*\(Official.*?\)/gi, '').replace(/\s*\[Official.*?\]/gi, '').trim();
 
-const SAVE_LABEL = {
-  saved:  '✓ Synced',
-  saving: 'Saving...',
-  dirty:  '● Unsaved',
-  error:  '✗ Error',
-};
-const SAVE_COLOR = {
-  saved:  'var(--status-high)',
-  saving: 'var(--text-muted)',
-  dirty:  'var(--accent-orange)',
-  error:  'var(--status-low)',
-};
-
 // ── AuditForm ────────────────────────────────────────────────────────────────
 const AuditForm = () => {
   const { auditId } = useParams();
@@ -86,39 +80,22 @@ const AuditForm = () => {
   const [song, setSong]             = useState(null);
   const [responses, setResponses]   = useState({});
   const [techniques, setTechniques] = useState([]);
-  const [currentTechnique, setCurrentTechnique] = useState({ techniqueName: '', description: '', lens: 'rhythm' });
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showResearch, setShowResearch] = useState(false);
 
   // Audio Analysis pipeline state
-  const [showAnalysis, setShowAnalysis] = useState(true);
-  const [showOverrideControls, setShowOverrideControls] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisStage, setAnalysisStage] = useState('Initiating extraction pipeline...');
-  const [overrideBpm, setOverrideBpm] = useState('');
-  const [overrideKey, setOverrideKey] = useState('');
-  const [overrideScale, setOverrideScale] = useState('');
-  const [overrideMeter, setOverrideMeter] = useState('');
-  const [tapTimes, setTapTimes] = useState([]);
 
   const { saveStatus, markDirty, saveNow } = useAutosave(auditId, { responses }, backend);
+  const [captureSavedTick, setCaptureSavedTick] = useState(0);
 
   // Auto-enable Focus Mode on mount, disable on unmount
   useEffect(() => {
     setFocusMode(true);
     return () => setFocusMode(false);
   }, [setFocusMode]);
-
-  useEffect(() => {
-    if (song) {
-      setOverrideBpm(song.audioOverrides?.tempo_bpm || song.audioAnalysis?.tempo_bpm || '');
-      setOverrideKey(song.audioOverrides?.key || song.audioAnalysis?.key || '');
-      setOverrideScale(song.audioOverrides?.scale || song.audioAnalysis?.scale || '');
-      setOverrideMeter(song.audioOverrides?.estimated_meter || song.audioAnalysis?.estimated_meter || '');
-    }
-  }, [song]);
 
   // Polling for audio analysis status
   useEffect(() => {
@@ -147,7 +124,6 @@ const AuditForm = () => {
     if (song && song.audioAnalysisStatus === 'pending') {
       setAnalysisProgress(0);
       setAnalysisStage('Connecting to signal source...');
-      
       const stages = [
         { threshold: 15, text: 'Downloading audio source from stream...' },
         { threshold: 40, text: 'Running transient beat & downbeat tracking...' },
@@ -155,60 +131,22 @@ const AuditForm = () => {
         { threshold: 85, text: 'Running CLAP semantic vibe analysis...' },
         { threshold: 98, text: 'Assembling override vectors...' },
       ];
-
       timer = setInterval(() => {
         setAnalysisProgress((prev) => {
           const next = Math.min(prev + Math.floor(Math.random() * 4) + 1, 99);
           const currentStage = stages.find(s => next <= s.threshold);
-          if (currentStage) {
-            setAnalysisStage(currentStage.text);
-          } else {
-            setAnalysisStage('Finalizing background database sync...');
-          }
+          if (currentStage) setAnalysisStage(currentStage.text);
+          else setAnalysisStage('Finalizing background database sync...');
           return next;
         });
       }, 400);
     } else {
       setAnalysisProgress(0);
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
+    return () => { if (timer) clearInterval(timer); };
   }, [song?.audioAnalysisStatus]);
 
-  const handleTapTempo = () => {
-    const now = Date.now();
-    const newTaps = [...tapTimes.filter(t => now - t < 3000), now];
-    setTapTimes(newTaps);
-
-    if (newTaps.length >= 2) {
-      const intervals = [];
-      for (let i = 1; i < newTaps.length; i++) {
-        intervals.push(newTaps[i] - newTaps[i - 1]);
-      }
-      const avgIntervalMs = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-      const bpm = Math.round(60000 / avgIntervalMs);
-      setOverrideBpm(bpm);
-    }
-  };
-
-  const handleSaveOverrides = async () => {
-    try {
-      const updated = await backend.saveAudioOverrides(song._id, {
-        tempo_bpm: overrideBpm ? parseFloat(overrideBpm) : null,
-        key: overrideKey || null,
-        scale: overrideScale || null,
-        estimated_meter: overrideMeter || null,
-      });
-      setSong(updated.song || updated);
-      flash('✓ Audio overrides updated!');
-      setShowOverrideControls(false);
-    } catch (err) {
-      setError('Failed to save audio overrides');
-    }
-  };
-
-  // ── Load audit + song on mount ───────────────────────────────────────────
+  // Load audit + song on mount
   useEffect(() => {
     const load = async () => {
       try {
@@ -216,10 +154,7 @@ const AuditForm = () => {
         if (!auditData) { setError('Audit not found'); return; }
         setAudit(auditData);
         setResponses(auditData.responses || {});
-        // Techniques shown in-form are a display reference only;
-        // real storage is TechniqueEntry collection (see addTechnique below)
         setTechniques(auditData.techniques || []);
-
         const songData = await backend.getSong(auditData.songId?._id ?? auditData.songId);
         setSong(songData);
         loadSong(songData);
@@ -237,61 +172,10 @@ const AuditForm = () => {
     return () => setActiveAudit(null);
   }, [audit, setActiveAudit]);
 
-  // ── Responses ────────────────────────────────────────────────────────────
+  // Responses
   const handleResponseChange = (key, value) => {
     setResponses((prev) => ({ ...prev, [key]: value }));
     markDirty();
-  };
-
-  // ── Techniques — Issue 3 fix ─────────────────────────────────────────────
-  // Immediately persist to TechniqueEntry collection via POST /api/techniques
-  // so the Technique Notebook page shows them right away.
-  const addTechnique = async () => {
-    if (!currentTechnique.description.trim()) return;
-    try {
-      const saved = await backend.addTechnique({
-        auditId,
-        songId: audit.songId?._id || audit.songId,
-        artist: song?.artistName || song?.artist || '',
-        techniqueName: currentTechnique.techniqueName || '',
-        description: currentTechnique.description,
-        lens: currentTechnique.lens,
-      });
-      // Add the saved entry (with server _id) to the local display list
-      setTechniques((prev) => [...prev, saved]);
-      setCurrentTechnique({ techniqueName: '', description: '', lens: 'rhythm' });
-      flash('✓ Technique saved to notebook!');
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to save technique');
-    }
-  };
-
-  const removeTechnique = async (id) => {
-    try {
-      await backend.deleteTechnique(id);
-      setTechniques((prev) => prev.filter((t) => (t._id || t._tempId) !== id));
-    } catch (err) {
-      setError('Failed to remove technique');
-    }
-  };
-
-  // ── Save (manual / final) ─────────────────────────────────────────────────
-  const saveAudit = async () => {
-    try {
-      await backend.updateAudit(auditId, {
-        responses,
-        status: 'completed',
-      });
-      flash('Audit saved!');
-      setTimeout(() => navigate('/dashboard'), 1500);
-    } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to save audit');
-    }
-  };
-
-  const flash = (msg) => {
-    setSuccess(msg);
-    setTimeout(() => setSuccess(''), 2500);
   };
 
   // ── Guided Step Actions ───────────────────────────────────────────────────
@@ -323,7 +207,23 @@ const AuditForm = () => {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // Save (manual / final)
+  const saveAudit = async () => {
+    try {
+      await backend.updateAudit(auditId, { responses, status: 'completed' });
+      flash('Audit saved!');
+      setTimeout(() => navigate('/dashboard'), 1500);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to save audit');
+    }
+  };
+
+  const flash = (msg) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(''), 2500);
+  };
+
+  // ── Render guards ────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading audit workspace...</div>;
   if (error && !audit) return <div className="error">{error}</div>;
   if (!audit) return <div className="loading">Loading audit workspace...</div>;
@@ -334,1212 +234,491 @@ const AuditForm = () => {
   const currentStep = isGuided ? audit.guidedSteps.find((s) => s.status === 'active') : null;
   const stepIndex = isGuided ? audit.guidedSteps.findIndex((s) => s.status === 'active') : -1;
 
-  // Issue 4: research sources from the stored song researchSummary
   const researchSources = song?.researchSummary?.results || [];
 
+  // ── Tab state — persists in session via sessionStorage
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return sessionStorage.getItem(`audit-tab-${auditId}`) || 'analysis'; } catch { return 'analysis'; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem(`audit-tab-${auditId}`, activeTab); } catch {}
+  }, [activeTab, auditId]);
+
+  // Active lens for the Lens tab
+  const [activeLens, setActiveLens] = useState(() => {
+    if (audit.lensSelection && audit.lensSelection.length > 0) {
+      const l = audit.lensSelection[0].toLowerCase();
+      if (LENS_PROMPTS[l]) return l;
+    }
+    return 'harmony';
+  });
+
+  // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
+  const answeredPrompts = useMemo(() => {
+    if (activeTab !== 'lens') return 0;
+    const prompts = LENS_PROMPTS[activeLens] || [];
+    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length > 10).length;
+  }, [activeTab, activeLens, responses]);
+  const canComplete = techniques.length >= 1 || answeredPrompts >= 2;
+
+  // Tab definitions
+  const tabs = [
+    { id: 'analysis', label: 'Analysis' },
+    { id: 'lens', label: `Lens: ${LENS_LABEL[activeLens] || 'Harmony'}` },
+    { id: 'sources', label: 'Sources', badge: researchSources.length },
+    { id: 'notebook', label: 'Notebook' },
+  ];
+
+  // Override handler (Track Analysis inline edit)
+  const handleAnalysisChangeOverride = async (draft) => {
+    if (!song?._id) return;
+    try {
+      const updated = await backend.saveAudioOverrides(song._id, {
+        tempo_bpm: draft.tempo_bpm ? parseFloat(draft.tempo_bpm) : null,
+        key: draft.key || null,
+        scale: draft.scale || null,
+        estimated_meter: draft.estimated_meter || null,
+      });
+      setSong(updated.song || updated);
+      flash('✓ Values updated');
+    } catch (err) {
+      setError('Failed to save override values');
+    }
+  };
+
+  // Capture Technique submit
+  const handleCaptureTechniqueSubmit = async (payload) => {
+    const desc = [payload.whatHappened, payload.howReuse].filter(Boolean).join('\n\n');
+    if (!desc.trim()) return;
+    try {
+      const saved = await backend.addTechnique({
+        auditId,
+        songId: audit.songId?._id || audit.songId,
+        artist: song?.artistName || song?.artist || '',
+        techniqueName: payload.name,
+        description: desc,
+        lens: payload.lens,
+        tags: payload.tags,
+        timestamp: payload.timestamp,
+      });
+      setTechniques((prev) => [...prev, saved]);
+      setCaptureSavedTick((t) => t + 1);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to save technique');
+    }
+  };
+
+  // Trigger initial analysis
+  const handleTriggerAnalysis = async () => {
+    if (!song?._id) return;
+    try {
+      await backend.triggerSongAnalysis(song._id);
+      const updated = await backend.getSong(song._id);
+      setSong(updated);
+      flash('✓ Analysis pipeline triggered');
+    } catch (e) {
+      setError('Failed to trigger analysis pipeline');
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <style>{`
-        @keyframes pulse-led {
-          0%, 100% { opacity: 0.35; transform: scale(0.92); }
-          50% { opacity: 1; transform: scale(1.15); }
-        }
-        @keyframes vu-level-bounce {
-          0% { opacity: 0.85; filter: brightness(0.95); }
-          100% { opacity: 1; filter: brightness(1.2); }
-        }
-      `}</style>
-      <div style={{ background: 'var(--bg-panel)', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.3)', marginBottom: '12px' }}>
+    <div style={{ background: 'var(--bg-surface-0)', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-        {/* Header flex row with Autosave status and Focus Mode */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <div>
-            <h1 style={{ margin: 0, border: 'none', padding: 0 }}>{template?.title || `${stripTopic(song?.title)} AUDIT`}</h1>
-            <p className="card-subtitle" style={{ margin: '2px 0 0 0' }}>{stripTopic(song?.artistName || song?.artist)}{song?.year ? ` · ${song.year}` : ''}</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', fontWeight: 'bold', color: SAVE_COLOR[saveStatus] }}>
-              {SAVE_LABEL[saveStatus]}
-            </span>
-            <button
-              onClick={() => setFocusMode(!focusMode)}
-              className={focusMode ? 'primary' : 'secondary'}
-              style={{
-                padding: '6px 12px',
-                fontSize: '10px',
-                fontFamily: 'Inter',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              {focusMode ? (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6L6 18M6 6l12 12"></path>
-                  </svg>
-                  Exit Focus
-                </>
-              ) : (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M3 12h1m16 0h1M12 3v1m0 16v1M5.6 5.6l.7.7m11.4 11.4l.7.7M18.4 5.6l-.7.7M6.3 17.7l-.7.7"></path>
-                  </svg>
-                  Focus Mode
-                </>
-              )}
-            </button>
-          </div>
-        </div>
+      {error && <div className="error" style={{ margin: '8px 12px 0' }}>{error}</div>}
+      {success && <div className="success" style={{ margin: '8px 12px 0' }}>{success}</div>}
 
-        {error   && <div className="error">{error}</div>}
-        {success && <div className="success">{success}</div>}
+      {/* ── Panel Header (4.1) ── */}
+      <AuditPanelHeader
+        song={song}
+        audioContext={{ isPlaying, currentTime, duration }}
+        saveStatus={saveStatus}
+        isComplete={canComplete}
+        onComplete={saveAudit}
+        onReturnToPlan={() => navigate('/planner')}
+      />
 
-        {/* Issue 4: Research Intelligence Panel */}
-        {researchSources.length > 0 && (
-          <div style={{
-            marginTop: '20px',
-            background: 'rgba(255, 102, 0, 0.04)',
-            border: '1px solid rgba(255, 102, 0, 0.15)',
-            borderRadius: '2px',
-          }}>
-            <button
-              onClick={() => setShowResearch(!showResearch)}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                padding: '10px 15px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                cursor: 'pointer',
-                color: '#ff6600',
-                fontFamily: 'Roboto Mono',
-                fontSize: '11px',
-                fontWeight: 'bold',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
-                RESEARCH INTELLIGENCE ({researchSources.length} SOURCES)
-              </span>
-              <span>{showResearch ? '▲ COLLAPSE' : '▼ EXPAND'}</span>
-            </button>
+      {/* ── Tab Bar (4.2) ── */}
+      <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-            {showResearch && (
-              <div style={{ padding: '0 15px 15px' }}>
-                {researchSources.map((src, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      marginBottom: '10px',
-                      padding: '10px',
-                      background: '#0c0c0e',
-                      borderRadius: '2px',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', alignItems: 'start', gap: '10px' }}>
-                      <strong style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', lineHeight: '1.3' }}>
-                        {src.title}
-                      </strong>
-                      {src.url && (
-                        <a
-                          href={src.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontSize: '10px', color: '#ff6600', whiteSpace: 'nowrap', fontFamily: 'Roboto Mono', flexShrink: 0 }}
-                        >
-                          Open ↗
-                        </a>
-                      )}
-                    </div>
-                    {src.content && (
-                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', margin: 0, lineHeight: '1.5' }}>
-                        {src.content.substring(0, 250)}{src.content.length > 250 ? '…' : ''}
-                      </p>
-                    )}
-                  </div>
-                ))}
+      {/* ── Tab Content Area (scrolls) ── */}
+      <main
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          background: 'var(--bg-surface-0)',
+        }}
+      >
+        {/* ── ANALYSIS TAB ── */}
+        {activeTab === 'analysis' && (
+          <div style={{ padding: '16px' }}>
+            {/* Analysis pipeline states */}
+            {song?.audioAnalysisStatus === 'not_started' && (
+              <div
+                style={{
+                  background: 'var(--bg-surface-2)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '24px',
+                  textAlign: 'center',
+                  marginBottom: '20px',
+                }}
+              >
+                <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 12px 0' }}>
+                  Audio signal extraction has not been executed yet. Discover the BPM, key signature, meter, and temporal dynamics.
+                </p>
+                <button onClick={handleTriggerAnalysis} className="primary">
+                  Execute Audio Signal Extraction
+                </button>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Guided Workflow Progress Tracker */}
-        {isGuided && (
-          <div style={{ marginBottom: '30px', marginTop: '20px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              background: '#0c0c0e',
-              padding: '6px',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '2px',
-              marginBottom: '15px'
-            }}>
-              {audit.guidedSteps.map((step, idx) => {
-                const isActive = step.status === 'active';
-                const isComplete = step.status === 'complete';
-                let indicatorColor = 'rgba(255, 255, 255, 0.15)';
-                let textColor = 'rgba(255, 255, 255, 0.4)';
-                if (isActive) { indicatorColor = '#ff6600'; textColor = '#ff6600'; }
-                else if (isComplete) { indicatorColor = '#4ade80'; textColor = 'rgba(255,255,255,0.7)'; }
-                return (
+            {song?.audioAnalysisStatus === 'pending' && (
+              <div
+                style={{
+                  background: 'var(--bg-surface-2)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '24px',
+                  textAlign: 'center',
+                  marginBottom: '20px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'inline-block',
+                    width: '20px', height: '20px',
+                    border: '2px solid var(--accent-primary-bg)',
+                    borderTopColor: 'var(--accent-primary)',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    marginBottom: '10px',
+                  }}
+                />
+                <p
+                  style={{
+                    fontSize: '12px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent-primary)',
+                    margin: '0 0 10px 0',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  Extracting Harmonic & Rhythmic Codes ({analysisProgress}%)
+                </p>
+                <div
+                  style={{
+                    width: '80%', maxWidth: '380px', height: '4px',
+                    background: 'var(--bg-surface-3)',
+                    margin: '0 auto 10px',
+                    overflow: 'hidden',
+                  }}
+                >
                   <div
-                    key={step.name}
                     style={{
-                      flex: 1,
-                      textAlign: 'center',
-                      fontSize: '10px',
-                      fontFamily: 'Roboto Mono',
-                      fontWeight: 'bold',
-                      color: textColor,
-                      padding: '8px 4px',
-                      margin: '0 4px',
-                      background: isActive ? 'rgba(255, 102, 0, 0.08)' : 'transparent',
-                      border: isActive ? '1px solid rgba(255, 102, 0, 0.3)' : '1px solid transparent',
-                      borderRadius: '1px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '4px',
+                      width: `${analysisProgress}%`, height: '100%',
+                      background: 'var(--accent-primary)',
+                      transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
-                  >
-                    <span style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: indicatorColor,
-                      boxShadow: isActive ? '0 0 8px #ff6600' : isComplete ? '0 0 6px #4ade80' : 'none',
-                    }} />
-                    {idx + 1} // {step.name.toUpperCase()}
-                  </div>
-                );
-              })}
-            </div>
-
-            {currentStep && (
-              <div style={{
-                background: 'var(--bg-panel)',
-                padding: '15px',
-                borderLeft: '3px solid #ff6600',
-                borderRadius: '2px',
-              }}>
-                <h3 style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px', color: '#ff6600' }}>
-                  STEP 0{currentStep.stepNumber} // {currentStep.name.toUpperCase()}
-                </h3>
-                <p style={{ fontSize: '12px', lineHeight: '1.5', color: 'rgba(255, 255, 255, 0.8)', margin: 0 }}>
-                  {currentStep.instructions}
+                  />
+                </div>
+                <p
+                  style={{
+                    fontSize: '10px', color: 'var(--text-tertiary)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    margin: 0, textTransform: 'uppercase',
+                  }}
+                >
+                  {analysisStage}
                 </p>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Fallback template notice */}
-        {audit.templateVersion?.startsWith('fallback') && (
-          <div style={{
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.2)',
-            color: '#f59e0b',
-            padding: '12px',
-            borderRadius: '2px',
-            marginBottom: '20px',
-            fontSize: '11px',
-            fontFamily: 'Roboto Mono',
-          }}>
-            ℹ USING STANDARD REFERENCE TEMPLATE — CUSTOM SONIC SYNTHESIS UNAVAILABLE.
-          </div>
-        )}
-
-        {/* 🧬 SIGNAL AUDIO ANALYSIS MATRIX */}
-        {song && (
-          <div className="panel" style={{ background: 'var(--bg-panel)', borderRadius: '2px', padding: '16px', marginBottom: '20px', boxShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-orange)' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-                <h3 style={{ margin: 0, fontFamily: 'Roboto Mono, monospace', fontSize: '11px', color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  ANALYSIS MATRIX
-                </h3>
-              </div>
-              <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '9px', fontFamily: 'Roboto Mono, monospace' }}>
-                {showAnalysis ? 'COLLAPSE' : 'EXPAND'}
-              </button>
-            </div>
-
-            {showAnalysis && (
-              <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '15px' }}>
-                {song.audioAnalysisStatus === 'not_started' && (
-                  <div style={{ textAlign: 'center', padding: '15px 0' }}>
-                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginBottom: '12px' }}>
-                      Audio signal extraction has not been executed yet. Discover the BPM, key signature, meter, and temporal dynamics.
-                    </p>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await backend.triggerSongAnalysis(song._id);
-                          const updated = await backend.getSong(song._id);
-                          setSong(updated);
-                          flash(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg> Analysis pipeline triggered!</span>);
-                        } catch (e) {
-                          setError('Failed to trigger analysis pipeline');
-                        }
-                      }}
-                      style={{ background: '#ff6600', color: '#0c0c0e', fontWeight: 'bold', border: 'none', padding: '8px 16px', cursor: 'pointer', fontFamily: 'Roboto Mono', fontSize: '11px' }}
-                    >
-                      EXECUTE AUDIO SIGNAL EXTRACTION
-                    </button>
-                  </div>
-                )}
-
-                {song.audioAnalysisStatus === 'pending' && (
-                  <div style={{ textAlign: 'center', padding: '25px 0' }}>
-                    <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '2.5px solid rgba(255, 102, 0, 0.2)', borderTopColor: '#ff6600', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
-                    <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px', fontFamily: 'Roboto Mono', color: '#ff6600', margin: '0 0 10px 0', letterSpacing: '0.05em' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
-                      EXTRACTING HARMONIC & RHYTHMIC CODES ({analysisProgress}%)
-                    </p>
-                    
-                    {/* Simulated Progress Bar */}
-                    <div style={{ width: '80%', maxWidth: '380px', height: '5px', background: 'rgba(255, 255, 255, 0.08)', margin: '0 auto 12px auto', borderRadius: '4px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                      <div style={{ width: `${analysisProgress}%`, height: '100%', background: 'linear-gradient(90deg, #ff6600, #e2a87c)', transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)', borderRadius: '4px' }} />
-                    </div>
-                    
-                    <p style={{ fontSize: '10px', color: 'rgba(255, 255, 255, 0.45)', margin: 0, fontFamily: 'Roboto Mono', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                      {analysisStage}
-                    </p>
-                  </div>
-                )}
-
-                {song.audioAnalysisStatus === 'failed' && (
-                  <div style={{ textAlign: 'center', padding: '15px 0' }}>
-                    <p style={{ fontSize: '12px', color: '#f87171', marginBottom: '12px' }}>
-                      ⚠️ Signal extraction pipeline reported a compilation/execution failure.
-                    </p>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await backend.triggerSongAnalysis(song._id);
-                          const updated = await backend.getSong(song._id);
-                          setSong(updated);
-                          flash(<span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"></path></svg> Analysis pipeline retried!</span>);
-                        } catch (e) {
-                          setError('Failed to retry analysis pipeline');
-                        }
-                      }}
-                      className="btn"
-                      style={{ background: '#f87171', color: '#fff', border: 'none', padding: '6px 12px', cursor: 'pointer', fontFamily: 'Roboto Mono', fontSize: '10px' }}
-                    >
-                      RE-RUN PIPELINE
-                    </button>
-                  </div>
-                )}
-
-                {song.audioAnalysisStatus === 'success' && song.audioAnalysis && (
-                  <div>
-                    {/* Active Values Grid — Standardized DAW Cards */}
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                      gap: '8px',
-                      marginBottom: '16px'
-                    }}>
-                      {(() => {
-                        const bpmVal = song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm || 120;
-                        const bpmNum = parseFloat(bpmVal);
-                        const detectedKey = (song.audioOverrides?.key || song.audioAnalysis?.key || '').trim();
-                        const detectedScale = song.audioOverrides?.scale || song.audioAnalysis?.scale || '';
-                        const meter = song.audioOverrides?.estimated_meter || song.audioAnalysis?.estimated_meter || '4/4';
-                        const beatsPerMeasure = parseInt(meter.split('/')[0]) || 4;
-                        const currentBeat = Math.floor(currentTime * (bpmNum / 60)) % beatsPerMeasure;
-                        const lufsVal = parseFloat(song.audioAnalysis?.loudness_integrated) || -14;
-                        const lufsPercent = Math.max(3, Math.min(100, ((lufsVal - (-24)) / (-4 - (-24))) * 100));
-
-                        const cards = [
-                          {
-                            label: 'TEMPO',
-                            value: bpmVal,
-                            unit: 'BPM',
-                            conf: song.audioAnalysis.tempo_confidence || 0,
-                            overridden: !!song.audioOverrides?.tempo_bpm,
-                            viz: (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '32px' }}>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleSeek && seekTo(0); }}
-                                  title="Play from start"
-                                  style={{
-                                    width: '28px', height: '28px', background: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px',
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    opacity: 0.4, transition: 'opacity 0.15s',
-                                    padding: 0
-                                  }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.4'}
-                                >
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                                </button>
-                                <span style={{
-                                  display: 'inline-block',
-                                  width: '6px', height: '6px', borderRadius: '50%',
-                                  background: 'var(--accent-orange)',
-                                  animation: isPlaying ? `pulse-led ${60 / bpmNum}s ease-in-out infinite` : 'none',
-                                  opacity: isPlaying ? 1 : 0.3
-                                }} />
-                              </div>
-                            )
-                          },
-                          {
-                            label: 'KEY',
-                            value: `${detectedKey} ${detectedScale}`.trim(),
-                            unit: detectedScale ? detectedScale.toUpperCase() : '',
-                            conf: song.audioAnalysis.key_confidence || 0,
-                            overridden: !!song.audioOverrides?.key,
-                            viz: (
-                              <div style={{ display: 'flex', gap: '1px', marginTop: '2px', flexWrap: 'wrap', height: '32px', alignItems: 'center' }}>
-                                {['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'].map(k => {
-                                  const isActive = detectedKey.toLowerCase() === k.toLowerCase() || detectedKey.toLowerCase().startsWith(k.toLowerCase());
-                                  return (
-                                    <span key={k} style={{
-                                      fontSize: '7px', fontFamily: 'Roboto Mono, monospace',
-                                      padding: '1px 3px', borderRadius: '1px',
-                                      background: isActive ? 'var(--accent-orange)' : 'rgba(255,255,255,0.03)',
-                                      color: isActive ? '#0c0c0e' : 'rgba(255,255,255,0.2)',
-                                      fontWeight: isActive ? 'bold' : 'normal'
-                                    }}>{k}</span>
-                                  );
-                                })}
-                              </div>
-                            )
-                          },
-                          {
-                            label: 'METER',
-                            value: meter,
-                            unit: '',
-                            conf: song.audioAnalysis.meter_confidence || 0,
-                            overridden: !!song.audioOverrides?.estimated_meter,
-                            viz: (
-                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '32px' }}>
-                                {Array.from({ length: beatsPerMeasure }).map((_, bIdx) => {
-                                  const isCurrent = isPlaying && currentBeat === bIdx;
-                                  return (
-                                    <div key={bIdx} style={{
-                                      width: '12px', height: '12px', borderRadius: '2px',
-                                      background: isCurrent ? 'var(--status-high)' : 'rgba(255,255,255,0.05)',
-                                      boxShadow: isCurrent ? '0 0 6px rgba(52,211,153,0.4)' : 'none',
-                                      transition: 'all 0.08s ease',
-                                      animation: isCurrent ? 'pulse-led 0.3s ease-in-out infinite' : 'none'
-                                    }} />
-                                  );
-                                })}
-                                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', fontFamily: 'Roboto Mono, monospace', marginLeft: '4px' }}>
-                                  {isPlaying ? (currentBeat + 1) : '—'}
-                                </span>
-                              </div>
-                            )
-                          },
-                          {
-                            label: 'LOUDNESS',
-                            value: lufsVal.toFixed(1),
-                            unit: 'LUFS',
-                            conf: 0.95,
-                            overridden: false,
-                            isReadOnly: true,
-                            viz: (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', height: '32px', justifyContent: 'center' }}>
-                                <div style={{ height: '6px', background: 'rgba(255,255,255,0.04)', borderRadius: '1px', position: 'relative', overflow: 'hidden' }}>
-                                  <div style={{
-                                    height: '100%', width: `${lufsPercent}%`,
-                                    background: 'linear-gradient(90deg, var(--status-high) 0%, var(--status-med) 50%, var(--status-low) 100%)',
-                                    transition: 'width 0.3s ease',
-                                    animation: isPlaying ? 'vu-level-bounce 0.2s ease infinite alternate' : 'none'
-                                  }} />
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', color: 'rgba(255,255,255,0.2)', fontFamily: 'Roboto Mono, monospace' }}>
-                                  <span>-24</span><span>-14</span><span>-9</span><span>-4</span>
-                                </div>
-                              </div>
-                            )
-                          }
-                        ];
-
-                        return cards.map((item, idx) => {
-                          const valNum = parseFloat(item.conf);
-                          const isHigh = valNum > 0.8;
-                          const isMed = valNum >= 0.5 && valNum <= 0.8;
-                          const badgeColor = isHigh ? 'var(--status-high)' : isMed ? 'var(--status-med)' : 'var(--status-low)';
-
-                          return (
-                            <div key={idx} style={{
-                              background: 'var(--bg-panel)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              padding: '12px',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                              borderRadius: '2px',
-                              position: 'relative'
-                            }}>
-                              {/* Row 1: Label + Confidence Badge */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '9px', fontFamily: 'Roboto Mono, monospace', fontWeight: '500', color: '#6B7280', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                                  {item.label}
-                                </span>
-                                {!item.isReadOnly && (
-                                  <span style={{ fontSize: '8px', fontFamily: 'Roboto Mono, monospace', color: badgeColor, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: badgeColor, display: 'inline-block' }} />
-                                    {Math.round(valNum * 100)}%
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Row 2: Primary Value */}
-                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
-                                <span style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: '700', color: '#ffffff', lineHeight: 1 }}>
-                                  {item.value}
-                                </span>
-                                {item.unit && (
-                                  <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono, monospace', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                                    {item.unit}
-                                  </span>
-                                )}
-                                {item.overridden && (
-                                  <span style={{ fontSize: '8px', color: 'var(--accent-orange)', fontFamily: 'Roboto Mono, monospace' }}>(OVR)</span>
-                                )}
-                              </div>
-
-                              {/* Row 3: Visualization */}
-                              <div style={{ height: '32px' }}>
-                                {item.viz}
-                              </div>
-
-                              {/* Gear icon for override (positioned top-right corner) */}
-                              {!item.isReadOnly && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setShowOverrideControls(true); }}
-                                  title="Open override controls"
-                                  style={{
-                                    position: 'absolute', top: '6px', right: '6px',
-                                    width: '18px', height: '18px', padding: 0,
-                                    background: 'transparent', border: 'none',
-                                    cursor: 'pointer', opacity: 0.25,
-                                    transition: 'opacity 0.15s',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                  }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.25'}
-                                >
-                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-
-                    {/* Timeline lanes */}
-                    {duration > 0 && (
-                      <div style={{ background: 'var(--bg-workspace)', padding: '15px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '20px' }}>
-                        <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                            REAL-TIME TEMPORAL LANES
-                          </span>
-                          <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
-                        </div>
-                        
-                        {/* Interactive Playhead Lane (Step Sequencer Grid) */}
-                        <div 
-                          style={{ 
-                            position: 'relative', 
-                            height: '34px', 
-                            background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 1px, transparent 1px, transparent 20px), #0e0e11', 
-                            borderBottom: '1px solid rgba(255,255,255,0.06)', 
-                            borderTop: '1px solid rgba(255,255,255,0.06)', 
-                            cursor: 'pointer',
-                            borderRadius: '2px',
-                            overflow: 'hidden'
-                          }}
-                          onClick={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const pct = (e.clientX - rect.left) / rect.width;
-                            seekTo(pct * duration);
-                          }}
-                        >
-                          {/* Modulated Step Sequencer Ticks */}
-                          {(song.audioAnalysis.beat_times || []).map((t, i) => {
-                            const isDownbeat = (song.audioAnalysis.downbeat_times || []).some(db => Math.abs(db - t) < 0.08);
-                            const isMidBeat = !isDownbeat && (i % 2 === 0);
-                            const height = isDownbeat ? '24px' : isMidBeat ? '15px' : '9px';
-                            const top = isDownbeat ? '5px' : isMidBeat ? '9px' : '12px';
-                            const background = isDownbeat 
-                              ? '#ff6600' 
-                              : isMidBeat 
-                                ? '#00e5ff' 
-                                : 'rgba(255, 255, 255, 0.15)';
-                            const glow = isDownbeat 
-                              ? '0 0 6px rgba(255, 102, 0, 0.6)' 
-                              : isMidBeat 
-                                ? '0 0 4px rgba(0, 229, 255, 0.4)' 
-                                : 'none';
-
-                            return (
-                              <div
-                                key={i}
-                                style={{
-                                  position: 'absolute',
-                                  left: `${(t / duration) * 100}%`,
-                                  top,
-                                  width: isDownbeat ? '2px' : '1px',
-                                  height,
-                                  background,
-                                  boxShadow: glow,
-                                  borderRadius: '1px'
-                                }}
-                              />
-                            );
-                          })}
-
-                          {/* Playhead */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${(currentTime / duration) * 100}%`,
-                              top: 0,
-                              width: '1.5px',
-                              height: '100%',
-                              background: '#00e5ff',
-                              boxShadow: '0 0 6px #00e5ff',
-                              zIndex: 10
-                            }}
-                          >
-                            <div style={{ 
-                              position: 'absolute', 
-                              top: 0, 
-                              left: '-5px', 
-                              width: '11px', 
-                              height: '8px', 
-                              background: '#00e5ff',
-                              clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)'
-                            }} />
-                          </div>
-                        </div>
-
-                        {/* Tonal lane (Sections) */}
-                        <div style={{ position: 'relative', height: '24px', background: 'var(--bg-workspace)', marginTop: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-                          {(song.audioAnalysis.sectional_key_candidates || []).map((sect, i, arr) => {
-                            const pctWidth = 100 / arr.length;
-                            return (
-                              <div
-                                key={i}
-                                style={{
-                                  width: `${pctWidth}%`,
-                                  height: '100%',
-                                  borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                                  padding: '4px',
-                                  boxSizing: 'border-box',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  justifyContent: 'center',
-                                  background: Math.abs(currentTime - (duration / arr.length) * (i + 0.5)) < (duration / arr.length / 2) && isPlaying ? 'rgba(255,102,0,0.05)' : 'transparent'
-                                }}
-                              >
-                                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                                  {sect.section}
-                                </span>
-                                <span style={{ fontSize: '9px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#ff6600' }}>
-                                  {sect.key} {sect.scale === 'minor' ? 'm' : ''}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show/Hide Override controls */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: showOverrideControls ? '12px' : '0' }}>
-                      <button
-                        onClick={() => setShowOverrideControls(!showOverrideControls)}
-                        title="Manual corrections"
-                        style={{
-                          background: 'transparent', border: 'none',
-                          cursor: 'pointer', opacity: 0.35,
-                          padding: '4px', display: 'flex', alignItems: 'center',
-                          gap: '6px', transition: 'opacity 0.15s',
-                          fontSize: '9px', fontFamily: 'Roboto Mono, monospace',
-                          color: 'var(--text-muted)'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={e => e.currentTarget.style.opacity = '0.35'}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="3"></circle>
-                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
-                        {showOverrideControls ? 'CLOSE' : 'MANUAL CORRECTIONS'}
-                      </button>
-                    </div>
-
-                    {showOverrideControls && (
-                      <div style={{ marginTop: '20px', padding: '15px', background: '#0c0c0e', border: '1px dashed rgba(255, 102, 0, 0.25)', borderRadius: '2px' }}>
-                        <h4 style={{ margin: '0 0 15px 0', fontSize: '11px', fontFamily: 'Roboto Mono', color: '#ff6600' }}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                          AUDIO METADATA MANUAL CORRECTIONS
-                        </h4>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-                          {/* BPM */}
-                          <div className="form-group" style={{ margin: 0 }}>
-                            <label style={{ fontSize: '10px', marginBottom: '4px' }}>BPM</label>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={overrideBpm}
-                                onChange={(e) => setOverrideBpm(e.target.value)}
-                                style={{ background: 'var(--bg-workspace)', borderColor: 'rgba(255,255,255,0.1)', padding: '4px 8px', fontSize: '12px' }}
-                              />
-                              <button
-                                type="button"
-                                onClick={handleTapTempo}
-                                style={{
-                                  background: 'var(--bg-panel)',
-                                  color: '#ff6600',
-                                  border: '1px solid rgba(255, 102, 0, 0.4)',
-                                  padding: '4px 10px',
-                                  fontSize: '9px',
-                                  fontFamily: 'Roboto Mono',
-                                  cursor: 'pointer',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '4px' }}><path d="M12 20v-6M6 20V10M18 20V4"></path></svg>
-                                TAP ({tapTimes.length})
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Key */}
-                          <div className="form-group" style={{ margin: 0 }}>
-                            <label style={{ fontSize: '10px', marginBottom: '4px' }}>KEY</label>
-                            <select
-                              value={overrideKey}
-                              onChange={(e) => setOverrideKey(e.target.value)}
-                              style={{ background: 'var(--bg-workspace)', color: '#fff', borderColor: 'rgba(255,255,255,0.1)', padding: '4px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
-                            >
-                              <option value="">-- Choose Key --</option>
-                              {['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].map(k => (
-                                <option key={k} value={k}>{k}</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Scale */}
-                          <div className="form-group" style={{ margin: 0 }}>
-                            <label style={{ fontSize: '10px', marginBottom: '4px' }}>SCALE</label>
-                            <select
-                              value={overrideScale}
-                              onChange={(e) => setOverrideScale(e.target.value)}
-                              style={{ background: 'var(--bg-workspace)', color: '#fff', borderColor: 'rgba(255,255,255,0.1)', padding: '4px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
-                            >
-                              <option value="">-- Choose Scale --</option>
-                              <option value="major">Major</option>
-                              <option value="minor">Minor</option>
-                            </select>
-                          </div>
-
-                          {/* Meter */}
-                          <div className="form-group" style={{ margin: 0 }}>
-                            <label style={{ fontSize: '10px', marginBottom: '4px' }}>ESTIMATED METER</label>
-                            <select
-                              value={overrideMeter}
-                              onChange={(e) => setOverrideMeter(e.target.value)}
-                              style={{ background: 'var(--bg-workspace)', color: '#fff', borderColor: 'rgba(255,255,255,0.1)', padding: '4px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box' }}
-                            >
-                              <option value="">-- Choose Meter --</option>
-                              <option value="4/4">4/4</option>
-                              <option value="3/4">3/4</option>
-                              <option value="6/8">6/8</option>
-                              <option value="5/4">5/4</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Source Comparison Table */}
-                        <div style={{ marginBottom: '15px', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', textAlign: 'left' }}>
-                            <thead>
-                              <tr style={{ background: 'var(--bg-workspace)', borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
-                                <th style={{ padding: '6px 8px' }}>DATA SOURCE</th>
-                                <th style={{ padding: '6px 8px' }}>BPM</th>
-                                <th style={{ padding: '6px 8px' }}>KEY SIGNATURE</th>
-                                <th style={{ padding: '6px 8px' }}>METER</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)' }}>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>Essentia core / madmom (Machine)</td>
-                                <td style={{ padding: '6px 8px' }}>{song.audioAnalysis.tempo_bpm}</td>
-                                <td style={{ padding: '6px 8px' }}>{song.audioAnalysis.key} {song.audioAnalysis.scale}</td>
-                                <td style={{ padding: '6px 8px' }}>{song.audioAnalysis.estimated_meter}</td>
-                              </tr>
-                              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)' }}>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>Original metadata imports</td>
-                                <td style={{ padding: '6px 8px' }}>--</td>
-                                <td style={{ padding: '6px 8px' }}>--</td>
-                                <td style={{ padding: '6px 8px' }}>--</td>
-                              </tr>
-                              <tr style={{ color: '#ff6600', background: 'rgba(255, 102, 0, 0.02)' }}>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>ACTIVE VALUE (OVERRIDES EFFECTIVE)</td>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm}</td>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>
-                                  {song.audioOverrides?.key || song.audioAnalysis.key} {song.audioOverrides?.scale || song.audioAnalysis.scale}
-                                </td>
-                                <td style={{ padding: '6px 8px', fontWeight: 'bold' }}>{song.audioOverrides?.estimated_meter || song.audioAnalysis.estimated_meter}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <button
-                            type="button"
-                            onClick={handleSaveOverrides}
-                            style={{ background: '#ff6600', color: '#0c0c0e', fontWeight: 'bold', border: 'none', padding: '6px 12px', cursor: 'pointer', fontFamily: 'Roboto Mono', fontSize: '10px' }}
-                          >
-                            SAVE OVERRIDES
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOverrideBpm(song.audioAnalysis.tempo_bpm);
-                              setOverrideKey(song.audioAnalysis.key);
-                              setOverrideScale(song.audioAnalysis.scale);
-                              setOverrideMeter(song.audioAnalysis.estimated_meter);
-                            }}
-                            className="btn-secondary"
-                            style={{ padding: '6px 12px', fontSize: '10px', fontFamily: 'Roboto Mono' }}
-                          >
-                            RESET TO MACHINE
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Content area */}
-        <div style={{ marginTop: '30px' }}>
-
-          {/* STEP 1: LISTEN — Issue 5: clear play instruction */}
-          {isGuided && currentStep?.name === 'Listen' && (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ color: '#ff6600', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
-                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
-                </svg>
-              </div>
-              <p style={{ fontSize: '14px', maxWidth: '500px', margin: '0 auto 20px', lineHeight: '1.6', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.7)' }}>
-                FULL AUDIT FOCUS. EXPERIENCE THE SIGNAL SPECTRUM FROM START TO FINISH.
-              </p>
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(255,102,0,0.1)',
-                border: '1px solid rgba(255,102,0,0.3)',
-                padding: '10px 20px',
-                borderRadius: '2px',
-                fontSize: '12px',
-                fontFamily: 'Roboto Mono',
-                color: '#ff6600',
-              }}>
-                <span style={{ animation: 'pulse 1.5s infinite', display: 'inline-flex', alignItems: 'center' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                </span>
-                Press <strong>Play</strong> in the Tape Deck below or click the video monitor
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: SKETCH */}
-          {isGuided && currentStep?.name === 'Sketch' && (
-            <div className="form-group">
-              <label>Raw Impressions & Sketches</label>
-              <textarea
-                placeholder="What sonics surprised you? What's the mood? Note any 'wow' moments. Use the bookmark button in the tape deck to mark timestamps."
-                style={{ height: '200px' }}
-                value={responses['sketch'] || ''}
-                onChange={(e) => handleResponseChange('sketch', e.target.value)}
-              />
-            </div>
-          )}
-
-          {/* QUICK MODE or GUIDED STEP 3: TRANSLATE */}
-          {(!isGuided || currentStep?.name === 'Translate') && (
-            <>
-              {template?.workflow_guidance && !isGuided && (
-                <div style={{
-                  background: 'rgba(255, 102, 0, 0.05)',
-                  border: '1px solid rgba(255, 102, 0, 0.15)',
-                  padding: '15px',
-                  borderRadius: '2px',
-                  marginBottom: '30px',
-                }}>
-                  <strong style={{ fontFamily: 'Roboto Mono', fontSize: '11px', color: '#ff6600' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><path d="M9.663 17h4.673M12 3v1m0 16v1m-9-9h1m16 0h1M5.636 5.636l.707.707m11.314 11.314l.707.707M18.364 5.636l-.707.707M5.636 18.364l-.707-.707M12 7a5 5 0 0 0-5 5h10a5 5 0 0 0-5-5z"></path></svg>
-                    WORKSPACE SIGNAL ANALYSIS MATRIX:
-                  </strong>
-                  <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>
-                    {template.workflow_guidance}
-                  </p>
-                </div>
-              )}
-
-              {lenses.map((lens) => {
-                const lensData = template?.lenses?.[lens];
-                const questions = lensData?.questions || [];
-                return (
-                  <div key={lens} style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                    <h2 style={{ textTransform: 'uppercase', color: '#ff6600', marginBottom: '8px' }}>
-                      {lens} Lens
-                    </h2>
-                    {lensData?.description && (
-                      <p style={{ color: 'rgba(255,255,255,0.45)', marginBottom: '20px', fontSize: '12px' }}>
-                        {lensData.description}
-                      </p>
-                    )}
-                    {lens === 'arrangement' ? (
-                      <ArrangementTimelineWidget
-                        responses={responses}
-                        onChange={handleResponseChange}
-                        song={song}
-                        lensData={lensData}
-                        saveNow={saveNow}
-                      />
-                    ) : (
-                      <>
-                        {/* Render Concrete Exercises if available */}
-                        {lensData?.exercises && lensData.exercises.length > 0 && (
-                          <div style={{
-                            marginTop: '15px',
-                            marginBottom: '25px',
-                            padding: '15px',
-                            background: 'rgba(255, 102, 0, 0.03)',
-                            border: '1px dashed rgba(255, 102, 0, 0.25)',
-                            borderRadius: '2px',
-                          }}>
-                            <h4 style={{
-                              fontFamily: 'Roboto Mono',
-                              fontSize: '11px',
-                              color: '#ff6600',
-                              marginTop: 0,
-                              marginBottom: '10px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                              CONCRETE EXERCISES (TAILORED)
-                            </h4>
-                            <div className="flex flex-col gap-6">
-                              {lensData.exercises.map((ex, idx) => (
-                                <div key={idx} className="p-6 border-l-2 border-[#ff6600] rounded-[1px] bg-[var(--bg-workspace)]">
-                                  <strong style={{ fontSize: '13px', color: 'rgba(255,255,255,0.95)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                    {ex.name}
-                                  </strong>
-                                  <div className="space-y-3 mt-3">
-                                    {(ex.description || '').split('\n').filter(line => line.trim()).map((para, pIdx) => {
-                                      const trimmed = para.trim();
-                                      const isBullet = trimmed.startsWith('-') || trimmed.startsWith('*');
-                                      const cleanText = isBullet ? trimmed.substring(1).trim() : para;
-                                      if (isBullet) {
-                                        return (
-                                          <ul key={pIdx} className="list-disc list-inside text-sm leading-7 text-zinc-300 w-full pl-1">
-                                            <li>{cleanText}</li>
-                                          </ul>
-                                        );
-                                      }
-                                      return (
-                                        <p key={pIdx} className="text-sm leading-7 text-zinc-300 w-full">
-                                          {para}
-                                        </p>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {questions.map((question, idx) => {
-                          const key = `${lens}-q${idx}`;
-                          return (
-                            <div key={key} className="form-group" style={{ marginBottom: '20px' }}>
-                              <label style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: 'rgba(255,255,255,0.8)' }}>
-                                {question}
-                              </label>
-                              <textarea
-                                id={`response-${key}`}
-                                value={responses[key] || ''}
-                                onChange={(e) => handleResponseChange(key, e.target.value)}
-                                onBlur={saveNow}
-                                placeholder="Type technical observations..."
-                              />
-                            </div>
-                          );
-                        })}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* STEP 4: RECREATE */}
-          {isGuided && currentStep?.name === 'Recreate' && (
-            <div>
-              <div style={{ marginBottom: '25px' }}>
-                <h3 style={{ color: '#ff6600', fontSize: '12px', fontFamily: 'Roboto Mono', marginBottom: '12px' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '6px' }}><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
-                  TAILORED RECREATION EXERCISES
-                </h3>
-                {lenses.map((lens) => {
-                  const lensData = template?.lenses?.[lens];
-                  if (!lensData?.exercises || lensData.exercises.length === 0) return null;
-                  return (
-                    <div key={lens} style={{ marginBottom: '15px', padding: '12px', background: 'var(--bg-panel)', borderLeft: '3px solid #ff6600' }}>
-                      <strong style={{ textTransform: 'uppercase', fontSize: '11px', color: '#ff6600', fontFamily: 'Roboto Mono', display: 'block', marginBottom: '8px' }}>
-                        {lens} Lens
-                      </strong>
-                      <div style={{ display: 'grid', gap: '8px' }}>
-                        {lensData.exercises.map((ex, idx) => (
-                          <div key={idx} style={{ fontSize: '12px', padding: '8px', background: '#0c0c0e', borderRadius: '2px' }}>
-                            <strong style={{ color: 'rgba(255,255,255,0.85)' }}>{ex.name}:</strong>
-                            <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: '6px' }}>{ex.description}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="form-group">
-                <label>Recreation Notes</label>
-                <textarea
-                  placeholder="If you were to transcribe or recreate a part of this, what would it be? Describe the tools, settings, or performance choices needed."
-                  style={{ height: '200px' }}
-                  value={responses['recreation'] || ''}
-                  onChange={(e) => handleResponseChange('recreation', e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* QUICK MODE or GUIDED STEP 5: LOG — Issue 3 fix */}
-          {(!isGuided || currentStep?.name === 'Log') && (
-            <div style={{ marginTop: '30px', paddingTop: '20px' }}>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                TECHNIQUE LOG
-              </h2>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
-                Distill observations into portable techniques. Each entry saves immediately to your notebook.
-              </p>
-
-              {/* Recent entries chips */}
-              {techniques.length > 0 && (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                  {techniques.slice(-4).reverse().map((tech) => (
-                    <span key={tech._id || tech._tempId} style={{
-                      background: 'rgba(217, 119, 6, 0.08)',
-                      color: 'var(--accent-orange)',
-                      padding: '3px 8px',
-                      borderRadius: '2px',
-                      fontSize: '9px',
-                      fontFamily: 'Roboto Mono, monospace',
-                      textTransform: 'uppercase'
-                    }}>
-                      {tech.techniqueName || 'Untitled'} · {tech.lens}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Lens</label>
-                  <select
-                    id="technique-lens"
-                    value={currentTechnique.lens}
-                    onChange={(e) => setCurrentTechnique({ ...currentTechnique, lens: e.target.value })}
-                  >
-                    <option value="rhythm">Rhythm</option>
-                    <option value="texture">Texture</option>
-                    <option value="harmony">Harmony</option>
-                    <option value="arrangement">Arrangement</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Technique Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Ghost Note Pocket"
-                    value={currentTechnique.techniqueName || ''}
-                    onChange={(e) => setCurrentTechnique({ ...currentTechnique, techniqueName: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  id="technique-description"
-                  value={currentTechnique.description}
-                  onChange={(e) => setCurrentTechnique({ ...currentTechnique, description: e.target.value })}
-                  placeholder="Explain why this technique works and how to use it."
-                  style={{ height: '80px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button id="add-technique-btn" onClick={addTechnique} className="primary" style={{ flex: 1 }}>
-                  + SAVE TO NOTEBOOK
-                </button>
-                {saveStatus === 'saved' && <span style={{ fontSize: '9px', color: 'var(--status-high)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap', animation: 'pulse-led 2s ease-in-out 1' }}>✓ SAVED</span>}
-                {saveStatus === 'saving' && <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap' }}>SAVING...</span>}
-                {saveStatus === 'dirty' && <span style={{ fontSize: '9px', color: 'var(--accent-orange)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap' }}>● UNSAVED</span>}
-              </div>
-
-              {techniques.length > 0 && (
-                <div style={{ marginTop: '20px' }}>
-                  <h3 style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Roboto Mono', marginBottom: '10px' }}>
-                    Logged in this session ({techniques.length})
-                  </h3>
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {techniques.map((tech) => (
-                      <div
-                        key={tech._id || tech._tempId}
-                        style={{
-                          background: '#0c0c0e',
-                          padding: '12px',
-                          borderRadius: '2px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          gap: '10px',
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <strong style={{ fontSize: '12px', color: '#ff6600', fontFamily: 'Roboto Mono' }}>
-                            {tech.techniqueName || 'Untitled Technique'}
-                          </strong>
-                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
-                            {tech.description}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <span className="badge" style={{ textTransform: 'uppercase' }}>{tech.lens}</span>
-                          {tech._id && (
-                            <button
-                              onClick={() => removeTechnique(tech._id)}
-                              className="danger"
-                              style={{ padding: '3px 7px', fontSize: '10px' }}
-                              title="Remove from notebook"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Bookmarks */}
-        <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-          <h3 style={{ marginBottom: '12px' }}>🔖 Session Bookmarks ({globalBookmarks.length})</h3>
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '10px 0' }}>
-            {globalBookmarks.map((bm, idx) => (
+            {song?.audioAnalysisStatus === 'failed' && (
               <div
-                key={bm._id || idx}
-                onClick={() => seekTo(bm.timestampSeconds || bm.timestamp)}
                 style={{
-                  background: 'var(--bg-panel)',
-                  border: '1px solid rgba(255, 102, 0, 0.3)',
-                  color: '#ff6600',
-                  padding: '5px 12px',
-                  borderRadius: '2px',
-                  fontSize: '11px',
-                  fontFamily: 'Roboto Mono',
-                  whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
+                  background: 'var(--bg-surface-2)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '20px',
+                  textAlign: 'center',
+                  marginBottom: '20px',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#ff6600'; e.currentTarget.style.color = '#0c0c0e'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#1c1c22'; e.currentTarget.style.color = '#ff6600'; }}
               >
-                {formatTime(bm.timestampSeconds || bm.timestamp)} {bm.note ? `- ${bm.note}` : ''}
+                <p style={{ color: 'var(--status-low)', fontSize: '12px', margin: '0 0 10px 0' }}>
+                  Signal extraction pipeline reported an error.
+                </p>
+                <button onClick={handleTriggerAnalysis} className="danger">
+                  Re-run Pipeline
+                </button>
               </div>
-            ))}
-            {globalBookmarks.length === 0 && (
-              <span style={{ color: 'rgba(255, 255, 255, 0.3)', fontSize: '11px', fontFamily: 'Roboto Mono' }}>
-                No bookmarks logged in this session.
-              </span>
+            )}
+
+            {song?.audioAnalysisStatus === 'success' && song.audioAnalysis && (
+              <>
+                <TrackAnalysisModules
+                  song={song}
+                  onChangeOverride={handleAnalysisChangeOverride}
+                />
+                <AuditTimeline
+                  song={song}
+                  currentTime={currentTime}
+                  duration={duration || song.durationSeconds || 0}
+                  onSeek={seekTo}
+                />
+                {/* Fallback template notice */}
+                {audit.templateVersion?.startsWith('fallback') && (
+                  <div
+                    style={{
+                      background: 'var(--status-warning-muted)',
+                      color: 'var(--status-warning)',
+                      padding: '10px 12px',
+                      marginTop: '16px',
+                      fontSize: '11px',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  >
+                    Using standard reference template — custom sonic synthesis unavailable.
+                  </div>
+                )}
+
+                {/* Guided workflow inline help */}
+                {isGuided && currentStep && currentStep.name !== 'Listen' && (
+                  <div
+                    style={{
+                      background: 'var(--bg-surface-2)',
+                      borderLeft: '3px solid var(--accent-primary)',
+                      padding: '12px 16px',
+                      marginTop: '20px',
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: '0 0 6px 0',
+                        color: 'var(--accent-primary)',
+                        fontSize: '11px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                      }}
+                    >
+                      Step {String(currentStep.stepNumber).padStart(2, '0')} // {currentStep.name}
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0, fontSize: '12px', lineHeight: 1.5,
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {currentStep.instructions}
+                    </p>
+                  </div>
+                )}
+
+                {/* Guided step controls */}
+                {isGuided && (
+                  <div
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      marginTop: '20px', paddingTop: '12px',
+                      borderTop: '1px solid var(--border-subtle)',
+                      gap: '8px',
+                    }}
+                  >
+                    {stepIndex > 0 && (
+                      <button onClick={handleGoBackStep} className="secondary">← Back</button>
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {stepIndex < audit.guidedSteps.length - 1 ? (
+                      <>
+                        <button onClick={handleSkipStep} className="ghost">Skip</button>
+                        <button onClick={handleAdvanceStep} className="primary">Next Step →</button>
+                      </>
+                    ) : (
+                      <button onClick={saveAudit} className="primary">✓ Complete Audit</button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Step 1: Listen (Guided) */}
+            {isGuided && currentStep?.name === 'Listen' && (
+              <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+                <div style={{ color: 'var(--accent-primary)', marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+                  </svg>
+                </div>
+                <p
+                  style={{
+                    fontSize: '13px', maxWidth: '500px', margin: '0 auto 20px', lineHeight: 1.5,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Full audit focus. Experience the signal spectrum from start to finish.
+                </p>
+                <div
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    background: 'var(--accent-primary-bg)',
+                    padding: '10px 20px',
+                    fontSize: '12px', fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent-primary)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  Press <strong>Play</strong> in the Tape Deck below or click the video monitor
+                </div>
+                <div style={{ marginTop: '20px' }}>
+                  <button onClick={handleAdvanceStep} className="primary">Next Step →</button>
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Navigation / Save Footer */}
-        <div style={{ marginTop: '40px', display: 'flex', gap: '10px', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          {isGuided ? (
-            <>
-              {stepIndex > 0 && (
-                <button onClick={handleGoBackStep} className="secondary">← Back</button>
-              )}
-              {stepIndex < audit.guidedSteps.length - 1 ? (
-                <>
-                  <button onClick={handleSkipStep} className="secondary">Skip</button>
-                  <button onClick={handleAdvanceStep} style={{ flex: 1 }}>Next Step →</button>
-                </>
-              ) : (
-                <button onClick={saveAudit} style={{ flex: 1 }}>✓ Complete Audit</button>
-              )}
-            </>
-          ) : (
-            <>
-              <button onClick={saveAudit} style={{ flex: 1, fontSize: '12px' }}>
-                ✓ Complete Audit
-              </button>
-              <button onClick={saveNow} className="secondary">
-                Save Draft
-              </button>
-            </>
-          )}
-          <button onClick={() => navigate('/dashboard')} className="secondary">Cancel</button>
-        </div>
-      </div>
+        {/* ── LENS TAB (4.5) ── */}
+        {activeTab === 'lens' && (
+          <LensPanel
+            activeLens={activeLens}
+            onChangeLens={setActiveLens}
+            song={song}
+            currentTime={currentTime}
+            responses={responses}
+            onResponseChange={handleResponseChange}
+            listeningFocus={template?.lenses?.[activeLens]?.description}
+          />
+        )}
+
+        {/* ── SOURCES TAB (4.7) ── */}
+        {activeTab === 'sources' && (
+          <SourcesPanel sources={researchSources} />
+        )}
+
+        {/* ── NOTEBOOK TAB ── */}
+        {activeTab === 'notebook' && (
+          <NotebookPanel
+            songId={song?._id}
+            onOpenNotebook={() => navigate('/techniques')}
+          />
+        )}
+
+        {/* Recently logged techniques (visible on every tab) */}
+        {techniques.length > 0 && (
+          <div
+            style={{
+              padding: '0 16px 16px',
+              background: 'var(--bg-surface-0)',
+            }}
+          >
+            <h3
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-tertiary)',
+                fontFamily: 'JetBrains Mono, monospace',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                margin: '0 0 8px 0',
+              }}
+            >
+              Logged This Session ({techniques.length})
+            </h3>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {techniques.map((tech) => (
+                <div
+                  key={tech._id || tech._tempId}
+                  style={{
+                    background: 'var(--bg-surface-2)',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '10px',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--accent-primary)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
+                      {tech.techniqueName || 'Untitled'}
+                    </strong>
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--text-secondary)',
+                        marginTop: '2px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {tech.description}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    <span className="badge">{tech.lens}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Session Bookmarks (visible on every tab) */}
+        {globalBookmarks.length > 0 && (
+          <div style={{ padding: '0 16px 16px' }}>
+            <h3
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-tertiary)',
+                fontFamily: 'JetBrains Mono, monospace',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                margin: '0 0 8px 0',
+              }}
+            >
+              Session Bookmarks ({globalBookmarks.length})
+            </h3>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '4px 0' }}>
+              {globalBookmarks.map((bm, idx) => (
+                <button
+                  key={bm._id || idx}
+                  onClick={() => seekTo(bm.timestampSeconds || bm.timestamp)}
+                  style={{
+                    background: 'var(--bg-surface-2)',
+                    color: 'var(--accent-primary)',
+                    padding: '4px 10px',
+                    fontSize: '10px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    whiteSpace: 'nowrap',
+                    cursor: 'pointer',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  {formatTime(bm.timestampSeconds || bm.timestamp)}
+                  {bm.note ? ` · ${bm.note}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* ── Capture Technique (sticky footer, always visible) ── */}
+      <CaptureTechnique
+        initialLens={activeLens}
+        currentTime={currentTime}
+        onSubmit={handleCaptureTechniqueSubmit}
+        savedIndicator={captureSavedTick}
+      />
     </div>
   );
 };
