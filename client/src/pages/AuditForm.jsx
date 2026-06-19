@@ -223,6 +223,14 @@ const AuditForm = () => {
     setTimeout(() => setSuccess(''), 2500);
   };
 
+  // ── Tab state — persists in session via sessionStorage
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return sessionStorage.getItem(`audit-tab-${auditId}`) || 'analysis'; } catch { return 'analysis'; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem(`audit-tab-${auditId}`, activeTab); } catch {}
+  }, [activeTab, auditId]);
+
   // ── Render guards ────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading audit workspace...</div>;
   if (error && !audit) return <div className="error">{error}</div>;
@@ -236,22 +244,18 @@ const AuditForm = () => {
 
   const researchSources = song?.researchSummary?.results || [];
 
-  // ── Tab state — persists in session via sessionStorage
-  const [activeTab, setActiveTab] = useState(() => {
-    try { return sessionStorage.getItem(`audit-tab-${auditId}`) || 'analysis'; } catch { return 'analysis'; }
-  });
-  useEffect(() => {
-    try { sessionStorage.setItem(`audit-tab-${auditId}`, activeTab); } catch {}
-  }, [activeTab, auditId]);
-
-  // Active lens for the Lens tab
-  const [activeLens, setActiveLens] = useState(() => {
+  // Active lens for the Lens tab — derived from audit.lensSelection
+  const initialLens = useMemo(() => {
     if (audit.lensSelection && audit.lensSelection.length > 0) {
       const l = audit.lensSelection[0].toLowerCase();
       if (LENS_PROMPTS[l]) return l;
     }
     return 'harmony';
-  });
+  }, [audit.lensSelection]);
+  const [activeLens, setActiveLens] = useState(initialLens);
+  useEffect(() => {
+    setActiveLens(initialLens);
+  }, [initialLens]);
 
   // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
   const answeredPrompts = useMemo(() => {
