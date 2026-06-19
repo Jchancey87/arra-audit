@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:26.861Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:17:31.564Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -70,7 +70,7 @@ client/src/pages/SketchCompare.jsx            +SketchCompare  +Centered
 client/src/ports/IBackendService.js           ~IBackendService
 analysis_service/analyzer.py                  +analyze_sketch_file  ~download_and_analyze
 analysis_service/app.py                       +SketchAnalysisRequest  +trigger_sketch_analysis  ~AnalysisRequest  ~trigger_analysis
-.github/context-cold.md                       ~ClapAnalyzer  ~__init__  ~analyze_features  ~get_clap_analyzer
+.github/context-cold.md                       +ErrorBoundary  ~ClapAnalyzer  ~__init__  ~analyze_features
 .github/copilot-instructions.md               +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
 .github/gemini-context.md                     +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
 ```
@@ -83,7 +83,10 @@ h1 Code signatures
 h2 SigMap commands
 h2 deps
 h2 client
+h3 client/UI/AC_AUDIT.md
+h3 client/index.html
 h3 client/public/index.html
+h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
@@ -109,7 +112,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -118,18 +121,18 @@ h2 analysis_service
 h3 analysis_service/analyzer.py
 h3 analysis_service/app.py
 h2 client
-h3 client/UI/AC_AUDIT.md
-h3 client/index.html
 h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
-h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
 h3 client/src/hooks/useAudit.js
 h3 client/src/hooks/useAuditAutosave.js
+h3 client/src/hooks/useAuditShortcuts.js
+h3 client/src/hooks/useAudits.js
+h3 client/src/hooks/useCompletionCheck.js
 ```
 
 ### .github/gemini-context.md
@@ -138,7 +141,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 1 second ago)
+h2 changes (last 5 commits — 0 seconds ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -147,18 +150,18 @@ h2 analysis_service
 h3 analysis_service/analyzer.py
 h3 analysis_service/app.py
 h2 client
-h3 client/UI/AC_AUDIT.md
-h3 client/index.html
 h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
-h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
 h3 client/src/hooks/useAudit.js
 h3 client/src/hooks/useAuditAutosave.js
+h3 client/src/hooks/useAuditShortcuts.js
+h3 client/src/hooks/useAudits.js
+h3 client/src/hooks/useCompletionCheck.js
 ```
 
 ## analysis_service
