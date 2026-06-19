@@ -18,12 +18,27 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+server/adapters/InMemoryRepository.js ← ports/IRepository, ports/IUserRepository
+server/adapters/MockAIAdapter.js ← ports/ICompletionService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
+server/adapters/MongooseRepository.js ← ports/IRepository, ports/IUserRepository, models/Curriculum, models/StudyProgress, models/User
+server/adapters/OpenAIAdapter.js ← ports/ICompletionService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
+server/ports/IAIModelService.js ← ICompletionService
+server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
+server/services/auditService.js ← models/Audit
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
+client/src/hooks/useAudit.js ← context/BackendContext
+client/src/hooks/useAudits.js ← context/BackendContext
+client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
+client/src/hooks/useCurricula.js ← context/BackendContext
+client/src/hooks/useSong.js ← context/BackendContext
+client/src/hooks/useStudyProgress.js ← context/BackendContext
+client/src/hooks/useTasteProfiles.js ← context/BackendContext
+client/src/hooks/useTechniques.js ← context/BackendContext
 ```
 
 ## client
@@ -90,7 +105,91 @@ export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
 ```
 
+### client/src/hooks/useAudit.js
+```
+export function useAudit(auditId, { skip = false } = {})  :16-136
+```
+
+### client/src/hooks/useAuditAutosave.js
+```
+export function useAuditAutosave(auditId, responses, save, delay = 3000) → { saveStatus, markDirty  :15-52
+export function useAnalysisPolling(song, refetchSong, intervalMs = 4000)  :61-71
+export function useAnalysisProgressSim(song)  :87-112
+```
+
+### client/src/hooks/useAuditShortcuts.js
+```
+export function useAuditShortcuts({ togglePlay, hasArrangementLens, currentTime, onAddMarker })  :15-31
+```
+
+### client/src/hooks/useAudits.js
+```
+export function useAudits(filters = {})  :15-101
+```
+
+### client/src/hooks/useCompletionCheck.js
+```
+export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :14-48
+```
+
+### client/src/hooks/useCurricula.js
+```
+export function useCurricula()  :10-64
+```
+
+### client/src/hooks/useSong.js
+```
+export function useSong(songId, { skip = false } = {})  :13-78
+```
+
+### client/src/hooks/useStudyProgress.js
+```
+export function useStudyProgress()  :14-131
+```
+
+### client/src/hooks/useTasteProfiles.js
+```
+export function useTasteProfiles()  :12-58
+```
+
+### client/src/hooks/useTechniques.js
+```
+export function useTechniques(filters = {}, { skip = false } = {})  :14-87
+```
+
 ## server
+
+### server/adapters/InMemoryRepository.js
+```
+export class InMemoryRepository  :21-189
+  constructor()  :22-26
+  if(op === '$ne')  :55-61
+  if(opVal === null)  :56-58
+  if(opVal === null)  :62-64
+  if(docVal !== null && docVal !== undefined)  :71-73
+  if(docVal !== value)  :76-78
+  async create(data)  :84-94
+  async findById(id)  :96-99
+export class InMemoryUserRepository  :261-328
+  constructor()  :262-265
+  async create(data)  :267-269
+  async findById(id)  :271-273
+  async findOne(query)  :275-277
+  async updateById(id, data)  :279-281
+  async deleteById(id)  :283-285
+  async exists(query)  :287-289
+  async find(query, options)  :291-293
+```
+
+### server/adapters/MockAIAdapter.js
+```
+export class MockAIAdapter  :59-82
+  constructor(responseOverride = null)  :60-63
+  async completeJson(prompt)  :65-72
+  if(this.responseOverride != null)  :66-70
+  async completeText(prompt)  :74-81
+  if(this.responseOverride != null)  :75-79
+```
 
 ### server/adapters/MockSearchAdapter.js
 ```
@@ -98,6 +197,45 @@ export class MockSearchAdapter  :21-52
   constructor(responseOverride = null)  :22-25
   async searchSongInfo(title, artist)  :27-51
   if(this.responseOverride)  :29-36
+```
+
+### server/adapters/MongooseRepository.js
+```
+export class MongooseRepository  :19-145
+  constructor(model)  :20-26
+  if(!model)  :22-24
+  async create(data)  :28-35
+  async findById(id)  :37-43
+  async findByIdWithRelations(id, relations = [])  :45-58
+  for(const relation of relations)  :49-52
+  async find(query = {}, options = {})  :60-84
+  if(options.sort)  :65-67
+export class CurriculumRepository  :147-151
+  constructor()  :148-150
+export class StudyProgressRepository  :153-157
+  constructor()  :154-156
+export class UserRepository  :164-250
+  constructor(model)  :165-171
+  if(!model)  :167-169
+  async create(data)  :173-180
+  async findById(id)  :182-188
+  async findOne(query)  :190-196
+  async updateById(id, data)  :198-213
+  if(!doc)  :205-207
+  async deleteById(id)  :215-222
+export class MongooseUserRepository  :252-256
+  constructor()  :253-255
+```
+
+### server/adapters/OpenAIAdapter.js
+```
+export class OpenAIAdapter  :17-81
+  constructor(apiKey = process.env.OPENAI_API_KEY)  :18-23
+  if(!this.apiKey)  :26-28
+  if(!response.ok)  :44-47
+  async completeText(prompt)  :53-59
+  async completeJson(prompt)  :61-80
+  if(!jsonMatch)  :71-73
 ```
 
 ### server/adapters/TavilyAdapter.js
@@ -122,6 +260,33 @@ async function seed()  :193-212
 export const authMiddleware = (req, res, next) =>  :11-25
 ```
 
+### server/ports/IAIModelService.js
+```
+export class IAIModelService  :14-33
+  async generateCompletion(prompt) → Promise<string>  :20-22
+  async generateTemplate(prompt) → Promise<string>  :29-32
+```
+
+### server/ports/ICompletionService.js
+```
+export class ICompletionService  :17-37
+  async completeText(prompt) → Promise<string>  :24-26
+  async completeJson(prompt) → Promise<Object>  :34-36
+```
+
+### server/ports/IRepository.js
+```
+export class IRepository  :11-114
+  async create(data) → Promise<Object>  :18-20
+  async findById(id) → Promise<Object|null>  :28-30
+  async findByIdWithRelations(id, relations = []) → Promise<Object|null>  :39-41
+  async find(query, options = {}) → Promise<Array>  :50-52
+  async findOne(query) → Promise<Object|null>  :60-62
+  async updateById(id, data) → Promise<Object>  :71-73
+  async deleteById(id) → Promise<boolean>  :81-83
+  async deleteMany(query) → Promise<number>  :91-93
+```
+
 ### server/ports/ISearchService.js
 ```
 export class ISearchService  :12-33
@@ -129,9 +294,22 @@ export class ISearchService  :12-33
   async search(query, maxResults = 10) → Promise<{query: string, r  :30-32
 ```
 
+### server/ports/IUserRepository.js
+```
+export class IUserRepository  :14-36
+  async verifyPassword(entityId, candidatePassword) → Promise<Object>  :22-24
+  async setPassword(entityId, newPassword) → Promise<Object>  :33-35
+```
+
 ### server/routes/curricula.js
 ```
 function formatLabel(key)  :4-14
+```
+
+### server/routes/songs.js
+```
+function extractYouTubeId(url)  :13-25
+function _sanitizeSong(song)  :256-282
 ```
 
 ### server/services/auditGenerator.js
@@ -139,6 +317,19 @@ function formatLabel(key)  :4-14
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
 async function callOpenAI(prompt)  :2-24
 function generateFallbackTemplate(songTitle, artist, lenses)  :110-161
+```
+
+### server/services/auditService.js
+```
+export class AuditService  :13-154
+  constructor(auditRepository, techniqueRepository, songRepository)  :14-21
+  if(!auditRepository)  :15-17
+  async createAudit(auditData) → Promise<Object>  :33-91
+  if(lensSelection.length === 0)  :49-51
+  if(this.songRepository)  :54-57
+  async getSongContext(songId, userId) → Promise<Object|null>  :104-112
+  async getAudit(auditId, userId)  :114-120
+  async getAuditsForSong(songId, userId)  :122-131
 ```
 
 ### server/services/authService.js
@@ -152,6 +343,40 @@ export class AuthService  :4-128
   async login(email, password)  :36-60
   if(!email || !password)  :37-39
   if(!user)  :44-46
+```
+
+### server/services/curriculumService.js
+```
+export class CurriculumService  :1-101
+  constructor(curriculumRepository, studyProgressRepository, songRepository, auditService, techniqueRepository, aiAdapter)  :2-9
+  async generateAICurriculum(userId, focusArea, pastTechniques = []) → Promise<Object>  :19-74
+  if(!this.aiAdapter)  :20-22
+  async saveCustomCurriculum(userId, curriculumData)  :79-88
+  async getPopulatedStudyProgress(id)  :93-98
+```
+
+### server/services/songService.js
+```
+export class SongService  :11-118
+  constructor(songRepository, searchService, aiService)  :12-17
+  async importSong(songData, research) → Promise<Object>  :31-118
+  if(!title || !resolvedSourceId || !userId)  :55-57
+  if(existing)  :67-72
+  if(research && research.results?.length > 0 && this.aiService)  :75-116
+  if(aiSummary && aiSummary.overview)  :100-112
+```
+
+### server/services/tasteService.js
+```
+export class TasteService  :1-92
+  constructor(tasteProfileRepository, searchService, aiService)  :2-9
+  if(!tasteProfileRepository)  :3-5
+  async getProfilesForUser(userId) → Promise<Array>  :17-19
+  async executeDeepDive(userId, lens, name) → Promise<Object>  :29-92
+  if(!lens || !name)  :30-32
+  if(this.searchService)  :39-47
+  if(sources.length > 0)  :51-55
+  if(this.aiService)  :75-83
 ```
 
 ### server/services/tavilySearch.js
@@ -171,6 +396,19 @@ export class TechniqueService  :15-166
   if(tags)  :52-55
   if(q)  :58-60
   if(filters.search && !q)  :63-70
+```
+
+### server/services/templateComposer.js
+```
+export class TemplateComposer  :24-121
+  constructor(completionService)  :25-30
+  if(!completionService)  :26-28
+  async generateTemplate(songTitle, artist, lenses, researchSummary = '', tastes = null) → Promise<Object>  :42-66
+  if(!songTitle || !artist || !lenses || lenses.length === 0)  :44-46
+  if(invalidLenses.length > 0)  :50-52
+  if(tastes)  :80-95
+  if(taste && typeof taste === 'object')  :84-86
+  if(entries)  :91-94
 ```
 
 ## skills
