@@ -183,6 +183,22 @@ export class AuditService {
     return this.auditRepository.updateById(auditId, { bookmarks, updatedAt: new Date() });
   }
 
+  async deleteBookmark(auditId, userId, bookmarkId) {
+    const audit = await this.getAudit(auditId, userId);
+    if (!audit) throw new Error('Audit not found');
+
+    const bookmarks = (audit.bookmarks || []).filter((b) => {
+      const id = b._id?.toString() ?? b.id;
+      return id !== bookmarkId;
+    });
+
+    if (bookmarks.length === (audit.bookmarks || []).length) {
+      throw new Error('Bookmark not found');
+    }
+
+    return this.auditRepository.updateById(auditId, { bookmarks, updatedAt: new Date() });
+  }
+
   async logTechnique(auditId, userId, technique) {
     const audit = await this.getAudit(auditId, userId);
     if (!audit) throw new Error('Audit not found');

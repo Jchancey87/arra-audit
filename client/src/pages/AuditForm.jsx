@@ -68,12 +68,14 @@ const AuditForm = () => {
     loadSong,
     setActiveAudit,
     bookmarks: globalBookmarks,
+    setBookmarks: setGlobalBookmarks,
     seekTo,
     isPlaying,
     currentTime,
     duration,
     focusMode,
     setFocusMode,
+    togglePlay,
   } = useAudio();
 
   const [audit, setAudit]           = useState(null);
@@ -240,6 +242,37 @@ const AuditForm = () => {
     }
   }, [audit?.lensSelection]);
 
+  // Arrangement lens availability (gates the M key shortcut)
+  const hasArrangementLens = useMemo(() => {
+    if (!audit) return false;
+    if (audit.lensSelection?.includes('arrangement')) return true;
+    if (audit.templateQuestions?.lenses?.arrangement) return true;
+    return false;
+  }, [audit?.lensSelection, audit?.templateQuestions]);
+
+  // Global keyboard shortcuts: M (marker), Space (play/pause)
+  useEffect(() => {
+    const isTextEntry = (el) => {
+      if (!el) return false;
+      const tag = el.nodeName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      return !!el.isContentEditable;
+    };
+    const handler = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isTextEntry(e.target)) return;
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        if (togglePlay) togglePlay();
+      } else if ((e.key === 'm' || e.key === 'M') && hasArrangementLens) {
+        e.preventDefault();
+        handleAddMarker(currentTime || 0);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [hasArrangementLens, currentTime, togglePlay, auditId]);
+
   // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
   const answeredPrompts = useMemo(() => {
     if (activeTab !== 'lens') return 0;
@@ -284,6 +317,73 @@ const AuditForm = () => {
     } catch (err) {
       setError('Failed to save override values');
     }
+  };
+
+  // ── Marker (bookmark) handlers ──────────────────────────────────────────
+  const syncBookmarks = (updated) => {
+    const list = updated?.bookmarks || [];
+    setAudit((prev) => (prev ? { ...prev, bookmarks: list } : prev));
+    setGlobalBookmarks(list);
+  };
+
+  const handleAddMarker = async (time) => {
+    if (!auditId) return;
+    try {
+      const updated = await backend.addBookmark(auditId, {
+        timestampSeconds: Math.max(0, Math.floor(time)),
+        label: '',
+        note: '',
+        lens: 'arrangement',
+      });
+      syncBookmarks(updated);
+    } catch (err) {
+      setError('Failed to drop marker');
+    }
+  };
+
+  const handleUpdateMarker = async (id, fields) => {
+    if (!auditId) return;
+    try {
+      const updated = await backend.updateBookmark(auditId, id, fields);
+      syncBookmarks(updated);
+    } catch (err) {
+      setError('Failed to update marker');
+    }
+  };
+
+  const handleDeleteMarker = async (id) => {
+    if (!auditId) return;
+    try {
+      const updated = await backend.deleteBookmark(auditId, id);
+      syncBookmarks(updated);
+    } catch (err) {
+      setError('Failed to delete marker');
+    }
+  };
+
+  // ── Section handler (arrangement-timeline storage) ────────────────────────
+  const handleAddSection = ({ name, start }) => {
+    if (!name?.trim()) return;
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const sorted = [...arr].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+    const next = sorted.find((b) => (b.startTime || 0) > start);
+    const defaultDur = 30;
+    const duration = next ? Math.max(1, Math.round(next.startTime - start)) : defaultDur;
+    const block = {
+      id: `sec-${Date.now()}`,
+      name: name.trim(),
+      type: 'verse',
+      startTime: Math.max(0, Math.floor(start)),
+      duration,
+      notes: '',
+    };
+    handleResponseChange('arrangement-timeline', JSON.stringify([...sorted, block]));
+    flash(`Section "${block.name}" added`);
   };
 
   // Capture Technique submit
@@ -464,6 +564,11 @@ const AuditForm = () => {
                   currentTime={currentTime}
                   duration={duration || song.durationSeconds || 0}
                   onSeek={seekTo}
+                  onAddMarker={handleAddMarker}
+                  onUpdateMarker={handleUpdateMarker}
+                  onDeleteMarker={handleDeleteMarker}
+                  onAddSection={handleAddSection}
+                  markers={globalBookmarks}
                 />
                 {/* Fallback template notice */}
                 {audit.templateVersion?.startsWith('fallback') && (

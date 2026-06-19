@@ -270,6 +270,15 @@ export class InMemoryBackendAdapter extends IBackendService {
     return audit;
   }
 
+  async deleteBookmark(auditId, bookmarkId) {
+    const audit = await this.getAudit(auditId);
+    if (!audit) throw new Error('Not found');
+    const before = (audit.bookmarks || []).length;
+    audit.bookmarks = (audit.bookmarks || []).filter((b) => b._id !== bookmarkId);
+    if (audit.bookmarks.length === before) throw new Error('Bookmark not found');
+    return audit;
+  }
+
   // ── Guided steps ──────────────────────────────────────────────────────────
   async advanceStep(auditId) {
     const audit = await this.getAudit(auditId);

@@ -214,6 +214,7 @@ const LoudnessMeter = ({ lufs }) => {
 const TrackAnalysisModules = ({ song, onChangeOverride }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
+  const [tapTimes, setTapTimes] = useState([]);
 
   if (!song) return null;
   const analysis = song.audioAnalysis || {};
@@ -234,17 +235,55 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
       scale: scale || 'major',
       estimated_meter: meter || '4/4',
     });
+    setTapTimes([]);
     setEditing(true);
   };
 
   const cancelEditing = () => {
     setEditing(false);
+    setTapTimes([]);
   };
 
   const saveEditing = () => {
     if (onChangeOverride) onChangeOverride(draft);
     setEditing(false);
+    setTapTimes([]);
   };
+
+  const handleReset = () => {
+    const reset = {
+      tempo_bpm: analysis.tempo_bpm || '',
+      key: analysis.key || '',
+      scale: analysis.scale || 'major',
+      estimated_meter: analysis.estimated_meter || '4/4',
+    };
+    setDraft(reset);
+    setTapTimes([]);
+  };
+
+  const handleTapTempo = () => {
+    const now = performance.now();
+    const updated = [...tapTimes, now].slice(-8);
+    setTapTimes(updated);
+    if (updated.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < updated.length; i++) {
+        intervals.push(updated[i] - updated[i - 1]);
+      }
+      const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      if (avg > 0) {
+        const bpm = Math.round((60000 / avg) * 100) / 100;
+        setDraft({ ...draft, tempo_bpm: bpm });
+      }
+    }
+  };
+
+  const cellEditingStyle = editing
+    ? {
+        outline: '1px solid var(--accent-primary)',
+        outlineOffset: '-1px',
+      }
+    : {};
 
   return (
     <section role="group" aria-label="Track Analysis">
@@ -296,8 +335,16 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
               Override values
             </button>
           ) : (
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <button onClick={cancelEditing} className="ghost" style={{ fontSize: '10px' }}>Cancel</button>
+              <button
+                onClick={handleReset}
+                className="ghost"
+                style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+                title="Restore original machine-detected values"
+              >
+                Reset
+              </button>
               <button onClick={saveEditing} className="primary" style={{ fontSize: '10px' }}>Save</button>
             </div>
           )}
@@ -323,29 +370,60 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
             gap: '6px',
             borderRight: '1px solid var(--border-subtle)',
             position: 'relative',
+            ...cellEditingStyle,
           }}
         >
-          <span
-            style={{
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Tempo
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Tempo
+            </span>
+            {editing && (
+              <span
+                style={{
+                  fontSize: '8px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--accent-primary)',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                EDITING
+              </span>
+            )}
+          </div>
           {editing ? (
-            <input
-              type="number"
-              step="0.01"
-              value={draft.tempo_bpm}
-              onChange={(e) => setDraft({ ...draft, tempo_bpm: e.target.value })}
-              style={{ fontSize: '18px', padding: '4px 6px' }}
-              autoFocus
-            />
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <input
+                type="number"
+                step="0.01"
+                value={draft.tempo_bpm}
+                onChange={(e) => setDraft({ ...draft, tempo_bpm: e.target.value })}
+                style={{ fontSize: '18px', padding: '4px 6px', flex: 1, minWidth: 0 }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleTapTempo}
+                className="ghost"
+                title="Tap to detect BPM (≥2 taps)"
+                style={{
+                  fontSize: '9px',
+                  padding: '4px 8px',
+                  color: 'var(--accent-primary)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                TAP{tapTimes.length > 0 ? ` (${tapTimes.length})` : ''}
+              </button>
+            </div>
           ) : (
             <div
               style={{
@@ -376,20 +454,35 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
             flexDirection: 'column',
             gap: '6px',
             borderRight: '1px solid var(--border-subtle)',
+            ...cellEditingStyle,
           }}
         >
-          <span
-            style={{
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Key
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Key
+            </span>
+            {editing && (
+              <span
+                style={{
+                  fontSize: '8px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--accent-primary)',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                EDITING
+              </span>
+            )}
+          </div>
           {editing ? (
             <div style={{ display: 'flex', gap: '4px' }}>
               <select
@@ -442,20 +535,35 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
             flexDirection: 'column',
             gap: '6px',
             borderRight: '1px solid var(--border-subtle)',
+            ...cellEditingStyle,
           }}
         >
-          <span
-            style={{
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontWeight: 500,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--text-secondary)',
-            }}
-          >
-            Meter
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              Meter
+            </span>
+            {editing && (
+              <span
+                style={{
+                  fontSize: '8px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--accent-primary)',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                EDITING
+              </span>
+            )}
+          </div>
           {editing ? (
             <select
               value={draft.estimated_meter}
@@ -497,6 +605,7 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
             display: 'flex',
             flexDirection: 'column',
             gap: '6px',
+            ...cellEditingStyle,
           }}
         >
           <span

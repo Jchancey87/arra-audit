@@ -184,6 +184,11 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async deleteBookmark(auditId, bookmarkId) {
+    const res = await this.api.delete(`/audits/${auditId}/bookmarks/${bookmarkId}`);
+    return res.data;
+  }
+
   // ── Guided steps ──────────────────────────────────────────────────────────
   async advanceStep(auditId) {
     const res = await this.api.post(`/audits/${auditId}/steps/advance`);

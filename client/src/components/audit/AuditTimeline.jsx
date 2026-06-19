@@ -39,7 +39,7 @@ const useScrubState = (ref, duration, onSeek) => {
   return { scrubbing, scrubX, startScrub: () => setScrubbing(true), setScrubX };
 };
 
-const WaveformLane = ({ audioData, duration, currentTime, scrubX, onScrubStart, onScrubEnd, refProp }) => {
+const WaveformLane = ({ audioData, duration, currentTime, scrubX, onScrubStart, onScrubEnd, refProp, beatTimes }) => {
   const ref = useRef(null);
   const fallback = audioData && audioData.length > 0 ? audioData : null;
   const W = 1000;
@@ -56,10 +56,18 @@ const WaveformLane = ({ audioData, duration, currentTime, scrubX, onScrubStart, 
       path += `M${x},${y} h1 v${h2} h-1 z `;
     }
   } else {
-    // Synthetic continuous peaks for visual interest
+    // Synthetic envelope — pulse on beats when available, otherwise sin/cos noise
+    const totalSec = duration || 1;
+    const beatEnvelope = (i) => {
+      if (!beatTimes || beatTimes.length === 0) return 1;
+      const t = (i / peaks) * totalSec;
+      const beatDur = 60 / 120; // assume 120 bpm if no tempo; visual only
+      const phase = (t % beatDur) / beatDur;
+      return Math.max(0.15, 1 - phase * 0.7);
+    };
     for (let i = 0; i < peaks; i++) {
       const n = Math.sin(i * 0.12) * 0.3 + Math.cos(i * 0.27) * 0.2 + Math.sin(i * 0.6) * 0.15;
-      const v = Math.abs(n);
+      const v = Math.abs(n) * beatEnvelope(i);
       const x = (i / peaks) * W;
       const h = v * 80;
       path += `M${x},${50 - h / 2} h1 v${h} h-1 z `;
@@ -175,15 +183,44 @@ const KeyCenterLane = ({ keyChanges, duration }) => {
   );
 };
 
-const SectionsLane = ({ sections, duration, onSectionClick, onAddSection }) => {
+const SectionsLane = ({ sections, duration, currentTime, onSectionClick, onAddSection, onAddSectionCancel }) => {
   const totalSec = duration || 1;
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [startTime, setStartTime] = useState('');
+
+  const startAdd = () => {
+    setName('');
+    setStartTime(formatTime(currentTime || 0));
+    setAdding(true);
+  };
+
+  const submit = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!name.trim()) return;
+    const [m, s] = startTime.split(':').map((n) => parseInt(n, 10) || 0);
+    const startSeconds = m * 60 + s;
+    if (onAddSection) onAddSection({ name: name.trim(), start: startSeconds });
+    setAdding(false);
+    setName('');
+  };
+
+  const cancel = (e) => {
+    e?.stopPropagation?.();
+    setAdding(false);
+    setName('');
+    if (onAddSectionCancel) onAddSectionCancel();
+  };
+
   return (
     <div
       style={{
-        height: '20px',
+        height: adding ? '68px' : '20px',
         position: 'relative',
         background: 'var(--bg-surface-1)',
         overflow: 'hidden',
+        transition: 'height 0.15s ease',
       }}
     >
       {(sections || []).map((s, i) => {
@@ -193,6 +230,7 @@ const SectionsLane = ({ sections, duration, onSectionClick, onAddSection }) => {
           <div
             key={i}
             onClick={() => onSectionClick && onSectionClick(s)}
+            onMouseDown={(e) => e.stopPropagation()}
             style={{
               position: 'absolute',
               left: `${left}%`,
@@ -220,9 +258,9 @@ const SectionsLane = ({ sections, duration, onSectionClick, onAddSection }) => {
           </div>
         );
       })}
-      {onAddSection && (
+      {!adding && onAddSection && (
         <button
-          onClick={onAddSection}
+          onClick={startAdd}
           className="ghost"
           style={{
             position: 'absolute',
@@ -238,44 +276,180 @@ const SectionsLane = ({ sections, duration, onSectionClick, onAddSection }) => {
           + Section
         </button>
       )}
+      {adding && (
+        <form
+          onSubmit={submit}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            inset: '2px 4px',
+            background: 'var(--bg-surface-3)',
+            display: 'flex',
+            gap: '6px',
+            alignItems: 'center',
+            padding: '0 6px',
+            zIndex: 3,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: '10px',
+          }}
+        >
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Section name"
+            style={{ flex: '0 0 110px', fontSize: '10px', padding: '3px 5px' }}
+          />
+          <input
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            placeholder="0:00"
+            style={{ width: '52px', fontSize: '10px', padding: '3px 5px' }}
+            aria-label="Section start time"
+          />
+          <button type="submit" className="primary" style={{ fontSize: '9px', padding: '3px 8px' }}>Add</button>
+          <button type="button" onClick={cancel} className="ghost" style={{ fontSize: '9px', padding: '3px 6px' }}>Cancel</button>
+        </form>
+      )}
     </div>
   );
 };
 
-const MarkersLane = ({ markers, duration, onMarkerClick }) => {
+const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDeleteMarker, onContextMenu }) => {
   const totalSec = duration || 1;
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleContextMenu = (e, m) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpenMenuId(m._id || m.id);
+  };
+
+  const closeMenu = () => {
+    setOpenMenuId(null);
+    setRenamingId(null);
+    setRenameValue('');
+  };
+
+  const handleRenameStart = (m) => {
+    setRenamingId(m._id || m.id);
+    setRenameValue(m.label || '');
+  };
+
+  const handleRenameSubmit = (m) => {
+    const id = m._id || m.id;
+    if (onUpdateMarker) onUpdateMarker(id, { label: renameValue.trim() });
+    closeMenu();
+  };
+
+  const handleDelete = (m) => {
+    const id = m._id || m.id;
+    if (onDeleteMarker) onDeleteMarker(id);
+    closeMenu();
+  };
+
   return (
     <div
       style={{
         height: '12px',
         position: 'relative',
         background: 'var(--bg-surface-1)',
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
+      onClick={() => openMenuId && closeMenu()}
     >
       {(markers || []).map((m, i) => {
-        const left = (m.time / totalSec) * 100;
+        const ts = m.timestampSeconds ?? m.time ?? 0;
+        const left = (ts / totalSec) * 100;
+        const id = m._id || m.id || i;
         return (
-          <button
-            key={i}
-            onClick={() => onMarkerClick && onMarkerClick(m)}
-            aria-label={`Jump to ${formatTime(m.time)}${m.label ? `: ${m.label}` : ''}`}
-            style={{
-              position: 'absolute',
-              left: `${left}%`,
-              top: 0,
-              width: 0,
-              height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '8px solid var(--accent-primary)',
-              transform: 'translateX(-4px)',
-              background: 'transparent',
-              padding: 0,
-              cursor: 'pointer',
-            }}
-            title={m.label || formatTime(m.time)}
-          />
+          <React.Fragment key={id}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onMarkerClick) onMarkerClick(m);
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onContextMenu={(e) => handleContextMenu(e, m)}
+              aria-label={`Jump to ${formatTime(ts)}${m.label ? `: ${m.label}` : ''}`}
+              style={{
+                position: 'absolute',
+                left: `${left}%`,
+                top: 0,
+                width: 0,
+                height: 0,
+                borderLeft: '4px solid transparent',
+                borderRight: '4px solid transparent',
+                borderTop: '8px solid var(--accent-primary)',
+                transform: 'translateX(-4px)',
+                background: 'transparent',
+                padding: 0,
+                cursor: 'pointer',
+                zIndex: 2,
+              }}
+              title={m.label ? `${formatTime(ts)} — ${m.label}` : formatTime(ts)}
+            />
+            {openMenuId === id && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute',
+                  left: `${left}%`,
+                  top: '14px',
+                  transform: 'translateX(-4px)',
+                  background: 'var(--bg-surface-3)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  minWidth: '160px',
+                  zIndex: 10,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '10px',
+                }}
+              >
+                {renamingId === id ? (
+                  <>
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameSubmit(m);
+                        else if (e.key === 'Escape') closeMenu();
+                      }}
+                      placeholder="Marker label"
+                      style={{ fontSize: '10px', padding: '3px 5px' }}
+                    />
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => handleRenameSubmit(m)} className="primary" style={{ fontSize: '9px', padding: '3px 6px' }}>Save</button>
+                      <button onClick={closeMenu} className="ghost" style={{ fontSize: '9px', padding: '3px 6px' }}>Cancel</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleRenameStart(m)}
+                      className="ghost"
+                      style={{ fontSize: '10px', textAlign: 'left', padding: '4px 6px' }}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={() => handleDelete(m)}
+                      className="ghost"
+                      style={{ fontSize: '10px', textAlign: 'left', padding: '4px 6px', color: 'var(--color-error)' }}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </React.Fragment>
         );
       })}
     </div>
@@ -306,7 +480,18 @@ const Lane = ({ label, children }) => (
   </div>
 );
 
-const AuditTimeline = ({ song, currentTime, duration, onSeek, onAddSection, onAddMarker, readOnly = false }) => {
+const AuditTimeline = ({
+  song,
+  currentTime,
+  duration,
+  onSeek,
+  onAddSection,
+  onAddMarker,
+  onUpdateMarker,
+  onDeleteMarker,
+  markers = [],
+  readOnly = false,
+}) => {
   const waveformRef = useRef(null);
   const { scrubX, startScrub } = useScrubState(waveformRef, duration, onSeek);
   const [showScrubTooltip, setShowScrubTooltip] = useState(false);
@@ -348,15 +533,27 @@ const AuditTimeline = ({ song, currentTime, duration, onSeek, onAddSection, onAd
         >
           Timeline
         </h2>
-        <span
-          style={{
-            fontSize: '11px',
-            color: 'var(--text-tertiary)',
-            fontFamily: 'JetBrains Mono, monospace',
-          }}
-        >
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {onAddMarker && !readOnly && (
+            <button
+              onClick={() => onAddMarker(currentTime || 0)}
+              className="ghost"
+              style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+              title="Drop marker at current playhead (M)"
+            >
+              + Marker
+            </button>
+          )}
+          <span
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-tertiary)',
+              fontFamily: 'JetBrains Mono, monospace',
+            }}
+          >
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+        </div>
       </div>
 
       {/* Lanes */}
@@ -373,6 +570,7 @@ const AuditTimeline = ({ song, currentTime, duration, onSeek, onAddSection, onAd
             <WaveformLane
               refProp={waveformRef}
               audioData={analysis.waveform_peaks}
+              beatTimes={analysis.beat_times}
               duration={duration}
               currentTime={currentTime}
               scrubX={scrubX}
@@ -382,27 +580,46 @@ const AuditTimeline = ({ song, currentTime, duration, onSeek, onAddSection, onAd
         </div>
         <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
           <Lane label="Beat Grid">
-            <BeatGridLane beats={analysis.beat_times} downbeats={analysis.downbeat_times} duration={duration} />
+            <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
+              <BeatGridLane beats={analysis.beat_times} downbeats={analysis.downbeat_times} duration={duration} />
+            </div>
           </Lane>
         </div>
         <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
           <Lane label="Downbeats">
-            <BeatGridLane beats={analysis.downbeat_times || []} downbeats={analysis.downbeat_times || []} duration={duration} />
+            <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
+              <BeatGridLane beats={analysis.downbeat_times || []} downbeats={analysis.downbeat_times || []} duration={duration} />
+            </div>
           </Lane>
         </div>
         <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
           <Lane label="Key Center">
-            <KeyCenterLane keyChanges={keyChanges} duration={duration} />
+            <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
+              <KeyCenterLane keyChanges={keyChanges} duration={duration} />
+            </div>
           </Lane>
         </div>
-        <div style={{ height: '20px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <Lane label="Sections">
-            <SectionsLane sections={sections} duration={duration} onAddSection={!readOnly ? onAddSection : null} />
+            <SectionsLane
+              sections={sections}
+              duration={duration}
+              currentTime={currentTime}
+              onAddSection={!readOnly && onAddSection ? (payload) => onAddSection(payload) : null}
+            />
           </Lane>
         </div>
-        <div style={{ height: '12px' }}>
+        <div style={{ height: '12px', position: 'relative' }}>
           <Lane label="Markers">
-            <MarkersLane markers={analysis.markers || []} duration={duration} onMarkerClick={(m) => onSeek && onSeek(m.time)} />
+            <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer', position: 'relative' }}>
+              <MarkersLane
+                markers={markers}
+                duration={duration}
+                onMarkerClick={(m) => onSeek && onSeek(m.timestampSeconds ?? m.time ?? 0)}
+                onUpdateMarker={onUpdateMarker}
+                onDeleteMarker={onDeleteMarker}
+              />
+            </div>
           </Lane>
         </div>
 

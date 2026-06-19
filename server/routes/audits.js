@@ -262,6 +262,23 @@ export default function createAuditRoutes(auditService, templateComposer, techni
     }
   });
 
+  // ── Delete a single bookmark ──────────────────────────────────────────────
+  router.delete('/:id/bookmarks/:bookmarkId', async (req, res) => {
+    try {
+      const audit = await auditService.deleteBookmark(
+        req.params.id,
+        req.userId,
+        req.params.bookmarkId
+      );
+      res.json(audit);
+    } catch (error) {
+      if (error.message === 'Audit not found' || error.message === 'Bookmark not found') {
+        return res.status(404).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Guided step management ────────────────────────────────────────────────
   router.post('/:id/steps/advance', async (req, res) => {
     try {

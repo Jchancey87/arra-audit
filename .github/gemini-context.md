@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T11:27:17.282Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T11:46:11.142Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -31,17 +31,17 @@ server/services/auditService.js ← models/Audit
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/context/AudioContext.jsx ← BackendContext
-client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/ArrangementTimelineWidget
+client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/audit/AuditPanelHeader, components/audit/AuditTabBar, components/audit/TrackAnalysisModules
 analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
 ## changes (last 5 commits — 1 second ago)
 ```
-client/src/pages/AuditForm.jsx                ~formatTime
-.github/context-cold.md                       ~AnalysisRequest  ~health  ~trigger_analysis  ~InMemoryRepository
-.github/copilot-instructions.md               +AnalysisRequest  +health  +trigger_analysis  +InMemoryRepository
-.github/gemini-context.md                     +AnalysisRequest  +health  +trigger_analysis  +InMemoryRepository
+client/src/pages/AuditForm.jsx                ~formatTime  ~useAutosave
+.github/context-cold.md                       +HttpBackendAdapter  +IBackendService
+.github/copilot-instructions.md               +App  ~App  ~HttpBackendAdapter  ~IBackendService
+.github/gemini-context.md                     +App  ~App  ~HttpBackendAdapter  ~IBackendService
 ```
 
 ## .github
@@ -54,9 +54,11 @@ h2 deps
 h2 client
 h3 client/index.html
 h3 client/public/index.html
-h3 client/src/context/AudioContext.jsx
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
+h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/MockAIAdapter.js
 h3 server/adapters/MockSearchAdapter.js
@@ -71,7 +73,6 @@ h3 server/services/techniqueService.js
 h3 server/services/templateComposer.js
 h2 skills
 h3 skills/handoff_runner.md
-code-fence plain
 ```
 
 ### .github/copilot-instructions.md
@@ -90,17 +91,17 @@ h3 analysis_service/analyzer.py
 h3 analysis_service/app.py
 h2 client
 h3 client/src/App.jsx
-h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/components/ResearchSummaryRenderer.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/pages/AuditForm.jsx
-h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/InMemoryRepository.js
 h3 server/adapters/MongooseRepository.js
 h3 server/bin/seedCurriculum.js
 h3 server/middleware/auth.js
 h3 server/ports/IRepository.js
+h3 server/routes/curricula.js
+h3 server/routes/songs.js
 ```
 
 ### .github/gemini-context.md
@@ -119,17 +120,17 @@ h3 analysis_service/analyzer.py
 h3 analysis_service/app.py
 h2 client
 h3 client/src/App.jsx
-h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/components/ResearchSummaryRenderer.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/pages/AuditForm.jsx
-h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/InMemoryRepository.js
 h3 server/adapters/MongooseRepository.js
 h3 server/bin/seedCurriculum.js
 h3 server/middleware/auth.js
 h3 server/ports/IRepository.js
+h3 server/routes/curricula.js
+h3 server/routes/songs.js
 ```
 
 ## analysis_service
@@ -174,8 +175,8 @@ export const useAudio = () =>  :354-360
 
 ### client/src/pages/AuditForm.jsx
 ```
-function useAutosave(auditId, data, backend, delay = 3000)  :8-45
-function formatTime(seconds)  :48-51
+function useAutosave(auditId, data, backend, delay = 3000)  :15-52
+function formatTime(seconds)  :55-58
 ```
 
 ## server
