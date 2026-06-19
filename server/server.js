@@ -69,6 +69,9 @@ if (!isProduction && !analysisWebhookSecret) {
 
 const app = express();
 
+// Trust proxy to allow rate limiter to identify users correctly behind proxy/sandboxes
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({ origin: clientOrigin, credentials: true }));
 app.use(express.json());
@@ -76,7 +79,7 @@ app.use(express.json());
 // Global rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: isProduction ? 100 : 10000, // Keep production safe but prevent blocking in development
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },

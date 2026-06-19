@@ -28,6 +28,8 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+const stripTopic = (name) => (name || '').replace(/\s*-\s*Topic\s*$/i, '').replace(/\s*\(Official.*?\)/gi, '').replace(/\s*\[Official.*?\]/gi, '').trim();
+
 const AppContent = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const {
@@ -43,12 +45,17 @@ const AppContent = () => {
     setShowVideo,
     bottomOpen,
     setBottomOpen,
+    videoDock,
+    setVideoDock,
+    focusMode,
+    setFocusMode,
     play,
     pause,
     seekTo,
     setVolume,
     toggleMute,
     addGlobalBookmark,
+    isAudioLoading,
   } = useAudio();
 
   const location = useLocation();
@@ -80,120 +87,215 @@ const AppContent = () => {
       <StyleProvider />
       
       {/* DAW Wrapper */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#111111' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)' }}>
         
-        {/* Top Command Bar */}
-        <header style={{
-          height: '48px',
-          background: '#282828',
-          borderBottom: '1px solid #2a2a2a',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 15px',
-          zIndex: 1000
-        }}>
-          {/* Logo & Sidebar Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {isAuthenticated && (
-              <button 
-                onClick={() => setLeftOpen(!leftOpen)} 
-                style={{ padding: '4px 8px', background: 'transparent', borderColor: '#2a2a2a' }}
-                title="Toggle Sidebar"
-              >
-                {leftOpen ? '◀' : '▶'}
-              </button>
-            )}
-            <Link to="/" style={{ 
-              fontFamily: 'Barlow', 
-              fontSize: '14px', 
-              fontWeight: '700', 
-              color: '#ff6600', 
+        {/* Floating Focus Mode Close Trigger */}
+        {isAuthenticated && focusMode && (
+          <button 
+            onClick={() => setFocusMode(false)}
+            style={{
+              position: 'fixed',
+              top: '8px',
+              right: '12px',
+              zIndex: 99999,
+              padding: '5px 12px',
+              height: '24px',
+              fontSize: '10px',
+              fontFamily: 'Roboto Mono, monospace',
               textTransform: 'uppercase',
-              letterSpacing: '0.08em'
-            }}>
-              ARRA // AUDIT SYSTEM
-            </Link>
-          </div>
-
-          {/* Persistent Transport / Signal Status */}
-          {isAuthenticated && (
-            <div style={{
+              letterSpacing: '0.5px',
+              background: 'var(--accent-orange)',
+              color: '#0c0c0e',
+              border: 'none',
+              borderRadius: '2px',
+              cursor: 'pointer',
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '15px',
-              fontFamily: 'Roboto Mono',
-              fontSize: '11px',
-              color: 'rgba(255,255,255,0.65)'
-            }}>
-              <span style={{ color: activeSong ? '#4ade80' : 'rgba(255,255,255,0.3)' }}>
-                {activeSong ? '● SIGNAL INCOMING' : '○ NO ACTIVE SIGNAL'}
-              </span>
-              {activeSong && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  background: '#0c0c0e',
-                  padding: '4px 10px',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '2px'
-                }}>
-                  <span style={{ color: '#ff6600', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              gap: '4px'
+            }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            EXIT FOCUS
+          </button>
+        )}
+
+        {/* Top Command Bar (Hidden during Focus Mode) */}
+        {isAuthenticated && !focusMode && (
+          <header style={{
+            height: '48px',
+            background: '#282828',
+            borderBottom: '1px solid #2a2a2a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 15px',
+            zIndex: 1000
+          }}>
+            {/* Logo & Sidebar Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {isAuthenticated && (
+                <button 
+                  onClick={() => setLeftOpen(!leftOpen)} 
+                  className="secondary"
+                  style={{ padding: '4px 6px', fontSize: '10px', minWidth: '28px' }}
+                  title="Toggle Sidebar"
+                >
+                  {leftOpen ? '◀' : '▶'}
+                </button>
+              )}
+              {activeSong ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+                  <span style={{ 
+                    fontFamily: 'Roboto Mono, monospace', 
+                    fontSize: '12px', 
+                    fontWeight: '600', 
+                    color: 'rgba(255,255,255,0.9)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    maxWidth: '340px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
                     {activeSong.title}
                   </span>
-                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
-                  <span>
-                    {formatTime(currentTime)} / {formatTime(duration)}
+                  <span style={{ 
+                    fontFamily: 'Inter, sans-serif', 
+                    fontSize: '10px', 
+                    color: 'var(--text-muted)',
+                    maxWidth: '340px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {stripTopic(activeSong.artistName || activeSong.artist)} · {activeSong.year || '—'}
                   </span>
                 </div>
+              ) : (
+                <Link to="/" style={{ 
+                  fontFamily: 'Roboto Mono, monospace', 
+                  fontSize: '12px', 
+                  fontWeight: '600', 
+                  color: 'var(--accent-orange)', 
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  ARRA // AUDIT SYSTEM
+                </Link>
               )}
             </div>
-          )}
 
-          {/* User Info & Inspector Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Persistent Transport / Signal Status */}
             {isAuthenticated && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', fontFamily: 'Roboto Mono' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{user?.email}</span>
-                <button 
-                  onClick={logout} 
-                  className="secondary" 
-                  style={{ padding: '3px 8px', fontSize: '10px', background: 'transparent' }}
-                >
-                  Logout
-                </button>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                fontFamily: 'Roboto Mono, monospace',
+                fontSize: '10px',
+                color: 'rgba(255,255,255,0.5)'
+              }}>
+                {isAudioLoading ? (
+                  <span style={{ color: 'var(--accent-orange)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: 'var(--accent-orange)',
+                      animation: 'pulse-led 1s ease-in-out infinite'
+                    }} />
+                    INCOMING...
+                  </span>
+                ) : activeSong ? (
+                  <span style={{ color: 'var(--status-high)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span style={{ fontSize: '10px', fontWeight: 500 }}>SYNCED</span>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: 'var(--status-high)',
+                      animation: isPlaying ? 'pulse-led 1s ease-in-out infinite' : 'none',
+                      marginLeft: '2px'
+                    }} />
+                  </span>
+                ) : (
+                  <span style={{ color: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: 'rgba(255,255,255,0.12)'
+                    }} />
+                    NO SIGNAL
+                  </span>
+                )}
+                
+                {activeSong && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(255,255,255,0.04)',
+                    padding: '3px 8px',
+                    borderRadius: '2px'
+                  }}>
+                    <span>
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
-            {isAuthenticated && (
-              <button 
-                onClick={() => setRightOpen(!rightOpen)} 
-                style={{ 
-                  padding: '4px 8px', 
-                  background: rightOpen ? '#ff6600' : 'transparent',
-                  color: rightOpen ? '#0c0c0e' : '#ff6600',
-                  borderColor: 'rgba(255, 102, 0, 0.3)' 
-                }}
-                title="Toggle active track metadata & bookmarks inspector"
-              >
-                Inspect Song
-              </button>
-            )}
-          </div>
-        </header>
+
+            {/* User Info & Inspector Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isAuthenticated && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', fontFamily: 'Roboto Mono, monospace' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.35)' }}>{user?.email}</span>
+                  <button 
+                    onClick={logout} 
+                    className="secondary" 
+                    style={{ padding: '3px 7px', fontSize: '9px' }}
+                  >
+                    LOG OUT
+                  </button>
+                </div>
+              )}
+              {isAuthenticated && (
+                <button 
+                  onClick={() => setRightOpen(!rightOpen)} 
+                  className={rightOpen ? 'primary' : 'secondary'}
+                  style={{ 
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    borderColor: rightOpen ? undefined : 'rgba(255, 255, 255, 0.08)' 
+                  }}
+                  title="Toggle active track metadata & bookmarks inspector"
+                >
+                  INSPECT
+                </button>
+              )}
+            </div>
+          </header>
+        )}
 
         {/* Main Section */}
         <div style={{ 
           display: 'flex', 
           flex: 1, 
           overflow: 'hidden',
-          height: `calc(100vh - 48px - ${activeSong ? (bottomOpen ? '140px' : '30px') : '0px'})`
+          height: `calc(100vh - ${focusMode ? '0px' : '48px'} - ${activeSong ? (bottomOpen ? '140px' : '30px') : '0px'})`
         }}>
           
-          {/* Left Sidebar (Navigation) */}
+          {/* Left Sidebar (Navigation - hidden during Focus Mode) */}
           {isAuthenticated && (
             <aside style={{
-              width: leftOpen ? '180px' : '0px',
+              width: (leftOpen && !focusMode) ? '180px' : '0px',
               background: '#111111',
               borderRight: '1px solid #2a2a2a',
               transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -269,12 +371,30 @@ const AppContent = () => {
             </aside>
           )}
 
+          {/* Left Docked Video Panel */}
+          {isAuthenticated && activeSong && showVideo && videoDock === 'left' && !focusMode && (
+            <div style={{
+              width: '320px',
+              background: '#151518',
+              borderRight: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              padding: '12px'
+            }}>
+              <div id="docked-youtube-container" style={{ width: '100%', height: '210px', background: '#000', borderRadius: '2px', overflow: 'hidden' }} />
+              <div style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginTop: '10px', textAlign: 'center', letterSpacing: '0.05em' }}>
+                SPLIT VIEW // LEFT ANCHOR
+              </div>
+            </div>
+          )}
+
           {/* Center Workspace (Content) */}
           <main style={{ 
             flex: 1, 
             overflowY: 'auto', 
-            padding: '20px', 
-            background: 'var(--bg-workspace)' 
+            padding: '12px', 
+            background: 'var(--bg-primary)' 
           }}>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -292,10 +412,28 @@ const AppContent = () => {
             </Routes>
           </main>
 
+          {/* Right Docked Video Panel */}
+          {isAuthenticated && activeSong && showVideo && videoDock === 'right' && !focusMode && (
+            <div style={{
+              width: '320px',
+              background: '#151518',
+              borderLeft: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              padding: '12px'
+            }}>
+              <div id="docked-youtube-container" style={{ width: '100%', height: '210px', background: '#000', borderRadius: '2px', overflow: 'hidden' }} />
+              <div style={{ fontSize: '10px', color: '#8a8a8a', fontFamily: 'Roboto Mono', marginTop: '10px', textAlign: 'center', letterSpacing: '0.05em' }}>
+                SPLIT VIEW // RIGHT ANCHOR
+              </div>
+            </div>
+          )}
+
           {/* Right Inspector Panel */}
           {isAuthenticated && (
             <aside style={{
-              width: rightOpen ? '280px' : '0px',
+              width: (rightOpen && !focusMode) ? '280px' : '0px',
               background: '#141418',
               borderLeft: '1px solid rgba(255,255,255,0.08)',
               transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -304,17 +442,17 @@ const AppContent = () => {
               display: 'flex',
               flexDirection: 'column'
             }}>
-              {rightOpen && (
+              {(rightOpen && !focusMode) && (
                 <div style={{ padding: '15px' }}>
                   <div style={{ fontFamily: 'Roboto Mono', fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '12px' }}>
                     INSPECTOR
                   </div>
                   
-                  {activeSong ? (
+                   {activeSong ? (
                     <div>
-                      <h3 style={{ fontSize: '12px', color: '#ff6600', marginBottom: '4px' }}>{activeSong.title}</h3>
-                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginBottom: '15px', fontFamily: 'Roboto Mono' }}>
-                        by {activeSong.artistName || activeSong.artist}
+                      <h3 style={{ fontSize: '12px', color: 'var(--accent-orange)', marginBottom: '2px', border: 'none', padding: 0 }}>{activeSong.title}</h3>
+                      <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginBottom: '12px', fontFamily: 'Roboto Mono, monospace' }}>
+                        {stripTopic(activeSong.artistName || activeSong.artist)} · {activeSong.year || '—'}
                       </p>
 
                       {/* Tavily Research snippet */}
@@ -425,7 +563,7 @@ const AppContent = () => {
                 textTransform: 'uppercase'
               }}
             >
-              <span>Tape Deck // Transport Panel</span>
+              <span>Tape Deck // Audio Player & Controls</span>
               <span>{bottomOpen ? 'Minimize ▼' : 'Expand ▲'}</span>
             </div>
 

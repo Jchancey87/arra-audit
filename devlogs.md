@@ -6,6 +6,17 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-18: Start Services via PM2
+
+- **Context**: Start Arra backend, client, analysis services.
+- **Actions**:
+  - Check PM2 status. Empty.
+  - Run `pm2 start ecosystem.config.cjs`.
+  - Backend, client (Vite), analysis services online.
+- **Verification**:
+  - Run `pm2 list` — all online, zero restarts.
+  - Run `npm test` inside server — all 44 tests passed successfully.
+
 ### 2026-06-14: Architecture Audit — Implementation & Deployment Summary
 
 - **Context**: Used SigMap + direct file reads to audit the Arra codebase for glaring architecture/security/runtime issues.

@@ -49,18 +49,19 @@ function formatTime(seconds) {
   const s = Math.floor(seconds ?? 0);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+const stripTopic = (name) => (name || '').replace(/\s*-\s*Topic\s*$/i, '').replace(/\s*\(Official.*?\)/gi, '').replace(/\s*\[Official.*?\]/gi, '').trim();
 
 const SAVE_LABEL = {
-  saved:  '✓ Synchronized',
-  saving: 'Saving signal...',
-  dirty:  '● Dirty buffers',
-  error:  '✗ Transmission error',
+  saved:  '✓ Synced',
+  saving: 'Saving...',
+  dirty:  '● Unsaved',
+  error:  '✗ Error',
 };
 const SAVE_COLOR = {
-  saved:  '#4ade80',
-  saving: 'rgba(255, 255, 255, 0.45)',
-  dirty:  '#ff6600',
-  error:  '#f87171',
+  saved:  'var(--status-high)',
+  saving: 'var(--text-muted)',
+  dirty:  'var(--accent-orange)',
+  error:  'var(--status-low)',
 };
 
 // ── AuditForm ────────────────────────────────────────────────────────────────
@@ -77,6 +78,8 @@ const AuditForm = () => {
     isPlaying,
     currentTime,
     duration,
+    focusMode,
+    setFocusMode,
   } = useAudio();
 
   const [audit, setAudit]           = useState(null);
@@ -101,6 +104,12 @@ const AuditForm = () => {
   const [tapTimes, setTapTimes] = useState([]);
 
   const { saveStatus, markDirty, saveNow } = useAutosave(auditId, { responses }, backend);
+
+  // Auto-enable Focus Mode on mount, disable on unmount
+  useEffect(() => {
+    setFocusMode(true);
+    return () => setFocusMode(false);
+  }, [setFocusMode]);
 
   useEffect(() => {
     if (song) {
@@ -330,17 +339,61 @@ const AuditForm = () => {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <div className="panel" style={{ background: 'var(--bg-panel)', borderBottom: '2px solid #ff6600' }}>
+      <style>{`
+        @keyframes pulse-led {
+          0%, 100% { opacity: 0.35; transform: scale(0.92); }
+          50% { opacity: 1; transform: scale(1.15); }
+        }
+        @keyframes vu-level-bounce {
+          0% { opacity: 0.85; filter: brightness(0.95); }
+          100% { opacity: 1; filter: brightness(1.2); }
+        }
+      `}</style>
+      <div style={{ background: 'var(--bg-panel)', padding: '12px 16px', boxShadow: '0 1px 2px rgba(0,0,0,0.3)', marginBottom: '12px' }}>
 
-        {/* Save status indicator */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-          <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', fontWeight: 'bold', color: SAVE_COLOR[saveStatus] }}>
-            {SAVE_LABEL[saveStatus]}
-          </span>
+        {/* Header flex row with Autosave status and Focus Mode */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <div>
+            <h1 style={{ margin: 0, border: 'none', padding: 0 }}>{template?.title || `${stripTopic(song?.title)} AUDIT`}</h1>
+            <p className="card-subtitle" style={{ margin: '2px 0 0 0' }}>{stripTopic(song?.artistName || song?.artist)}{song?.year ? ` · ${song.year}` : ''}</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono', fontWeight: 'bold', color: SAVE_COLOR[saveStatus] }}>
+              {SAVE_LABEL[saveStatus]}
+            </span>
+            <button
+              onClick={() => setFocusMode(!focusMode)}
+              className={focusMode ? 'primary' : 'secondary'}
+              style={{
+                padding: '6px 12px',
+                fontSize: '10px',
+                fontFamily: 'Inter',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              {focusMode ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                  </svg>
+                  Exit Focus
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M3 12h1m16 0h1M12 3v1m0 16v1M5.6 5.6l.7.7m11.4 11.4l.7.7M18.4 5.6l-.7.7M6.3 17.7l-.7.7"></path>
+                  </svg>
+                  Focus Mode
+                </>
+              )}
+            </button>
+          </div>
         </div>
-
-        <h1>{template?.title || `${song?.title} Arra Audit`}</h1>
-        <p className="card-subtitle" style={{ margin: 0 }}>{song?.artistName || song?.artist}</p>
 
         {error   && <div className="error">{error}</div>}
         {success && <div className="success">{success}</div>}
@@ -506,15 +559,15 @@ const AuditForm = () => {
 
         {/* 🧬 SIGNAL AUDIO ANALYSIS MATRIX */}
         {song && (
-          <div className="panel" style={{ background: 'var(--bg-panel)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '2px', padding: '20px', marginBottom: '25px' }}>
+          <div className="panel" style={{ background: 'var(--bg-panel)', borderRadius: '2px', padding: '16px', marginBottom: '20px', boxShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ff6600' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-                <h3 style={{ margin: 0, fontFamily: 'Roboto Mono', fontSize: '13px', color: '#ff6600' }}>
-                  SIGNAL ANALYSIS MATRIX // {song.audioAnalysisStatus?.toUpperCase()}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-orange)' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+                <h3 style={{ margin: 0, fontFamily: 'Roboto Mono, monospace', fontSize: '11px', color: 'var(--accent-orange)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  ANALYSIS MATRIX
                 </h3>
               </div>
-              <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '10px', fontFamily: 'Roboto Mono' }}>
+              <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '9px', fontFamily: 'Roboto Mono, monospace' }}>
                 {showAnalysis ? 'COLLAPSE' : 'EXPAND'}
               </button>
             </div>
@@ -589,80 +642,207 @@ const AuditForm = () => {
 
                 {song.audioAnalysisStatus === 'success' && song.audioAnalysis && (
                   <div>
-                    {/* Active Values Grid */}
+                    {/* Active Values Grid — Standardized DAW Cards */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                      background: '#2a2a2a',
-                      gap: '1px',
-                      border: '1px solid #2a2a2a',
-                      borderRadius: '2px',
-                      overflow: 'hidden',
-                      marginBottom: '20px'
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                      gap: '8px',
+                      marginBottom: '16px'
                     }}>
-                      {[
-                        {
-                          label: 'TEMPO / BPM',
-                          value: song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm,
-                          conf: song.audioAnalysis.tempo_confidence,
-                          isOverridden: !!song.audioOverrides?.tempo_bpm
-                        },
-                        {
-                          label: 'TONAL KEY',
-                          value: `${song.audioOverrides?.key || song.audioAnalysis.key} ${song.audioOverrides?.scale || song.audioAnalysis.scale || ''}`,
-                          conf: song.audioAnalysis.key_confidence,
-                          isOverridden: !!song.audioOverrides?.key
-                        },
-                        {
-                          label: 'METER / TIME',
-                          value: song.audioOverrides?.estimated_meter || song.audioAnalysis.estimated_meter,
-                          conf: song.audioAnalysis.meter_confidence,
-                          isOverridden: !!song.audioOverrides?.estimated_meter
-                        },
-                        {
-                          label: 'LOUDNESS (INTEG)',
-                          value: `${song.audioAnalysis.loudness_integrated} LUFS`,
-                          conf: 0.99,
-                          isReadOnly: true
-                        }
-                      ].map((item, idx) => {
-                        const valNum = parseFloat(item.conf);
-                        const isHigh = valNum > 0.8;
-                        const isMed = valNum >= 0.5 && valNum <= 0.8;
-                        const badgeColor = isHigh ? '#4ade80' : isMed ? '#fbbf24' : '#f87171';
-                        const badgeText = isHigh ? 'CONFIDENT' : isMed ? 'PROBABLE' : 'REVIEW NEEDED';
+                      {(() => {
+                        const bpmVal = song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm || 120;
+                        const bpmNum = parseFloat(bpmVal);
+                        const detectedKey = (song.audioOverrides?.key || song.audioAnalysis?.key || '').trim();
+                        const detectedScale = song.audioOverrides?.scale || song.audioAnalysis?.scale || '';
+                        const meter = song.audioOverrides?.estimated_meter || song.audioAnalysis?.estimated_meter || '4/4';
+                        const beatsPerMeasure = parseInt(meter.split('/')[0]) || 4;
+                        const currentBeat = Math.floor(currentTime * (bpmNum / 60)) % beatsPerMeasure;
+                        const lufsVal = parseFloat(song.audioAnalysis?.loudness_integrated) || -14;
+                        const lufsPercent = Math.max(3, Math.min(100, ((lufsVal - (-24)) / (-4 - (-24))) * 100));
 
-                        return (
-                          <div key={idx} style={{ background: '#1e1e1e', display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ background: '#2D2D2D', padding: '6px 12px', borderBottom: '1px solid #2a2a2a' }}>
-                              <div style={{ fontSize: '9px', fontFamily: 'Roboto Mono', fontWeight: '600', color: '#8a8a8a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                {item.label}
+                        const cards = [
+                          {
+                            label: 'TEMPO',
+                            value: bpmVal,
+                            unit: 'BPM',
+                            conf: song.audioAnalysis.tempo_confidence || 0,
+                            overridden: !!song.audioOverrides?.tempo_bpm,
+                            viz: (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '32px' }}>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSeek && seekTo(0); }}
+                                  title="Play from start"
+                                  style={{
+                                    width: '28px', height: '28px', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.08)', borderRadius: '2px',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    opacity: 0.4, transition: 'opacity 0.15s',
+                                    padding: 0
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.4'}
+                                >
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                </button>
+                                <span style={{
+                                  display: 'inline-block',
+                                  width: '6px', height: '6px', borderRadius: '50%',
+                                  background: 'var(--accent-orange)',
+                                  animation: isPlaying ? `pulse-led ${60 / bpmNum}s ease-in-out infinite` : 'none',
+                                  opacity: isPlaying ? 1 : 0.3
+                                }} />
                               </div>
-                            </div>
-                            <div style={{ padding: '12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                              <div style={{ fontSize: '20px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '4px' }}>
-                                {item.value}
-                                {item.isOverridden && (
-                                  <span style={{ fontSize: '9px', color: '#ff6600', fontWeight: 'normal' }}>(override)</span>
+                            )
+                          },
+                          {
+                            label: 'KEY',
+                            value: `${detectedKey} ${detectedScale}`.trim(),
+                            unit: detectedScale ? detectedScale.toUpperCase() : '',
+                            conf: song.audioAnalysis.key_confidence || 0,
+                            overridden: !!song.audioOverrides?.key,
+                            viz: (
+                              <div style={{ display: 'flex', gap: '1px', marginTop: '2px', flexWrap: 'wrap', height: '32px', alignItems: 'center' }}>
+                                {['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'].map(k => {
+                                  const isActive = detectedKey.toLowerCase() === k.toLowerCase() || detectedKey.toLowerCase().startsWith(k.toLowerCase());
+                                  return (
+                                    <span key={k} style={{
+                                      fontSize: '7px', fontFamily: 'Roboto Mono, monospace',
+                                      padding: '1px 3px', borderRadius: '1px',
+                                      background: isActive ? 'var(--accent-orange)' : 'rgba(255,255,255,0.03)',
+                                      color: isActive ? '#0c0c0e' : 'rgba(255,255,255,0.2)',
+                                      fontWeight: isActive ? 'bold' : 'normal'
+                                    }}>{k}</span>
+                                  );
+                                })}
+                              </div>
+                            )
+                          },
+                          {
+                            label: 'METER',
+                            value: meter,
+                            unit: '',
+                            conf: song.audioAnalysis.meter_confidence || 0,
+                            overridden: !!song.audioOverrides?.estimated_meter,
+                            viz: (
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '32px' }}>
+                                {Array.from({ length: beatsPerMeasure }).map((_, bIdx) => {
+                                  const isCurrent = isPlaying && currentBeat === bIdx;
+                                  return (
+                                    <div key={bIdx} style={{
+                                      width: '12px', height: '12px', borderRadius: '2px',
+                                      background: isCurrent ? 'var(--status-high)' : 'rgba(255,255,255,0.05)',
+                                      boxShadow: isCurrent ? '0 0 6px rgba(52,211,153,0.4)' : 'none',
+                                      transition: 'all 0.08s ease',
+                                      animation: isCurrent ? 'pulse-led 0.3s ease-in-out infinite' : 'none'
+                                    }} />
+                                  );
+                                })}
+                                <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.25)', fontFamily: 'Roboto Mono, monospace', marginLeft: '4px' }}>
+                                  {isPlaying ? (currentBeat + 1) : '—'}
+                                </span>
+                              </div>
+                            )
+                          },
+                          {
+                            label: 'LOUDNESS',
+                            value: lufsVal.toFixed(1),
+                            unit: 'LUFS',
+                            conf: 0.95,
+                            overridden: false,
+                            isReadOnly: true,
+                            viz: (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', height: '32px', justifyContent: 'center' }}>
+                                <div style={{ height: '6px', background: 'rgba(255,255,255,0.04)', borderRadius: '1px', position: 'relative', overflow: 'hidden' }}>
+                                  <div style={{
+                                    height: '100%', width: `${lufsPercent}%`,
+                                    background: 'linear-gradient(90deg, var(--status-high) 0%, var(--status-med) 50%, var(--status-low) 100%)',
+                                    transition: 'width 0.3s ease',
+                                    animation: isPlaying ? 'vu-level-bounce 0.2s ease infinite alternate' : 'none'
+                                  }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', color: 'rgba(255,255,255,0.2)', fontFamily: 'Roboto Mono, monospace' }}>
+                                  <span>-24</span><span>-14</span><span>-9</span><span>-4</span>
+                                </div>
+                              </div>
+                            )
+                          }
+                        ];
+
+                        return cards.map((item, idx) => {
+                          const valNum = parseFloat(item.conf);
+                          const isHigh = valNum > 0.8;
+                          const isMed = valNum >= 0.5 && valNum <= 0.8;
+                          const badgeColor = isHigh ? 'var(--status-high)' : isMed ? 'var(--status-med)' : 'var(--status-low)';
+
+                          return (
+                            <div key={idx} style={{
+                              background: 'var(--bg-panel)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              padding: '12px',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                              borderRadius: '2px',
+                              position: 'relative'
+                            }}>
+                              {/* Row 1: Label + Confidence Badge */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '9px', fontFamily: 'Roboto Mono, monospace', fontWeight: '500', color: '#6B7280', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                                  {item.label}
+                                </span>
+                                {!item.isReadOnly && (
+                                  <span style={{ fontSize: '8px', fontFamily: 'Roboto Mono, monospace', color: badgeColor, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: badgeColor, display: 'inline-block' }} />
+                                    {Math.round(valNum * 100)}%
+                                  </span>
                                 )}
                               </div>
+
+                              {/* Row 2: Primary Value */}
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '6px' }}>
+                                <span style={{ fontSize: '24px', fontFamily: 'Inter, sans-serif', fontWeight: '700', color: '#ffffff', lineHeight: 1 }}>
+                                  {item.value}
+                                </span>
+                                {item.unit && (
+                                  <span style={{ fontSize: '11px', fontFamily: 'Roboto Mono, monospace', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                    {item.unit}
+                                  </span>
+                                )}
+                                {item.overridden && (
+                                  <span style={{ fontSize: '8px', color: 'var(--accent-orange)', fontFamily: 'Roboto Mono, monospace' }}>(OVR)</span>
+                                )}
+                              </div>
+
+                              {/* Row 3: Visualization */}
+                              <div style={{ height: '32px' }}>
+                                {item.viz}
+                              </div>
+
+                              {/* Gear icon for override (positioned top-right corner) */}
                               {!item.isReadOnly && (
-                                <div style={{ fontSize: '9px', fontFamily: 'Roboto Mono', color: badgeColor, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                  <span style={{ 
-                                    width: '6px', 
-                                    height: '6px', 
-                                    borderRadius: '50%', 
-                                    background: badgeColor,
-                                    boxShadow: `0 0 4px ${badgeColor}`,
-                                    display: 'inline-block'
-                                  }} />
-                                  {badgeText} ({Math.round(item.conf * 100)}%)
-                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setShowOverrideControls(true); }}
+                                  title="Open override controls"
+                                  style={{
+                                    position: 'absolute', top: '6px', right: '6px',
+                                    width: '18px', height: '18px', padding: 0,
+                                    background: 'transparent', border: 'none',
+                                    cursor: 'pointer', opacity: 0.25,
+                                    transition: 'opacity 0.15s',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '0.25'}
+                                >
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                  </svg>
+                                </button>
                               )}
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
 
                     {/* Timeline lanes */}
@@ -676,44 +856,57 @@ const AuditForm = () => {
                           <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                         </div>
                         
-                        {/* Interactive Playhead Lane */}
+                        {/* Interactive Playhead Lane (Step Sequencer Grid) */}
                         <div 
-                          style={{ position: 'relative', height: '28px', background: 'var(--bg-workspace)', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
+                          style={{ 
+                            position: 'relative', 
+                            height: '34px', 
+                            background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 1px, transparent 1px, transparent 20px), #0e0e11', 
+                            borderBottom: '1px solid rgba(255,255,255,0.06)', 
+                            borderTop: '1px solid rgba(255,255,255,0.06)', 
+                            cursor: 'pointer',
+                            borderRadius: '2px',
+                            overflow: 'hidden'
+                          }}
                           onClick={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const pct = (e.clientX - rect.left) / rect.width;
                             seekTo(pct * duration);
                           }}
                         >
-                          {/* Beat Ticks */}
-                          {(song.audioAnalysis.beat_times || []).map((t, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                position: 'absolute',
-                                left: `${(t / duration) * 100}%`,
-                                top: '16px',
-                                width: '1px',
-                                height: '6px',
-                                background: 'rgba(255, 255, 255, 0.12)'
-                              }}
-                            />
-                          ))}
+                          {/* Modulated Step Sequencer Ticks */}
+                          {(song.audioAnalysis.beat_times || []).map((t, i) => {
+                            const isDownbeat = (song.audioAnalysis.downbeat_times || []).some(db => Math.abs(db - t) < 0.08);
+                            const isMidBeat = !isDownbeat && (i % 2 === 0);
+                            const height = isDownbeat ? '24px' : isMidBeat ? '15px' : '9px';
+                            const top = isDownbeat ? '5px' : isMidBeat ? '9px' : '12px';
+                            const background = isDownbeat 
+                              ? '#ff6600' 
+                              : isMidBeat 
+                                ? '#00e5ff' 
+                                : 'rgba(255, 255, 255, 0.15)';
+                            const glow = isDownbeat 
+                              ? '0 0 6px rgba(255, 102, 0, 0.6)' 
+                              : isMidBeat 
+                                ? '0 0 4px rgba(0, 229, 255, 0.4)' 
+                                : 'none';
 
-                          {/* Downbeat Ticks */}
-                          {(song.audioAnalysis.downbeat_times || []).map((t, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                position: 'absolute',
-                                left: `${(t / duration) * 100}%`,
-                                top: '10px',
-                                width: '1.5px',
-                                height: '12px',
-                                background: 'rgba(255, 102, 0, 0.4)'
-                              }}
-                            />
-                          ))}
+                            return (
+                              <div
+                                key={i}
+                                style={{
+                                  position: 'absolute',
+                                  left: `${(t / duration) * 100}%`,
+                                  top,
+                                  width: isDownbeat ? '2px' : '1px',
+                                  height,
+                                  background,
+                                  boxShadow: glow,
+                                  borderRadius: '1px'
+                                }}
+                              />
+                            );
+                          })}
 
                           {/* Playhead */}
                           <div
@@ -721,10 +914,10 @@ const AuditForm = () => {
                               position: 'absolute',
                               left: `${(currentTime / duration) * 100}%`,
                               top: 0,
-                              width: '1px',
+                              width: '1.5px',
                               height: '100%',
                               background: '#00e5ff',
-                              boxShadow: '0 0 4px #00e5ff',
+                              boxShadow: '0 0 6px #00e5ff',
                               zIndex: 10
                             }}
                           >
@@ -773,13 +966,26 @@ const AuditForm = () => {
                     )}
 
                     {/* Show/Hide Override controls */}
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: showOverrideControls ? '12px' : '0' }}>
                       <button
-                        className="btn-secondary"
                         onClick={() => setShowOverrideControls(!showOverrideControls)}
-                        style={{ padding: '6px 12px', fontSize: '10px', fontFamily: 'Roboto Mono' }}
+                        title="Manual corrections"
+                        style={{
+                          background: 'transparent', border: 'none',
+                          cursor: 'pointer', opacity: 0.35,
+                          padding: '4px', display: 'flex', alignItems: 'center',
+                          gap: '6px', transition: 'opacity 0.15s',
+                          fontSize: '9px', fontFamily: 'Roboto Mono, monospace',
+                          color: 'var(--text-muted)'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '0.35'}
                       >
-                        {showOverrideControls ? 'CLOSE OVERRIDE CONTROLS' : 'OPEN OVERRIDE CONTROLS'}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="3"></circle>
+                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        {showOverrideControls ? 'CLOSE' : 'MANUAL CORRECTIONS'}
                       </button>
                     </div>
 
@@ -1150,14 +1356,33 @@ const AuditForm = () => {
           {(!isGuided || currentStep?.name === 'Log') && (
             <div style={{ marginTop: '30px', paddingTop: '20px' }}>
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-                Technique Log
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                TECHNIQUE LOG
               </h2>
-              <p style={{ color: 'rgba(255, 255, 255, 0.45)', marginBottom: '20px' }}>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
                 Distill observations into portable techniques. Each entry saves immediately to your notebook.
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {/* Recent entries chips */}
+              {techniques.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  {techniques.slice(-4).reverse().map((tech) => (
+                    <span key={tech._id || tech._tempId} style={{
+                      background: 'rgba(217, 119, 6, 0.08)',
+                      color: 'var(--accent-orange)',
+                      padding: '3px 8px',
+                      borderRadius: '2px',
+                      fontSize: '9px',
+                      fontFamily: 'Roboto Mono, monospace',
+                      textTransform: 'uppercase'
+                    }}>
+                      {tech.techniqueName || 'Untitled'} · {tech.lens}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group">
                   <label>Lens</label>
                   <select
@@ -1193,9 +1418,14 @@ const AuditForm = () => {
                 />
               </div>
 
-              <button id="add-technique-btn" onClick={addTechnique} className="secondary" style={{ width: '100%' }}>
-                + Save to Notebook
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button id="add-technique-btn" onClick={addTechnique} className="primary" style={{ flex: 1 }}>
+                  + SAVE TO NOTEBOOK
+                </button>
+                {saveStatus === 'saved' && <span style={{ fontSize: '9px', color: 'var(--status-high)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap', animation: 'pulse-led 2s ease-in-out 1' }}>✓ SAVED</span>}
+                {saveStatus === 'saving' && <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap' }}>SAVING...</span>}
+                {saveStatus === 'dirty' && <span style={{ fontSize: '9px', color: 'var(--accent-orange)', fontFamily: 'Roboto Mono, monospace', whiteSpace: 'nowrap' }}>● UNSAVED</span>}
+              </div>
 
               {techniques.length > 0 && (
                 <div style={{ marginTop: '20px' }}>

@@ -251,15 +251,15 @@ const StudyPlannerDashboard = () => {
             return (
               <div className="panel" style={{ background: '#18181b', padding: '15px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontFamily: 'Roboto Mono', fontSize: '12px', color: '#ff6600', fontWeight: 'bold' }}>
+                  <span style={{ fontFamily: 'Roboto Mono', fontSize: '12px', color: 'var(--accent-orange)', fontWeight: 'bold' }}>
                     CURRICULUM PROGRESS
                   </span>
                   <span style={{ fontFamily: 'Roboto Mono', fontSize: '12px', color: '#ffffff' }}>
-                    {completedCount} / {totalCount} DAYS COMPLETED ({percent}%)
+                    {completedCount} OF {totalCount} SESSIONS COMPLETED ({percent}%)
                   </span>
                 </div>
                 <div style={{ width: '100%', height: '8px', background: '#282828', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: `${percent}%`, height: '100%', background: '#ff6600', transition: 'width 0.3s ease' }} />
+                  <div style={{ width: `${percent}%`, height: '100%', background: 'var(--accent-orange)', transition: 'width 0.3s ease' }} />
                 </div>
               </div>
             );

@@ -25,6 +25,8 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-19 | DAW-native UI refinement: design tokens, borderless panels, 4-card matrix, waveform SVG, technique log, header redesign | `—` |
+| 2026-06-18 | Start all services (backend, client, analysis) via PM2 ecosystem config. Tests pass. | - |
 | 2026-06-14 | Architecture audit implementation: runtime fixes, security hardening, auth/repository abstraction, curriculum cleanup, rate limiting, config fixes, and dev-server restart | `2cc8bf1` |
 | 2026-06-14 | Sync auto-generated SigMap context files after architecture audit changes | `ed9c8c6` |
 | 2026-06-13 | Rebrand emoji icons to clean DAW-aligned inline SVGs across client pages | `a875e5c` |

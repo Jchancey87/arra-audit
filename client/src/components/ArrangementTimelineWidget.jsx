@@ -648,12 +648,46 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                     background: '#070709',
                     borderBottom: tracks.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   }}>
-                    {/* Decorative waveform background */}
-                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.04 }} preserveAspectRatio="none">
-                      {Array.from({ length: 90 }).map((_, i) => {
-                        const h = Math.max(1, 15 + Math.sin(i * 0.18) * 20 + Math.cos(i * 0.45) * 12);
-                        return <rect key={i} x={`${(i / 90) * 100}%`} y={`${50 - h / 2}%`} width="2" height={`${h}%`} fill="#ffffff" />;
-                      })}
+                    {/* Decorative waveform background — continuous amplitude peaks */}
+                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.08 }} preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#00e5ff" stopOpacity="1" />
+                          <stop offset="50%" stopColor="#ff6600" stopOpacity="0.5" />
+                          <stop offset="100%" stopColor="#00e5ff" stopOpacity="1" />
+                        </linearGradient>
+                        <linearGradient id="waveGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.8" />
+                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.2" />
+                        </linearGradient>
+                      </defs>
+                      {/* Continuous waveform path — amplitude peaks */}
+                      {(() => {
+                        const points = 200;
+                        const midY = 50;
+                        let path1 = '';
+                        let path2 = '';
+                        let pathMirror1 = '';
+                        let pathMirror2 = '';
+                        for (let i = 0; i <= points; i++) {
+                          const x = (i / points) * 100;
+                          const noise1 = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
+                          const noise2 = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
+                          const y1 = midY - noise1;
+                          const y2 = midY - noise2;
+                          const prefix = i === 0 ? 'M' : 'L';
+                          path1 += `${prefix}${x} ${y1} `;
+                          pathMirror1 = `${i === 0 ? 'M' : 'L'}${x} ${midY + noise1} ` + pathMirror1;
+                          path2 += `${prefix}${x} ${y2} `;
+                          pathMirror2 = `${i === 0 ? 'M' : 'L'}${x} ${midY + noise2} ` + pathMirror2;
+                        }
+                        return (
+                          <>
+                            <path d={path1 + pathMirror1} fill="url(#waveGrad)" />
+                            <path d={path2 + pathMirror2} fill="url(#waveGrad2)" />
+                          </>
+                        );
+                      })()}
                     </svg>
 
                     {/* Section blocks */}
@@ -735,14 +769,14 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
                     {/* Playhead */}
                     {playheadLeft !== null && (
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '1px', background: '#00e5ff', boxShadow: '0 0 6px #00e5ff', pointerEvents: 'none', zIndex: 10, transition: 'none' }}>
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '2px', background: 'var(--accent-cyan)', boxShadow: '0 0 6px var(--accent-cyan)', pointerEvents: 'none', zIndex: 10, transition: 'none' }}>
                         <div style={{
                           position: 'absolute',
-                          top: 0,
+                          top: -1,
                           left: '-5px',
-                          width: '11px',
-                          height: '8px',
-                          background: '#00e5ff',
+                          width: '12px',
+                          height: '9px',
+                          background: 'var(--accent-cyan)',
                           clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)'
                         }} />
                       </div>
@@ -809,7 +843,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
                     {/* Playhead through track */}
                     {playheadLeft !== null && (
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '1px', background: '#00e5ff', opacity: 0.6, pointerEvents: 'none', zIndex: 10, transition: 'none' }} />
+                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '2px', background: 'var(--accent-cyan)', opacity: 0.5, pointerEvents: 'none', zIndex: 10, transition: 'none' }} />
                     )}
                   </div>
                 ))}
