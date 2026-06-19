@@ -319,6 +319,31 @@ export class InMemoryBackendAdapter extends IBackendService {
     if (filters.lens || filters.category) {
       techniques = techniques.filter((t) => t.lens === (filters.lens || filters.category));
     }
+    if (filters.songId) {
+      techniques = techniques.filter((t) => {
+        const id = t.songId?._id || t.songId;
+        return id && String(id) === String(filters.songId);
+      });
+    }
+    if (filters.auditId) {
+      techniques = techniques.filter((t) => {
+        const id = t.auditId?._id || t.auditId;
+        return id && String(id) === String(filters.auditId);
+      });
+    }
+    if (filters.artist) {
+      const a = String(filters.artist).toLowerCase();
+      techniques = techniques.filter((t) => (t.artist || '').toLowerCase().includes(a));
+    }
+    if (filters.tags) {
+      const wanted = String(filters.tags).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      if (wanted.length) {
+        techniques = techniques.filter((t) => {
+          const have = Array.isArray(t.tags) ? t.tags.map((x) => String(x).toLowerCase()) : [];
+          return wanted.every((w) => have.includes(w));
+        });
+      }
+    }
     if (filters.q || filters.search) {
       const s = (filters.q || filters.search).toLowerCase();
       techniques = techniques.filter(
@@ -327,6 +352,17 @@ export class InMemoryBackendAdapter extends IBackendService {
           (t.techniqueName || '').toLowerCase().includes(s) ||
           (t.notes || '').toLowerCase().includes(s)
       );
+    }
+    if (filters.sortBy) {
+      const dir = (filters.order || 'desc').toLowerCase() === 'asc' ? 1 : -1;
+      const key = filters.sortBy;
+      techniques = [...techniques].sort((a, b) => {
+        const av = a[key] || '';
+        const bv = b[key] || '';
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return 0;
+      });
     }
     const grouped = {};
     techniques.forEach((t) => {

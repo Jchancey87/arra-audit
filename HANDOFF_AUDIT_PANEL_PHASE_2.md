@@ -14,8 +14,8 @@
 
 ## 1. Scope Recap
 
-**Version:** 1.1 · June 2026 (updated post-Sessions 1–2)
-**Status:** Sessions 1–2 shipped. Sessions 3–6 pending.
+**Version:** 1.2 · June 2026 (updated post-Session 3)
+**Status:** Sessions 1–3 shipped. Sessions 4–6 pending.
 
 ### Already shipped (Phase 1)
 
@@ -30,11 +30,11 @@
 | 4.5 Lens Panel | ✅ Shipped (Phase 1 + 2.3 complete) | `client/src/components/audit/LensPanel.jsx` |
 | 4.6 Capture Technique | ✅ Shipped (Phase 1 + 2.5 complete) | `client/src/components/audit/CaptureTechnique.jsx` |
 | 4.7 Research Intelligence | ✅ Shipped (Phase 1 + 2.4 complete) | `client/src/components/audit/SourcesPanel.jsx` |
-| 4.8 Notebook Tab | ⚠️ Placeholder only — Session 3 (2.7) | `client/src/components/audit/NotebookPanel.jsx` |
+| 4.8 Notebook Tab | ✅ Shipped (Phase 2.7 complete) | `client/src/components/audit/NotebookPanel.jsx` |
 
 ### Remaining work (this handoff)
 
-- **Phase 2 (Sessions 1–3):** Functional completeness — 3.1, 3.2, 3.3, 3.4, 3.5 **shipped**; 3.6, 3.7 **pending Session 3** (session completion inline warning, Notebook tab song-filtered view).
+- **Phase 2 (Sessions 1–3):** Functional completeness — 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7 **shipped**; full handoff closed.
 - **Phase 3 (Session 4):** Visual + interaction polish — replace remaining inline `box-shadow`/`border-radius` artifacts, align icons, darken-when-locked hover behavior, scrub tooltip in timeline.
 - **Phase 4 (Sessions 5–6):** Accessibility, responsive layout, error boundary, performance pass, Tailwind CDN removal.
 
@@ -405,15 +405,15 @@ These items from the original spec are **deferred** to later work:
 | 2 | 2.3 | LensPanel real curriculum data + prompt count (3.3) | 2h | ✅ Shipped | `88df2c3` |
 | 2 | 2.4 | Sources tab type detection + add button stub (3.4) | 1h | ✅ Shipped | `88df2c3` |
 | 2 | 2.5 | Capture Technique polish (3.5) | 1h | ✅ Shipped | `88df2c3` |
-| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h | ⬜ Pending | — |
-| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h | ⬜ Pending | — |
+| 3 | 2.6 | Session completion flow + inline warning (3.6) | 1h | ✅ Shipped | pending |
+| 3 | 2.7 | Notebook tab song-filtered view (3.7) | 3h | ✅ Shipped | pending |
 | 4 | 3.* | Visual polish sweep (4.1–4.5) | 3h | ⬜ Pending | — |
 | 5 | 4.1 | Accessibility pass + AC checklist (5.1) | 4h | ⬜ Pending | — |
 | 5 | 4.3 | Performance (code-split, memoize) (5.3) | 2h | ⬜ Pending | — |
 | 6 | 4.4 | Remove Tailwind CDN (5.4) | 2h | ⬜ Pending | — |
 | 6 | 4.2 | Responsive layout (5.2) | 3h | ⬜ Pending | — |
 
-**Total:** ~26 hours of focused work across 6 sessions. **5 of 12 line items shipped (Sessions 1–2 complete).**
+**Total:** ~26 hours of focused work across 6 sessions. **7 of 12 line items shipped (Sessions 1–3 complete).**
 
 ---
 
@@ -421,7 +421,7 @@ These items from the original spec are **deferred** to later work:
 
 Phase 2–4 are **done** when:
 
-- [x] All 7 spec sections (3.1–3.7) pass their per-task acceptance criteria above. *(3.1–3.5 done; 3.6 + 3.7 pending Session 3)*
+- [x] All 7 spec sections (3.1–3.7) pass their per-task acceptance criteria above. *(3.1–3.7 all shipped Sessions 1–3)*
 - [ ] AC-01 through AC-09 from the original spec all pass (track in `UI/AC_AUDIT.md`).
 - [x] No `box-shadow` declarations in `audit/*.jsx` (except hover state if needed). *(verified during Phase 1)*
 - [x] No `border-radius` other than `50%` (for circular elements) in `audit/*.jsx`. *(verified during Phase 1)*
@@ -493,10 +493,24 @@ Phase 2–4 are **done** when:
 
 **Verification:** 44/44 server tests pass, `vite build` green (1069 KB / +7 KB from Phase 1).
 
-### Session 3 — Pending
+### Session 3 — Shipped
 
-- §3.6 Session completion flow: inline warning under Complete button when requirements not met, optimistic save state, "Save Draft" alongside Complete
-- §3.7 Notebook tab song-filtered view: replace placeholder with techniques list filtered by `songId`, sort options, delete
+**§3.6 Session completion flow** — all 4 tasks shipped:
+- `isSaving` state shared between `saveAudit` and `handleSaveDraft` (re-entrancy guard). Header shows `Saving…` on both buttons while in-flight.
+- `canComplete` now requires `hasAnyResponse` (any non-empty response value). `completionReason` useMemo generates 3 distinct messages: empty state, partial state (`N/2 prompts, M technique[s]`), fallback.
+- Inline warning: 9px mono `var(--status-warning)` text, max 240px right-aligned, sits below the Save Draft + Complete button column. Only renders when `!isComplete && completionReason`.
+- `handleSaveDraft`: new handler that calls `backend.updateAudit(auditId, { responses })` (no `status: 'completed'`, no navigation). Ghost button 90px min-width.
+
+**§3.7 Notebook tab** — all 5 tasks shipped (rewrote 53-line placeholder → 290-line functional panel):
+- Search input (text) + sort dropdown (`Newest First` / `Oldest First` / `By Lens`).
+- Card list: name (mono accent), lens badge, 140-char description preview, tags row, `Logged Mmm D YYYY`, clickable `m:ss` timestamp that calls `onSeek`.
+- Two-step delete confirm: `×` → `Delete` + `Cancel`. Optimistic remove with rollback on error.
+- 2 empty states: "No techniques logged for this song yet" (CTA to Capture Technique) vs "No techniques match query".
+- `InMemoryBackendAdapter.getTechniques` extended to support `songId`, `auditId`, `artist`, `tags` (CSV), `sortBy`, `order` for parity with real backend (offline / dev testing).
+
+**Backend additions:** None (frontend-only). Existing `DELETE /api/techniques/:id` and `GET /api/techniques?songId=...` routes used.
+
+**Verification:** 44/44 server tests pass, `vite build` green (1082 KB / +13 KB), HMR clean across 4 files.
 
 ### Sessions 4–6 — Pending (Phase 3 + 4)
 

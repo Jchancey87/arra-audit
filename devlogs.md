@@ -307,6 +307,30 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 - **Learning**: `pointerEvents: none` on an iframe's parent completely blocks all user interaction with the embedded content, including the initial gesture needed to unlock browser audio context. Media iframes must always remain interactive.
 - **Fix**: Removed `pointerEvents: none` from the monitor container — the player is now fully clickable. Monitor repositioned above the tape deck (`bottom: 155px`). Enlarged to `240×160px`. Added an animated "▶ Press Play in the Tape Deck or click the video monitor" instruction to the guided "Listen" step.
 
+### 2026-06-19: Audit Panel Phase 2.6+2.7 — Session Completion + Notebook Tab
+- **Context**: Session 3 of Audit Panel Phase 2 handoff. Scope: 3.6 session completion flow (inline warning, save state, Save Draft) + 3.7 Notebook tab song-filtered view (replaces placeholder).
+- **Commit**: pending — `feat(audit): Phase 2.6+2.7 — session completion + notebook tab`
+- **Phase 2.6 — AuditPanelHeader.jsx + AuditForm.jsx**:
+  - Header: `isSaving`, `completionReason`, `onSaveDraft` props. Complete button shows `Saving…` text + disabled while `isSaving`. Save Draft (ghost, 90px min) sits left of Complete. Inline warning under button group when `!isComplete && completionReason` — `var(--status-warning)` 9px mono, max 240px right-aligned.
+  - `canComplete` now gates on `(techniques >= 1 || answeredPrompts >= 2) && hasAnyResponse`. `hasAnyResponse` = any non-empty string/array/object in `responses`.
+  - `completionReason` useMemo: 3 messages — empty state (`Add a response or save a technique…`), partial state (`Answer at least 2 prompts or save a technique (N/2 prompts, M technique[s]).`), fallback (`Complete requirements not yet met.`).
+  - `saveAudit` adds `isSaving` guard + `setIsSaving(true/false)`. New `handleSaveDraft`: same guard, calls `backend.updateAudit(auditId, { responses })` (no status change, no navigation). Flashes "Draft saved".
+- **Phase 2.7 — NotebookPanel.jsx** (rewrite from 53-line placeholder):
+  - Props: `techniques[]`, `loading`, `error`, `onDelete(id)`, `onSeek(seconds)`, `onOpenNotebook`.
+  - Header: title + count summary (`N techniques logged · M matches`).
+  - Controls: text search input + sort `<select>` (`Newest First` / `Oldest First` / `By Lens`). Search matches `techniqueName + description + notes + lens + tags`.
+  - List: cards with name (mono accent), lens badge, description preview (140 char), tags, `Logged Mmm D YYYY`, clickable `m:ss` timestamp that calls `onSeek`.
+  - Delete: two-step confirm — first click swaps `×` → `Delete` + `Cancel` buttons. Parent calls `onDelete`; optimistic remove with rollback on error.
+  - Empty states: 2 paths — no techniques logged (CTA pointing to Capture Technique) vs. no search matches.
+- **AuditForm.jsx wiring**:
+  - New state: `notebookTechniques[]`, `notebookLoading`, `notebookError`.
+  - `loadNotebookTechniques(songId)`: `backend.getTechniques({ songId, sortBy: 'createdAt', order: 'desc', limit: 200 })`. Strips `deletedAt` server-side. Memoized via `useCallback`.
+  - `useEffect` triggers load on `[song?._id, captureSavedTick, loadNotebookTechniques]` so the list auto-refreshes when a new technique is captured.
+  - `handleDeleteNotebookTechnique`: optimistic remove → `backend.deleteTechnique` → rollback on error + setError.
+- **InMemoryBackendAdapter parity**:
+  - `getTechniques` now supports `songId`, `auditId`, `artist`, `tags` (CSV, AND-match), `sortBy`, `order` filters — all matching the real backend shape. Required for offline / dev-mode testing.
+- **Verification**: `vite build` ✓ (1082 KB, +13 KB), server tests 44/44 ✓, HMR green across all 4 modified files.
+
 ---
 
 ## Standard Workflows & Commands

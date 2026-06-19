@@ -107,6 +107,12 @@ const AuditForm = () => {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Notebook tab state (song-filtered techniques)
+  const [notebookTechniques, setNotebookTechniques] = useState([]);
+  const [notebookLoading, setNotebookLoading] = useState(false);
+  const [notebookError, setNotebookError] = useState('');
 
   // Audio Analysis pipeline state
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -196,6 +202,13 @@ const AuditForm = () => {
     return () => setActiveAudit(null);
   }, [audit, setActiveAudit]);
 
+  // Notebook tab — refresh when songId changes or new technique saved
+  useEffect(() => {
+    const songId = song?._id;
+    if (!songId) return;
+    loadNotebookTechniques(songId);
+  }, [song?._id, captureSavedTick, loadNotebookTechniques]);
+
   // Responses
   const handleResponseChange = (key, value) => {
     setResponses((prev) => ({ ...prev, [key]: value }));
@@ -233,12 +246,30 @@ const AuditForm = () => {
 
   // Save (manual / final)
   const saveAudit = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       await backend.updateAudit(auditId, { responses, status: 'completed' });
       flash('Audit saved!');
       setTimeout(() => navigate('/dashboard'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to save audit');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Save draft (no navigation, no status change)
+  const handleSaveDraft = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await backend.updateAudit(auditId, { responses });
+      flash('Draft saved');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to save draft');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -304,7 +335,26 @@ const AuditForm = () => {
       : (LENS_PROMPTS[activeLens] || []);
     return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
   }, [activeLens, responses, audit?.templateQuestions]);
-  const canComplete = techniques.length >= 1 || answeredPrompts >= 2;
+  const hasAnyResponse = useMemo(() => {
+    return Object.values(responses || {}).some((v) => {
+      if (v == null) return false;
+      if (typeof v === 'string') return v.trim().length > 0;
+      if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === 'object') return Object.keys(v).length > 0;
+      return true;
+    });
+  }, [responses]);
+  const canComplete = (techniques.length >= 1 || answeredPrompts >= 2) && hasAnyResponse;
+  const completionReason = useMemo(() => {
+    if (canComplete) return '';
+    if (!hasAnyResponse && techniques.length === 0) {
+      return 'Add a response or save a technique to complete this session.';
+    }
+    if (techniques.length < 1 && answeredPrompts < 2) {
+      return `Answer at least 2 prompts or save a technique (${answeredPrompts}/2 prompts, ${techniques.length} technique${techniques.length === 1 ? '' : 's'}).`;
+    }
+    return 'Complete requirements not yet met.';
+  }, [canComplete, hasAnyResponse, techniques.length, answeredPrompts]);
 
   // ── Render guards ────────────────────────────────────────────────────────
   if (loading) return <div className="loading">Loading audit workspace...</div>;
@@ -435,6 +485,39 @@ const AuditForm = () => {
     }
   };
 
+  // Notebook tab — song-filtered techniques list
+  const loadNotebookTechniques = useCallback(async (songId) => {
+    if (!songId) {
+      setNotebookTechniques([]);
+      return;
+    }
+    setNotebookLoading(true);
+    setNotebookError('');
+    try {
+      const res = await backend.getTechniques({ songId, sortBy: 'createdAt', order: 'desc', limit: 200 });
+      const list = Array.isArray(res?.techniques) ? res.techniques : [];
+      setNotebookTechniques(list);
+    } catch (err) {
+      setNotebookError(err.response?.data?.error || err.message || 'Failed to load techniques');
+      setNotebookTechniques([]);
+    } finally {
+      setNotebookLoading(false);
+    }
+  }, [backend]);
+
+  const handleDeleteNotebookTechnique = async (id) => {
+    if (!id) return;
+    const prev = notebookTechniques;
+    setNotebookTechniques((cur) => cur.filter((t) => t._id !== id));
+    try {
+      await backend.deleteTechnique(id);
+      flash('Technique removed');
+    } catch (err) {
+      setNotebookTechniques(prev);
+      setError(err.response?.data?.error || err.message || 'Failed to delete technique');
+    }
+  };
+
   // Trigger initial analysis
   const handleTriggerAnalysis = async () => {
     if (!song?._id) return;
@@ -461,7 +544,10 @@ const AuditForm = () => {
         audioContext={{ isPlaying, currentTime, duration }}
         saveStatus={saveStatus}
         isComplete={canComplete}
+        isSaving={isSaving}
+        completionReason={completionReason}
         onComplete={saveAudit}
+        onSaveDraft={handleSaveDraft}
         onReturnToPlan={() => navigate('/planner')}
       />
 
@@ -735,7 +821,11 @@ const AuditForm = () => {
         {/* ── NOTEBOOK TAB ── */}
         {activeTab === 'notebook' && (
           <NotebookPanel
-            songId={song?._id}
+            techniques={notebookTechniques}
+            loading={notebookLoading}
+            error={notebookError}
+            onDelete={handleDeleteNotebookTechnique}
+            onSeek={seekTo}
             onOpenNotebook={() => navigate('/techniques')}
           />
         )}

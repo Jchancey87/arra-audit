@@ -18,7 +18,10 @@ const AuditPanelHeader = ({
   audioContext,
   saveStatus = 'saved',
   isComplete = false,
+  isSaving = false,
+  completionReason = '',
   onComplete,
+  onSaveDraft,
   onReturnToPlan,
 }) => {
   const isAudioLinked = !!song;
@@ -139,17 +142,65 @@ const AuditPanelHeader = ({
             </span>
           )}
 
-          {/* Complete button */}
-          {onComplete && (
-            <button
-              onClick={onComplete}
-              disabled={!isComplete}
-              className={isComplete ? 'primary' : 'secondary'}
-              style={{ minWidth: '110px' }}
-              title={!isComplete ? 'Answer at least 2 prompts or save a technique to complete' : 'Complete session'}
+          {/* Save Draft + Complete (column so warning can sit under them) */}
+          {(onComplete || onSaveDraft) && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: '4px',
+                flexShrink: 0,
+              }}
             >
-              {isComplete ? 'Complete ●' : 'Complete'}
-            </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {onSaveDraft && (
+                  <button
+                    onClick={onSaveDraft}
+                    disabled={isSaving}
+                    className="ghost"
+                    style={{ minWidth: '90px' }}
+                    title="Save progress without completing the session"
+                  >
+                    {isSaving ? 'Saving…' : 'Save Draft'}
+                  </button>
+                )}
+                {onComplete && (
+                  <button
+                    onClick={onComplete}
+                    disabled={!isComplete || isSaving}
+                    className={isComplete ? 'primary' : 'secondary'}
+                    style={{ minWidth: '110px' }}
+                    title={
+                      !isComplete
+                        ? completionReason || 'Answer at least 2 prompts or save a technique to complete'
+                        : isSaving
+                        ? 'Saving session…'
+                        : 'Complete session'
+                    }
+                  >
+                    {isSaving ? 'Saving…' : isComplete ? 'Complete ●' : 'Complete'}
+                  </button>
+                )}
+              </div>
+              {!isComplete && completionReason && (
+                <span
+                  role="status"
+                  style={{
+                    fontSize: '9px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--status-warning)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    maxWidth: '240px',
+                    textAlign: 'right',
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {completionReason}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Return to Plan button */}
