@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useBackend } from '../../context/BackendContext';
 
 const LENS_OPTIONS = [
   { value: 'harmony', label: 'Harmony' },
@@ -21,7 +22,9 @@ const CaptureTechnique = ({
   onSubmit,
   onDiscard,
   savedIndicator = false,
+  onLocalError,
 }) => {
+  const backend = useBackend();
   const [collapsed, setCollapsed] = useState(false);
   const [lens, setLens] = useState(initialLens);
   const [name, setName] = useState('');
@@ -32,6 +35,8 @@ const CaptureTechnique = ({
   const [howReuse, setHowReuse] = useState('');
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [localError, setLocalError] = useState('');
   const lastSavedRef = useRef(false);
 
   // Sync lens when session lens changes
@@ -49,12 +54,41 @@ const CaptureTechnique = ({
     lastSavedRef.current = savedIndicator;
   }, [savedIndicator]);
 
+  // Fetch 5 most recent tags from the user's notebook (Phase 2.5 §3.5.1)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await backend.getTechniques({ sortBy: 'createdAt', order: 'desc', limit: 50 });
+        const techs = res?.techniques || res || [];
+        const seen = new Set();
+        const ordered = [];
+        for (const t of techs) {
+          const ts = Array.isArray(t.tags) ? t.tags : [];
+          for (const raw of ts) {
+            const tag = String(raw || '').trim().toLowerCase();
+            if (tag && !seen.has(tag)) {
+              seen.add(tag);
+              ordered.push(tag);
+              if (ordered.length >= 5) break;
+            }
+          }
+          if (ordered.length >= 5) break;
+        }
+        if (!cancelled) setTagSuggestions(ordered);
+      } catch {
+        // Non-fatal — keep empty suggestions.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [backend, savedIndicator]);
+
   const stampFromPlayhead = () => {
     setTimestamp(formatTimeForInput(currentTime));
   };
 
   const addTag = (raw) => {
-    const cleaned = raw.trim().replace(/,$/, '').toLowerCase();
+    const cleaned = String(raw || '').trim().replace(/,$/, '').toLowerCase();
     if (cleaned && !tags.includes(cleaned) && tags.length < 12) {
       setTags([...tags, cleaned]);
     }
@@ -79,19 +113,29 @@ const CaptureTechnique = ({
     setTagInput('');
     setWhatHappened('');
     setHowReuse('');
+    setLocalError('');
   };
+
+  const isDirty = !!(name || whatHappened || howReuse || tags.length || timestamp);
 
   const handleSave = async (e) => {
     e?.preventDefault?.();
     if (!name.trim()) return;
-    if (onSubmit) {
-      await onSubmit({ lens, name: name.trim(), timestamp, tags, whatHappened, howReuse });
+    setLocalError('');
+    try {
+      if (onSubmit) {
+        await onSubmit({ lens, name: name.trim(), timestamp, tags, whatHappened, howReuse });
+      }
+      reset();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || 'Failed to save technique';
+      setLocalError(msg);
+      if (onLocalError) onLocalError(msg);
     }
-    reset();
   };
 
   const handleDiscardClick = () => {
-    if (!name && !whatHappened && !howReuse) {
+    if (!isDirty) {
       reset();
       return;
     }
@@ -102,6 +146,18 @@ const CaptureTechnique = ({
     } else {
       setConfirmingDiscard(true);
       setTimeout(() => setConfirmingDiscard(false), 4000);
+    }
+  };
+
+  // Phase 2.5 §3.5.4/5: Ctrl+Enter saves, Escape confirms discard
+  const handleFormKeyDown = (e) => {
+    if (e.key === 'Escape' && isDirty && !confirmingDiscard) {
+      e.preventDefault();
+      setConfirmingDiscard(true);
+      setTimeout(() => setConfirmingDiscard(false), 4000);
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (canSave) handleSave(e);
     }
   };
 
@@ -191,7 +247,7 @@ const CaptureTechnique = ({
         </button>
       </div>
 
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSave} onKeyDown={handleFormKeyDown}>
         {/* Top row: Lens + Name + Timestamp */}
         <div
           style={{
@@ -262,6 +318,50 @@ const CaptureTechnique = ({
         {/* Tags row */}
         <div className="form-group" style={{ margin: '0 0 10px 0' }}>
           <label htmlFor="capture-tag-input">Tags</label>
+          {tagSuggestions.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px',
+                alignItems: 'center',
+                marginBottom: '4px',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  marginRight: '2px',
+                }}
+              >
+                Recent:
+              </span>
+              {tagSuggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => addTag(s)}
+                  disabled={tags.includes(s)}
+                  className="ghost"
+                  style={{
+                    fontSize: '9px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    padding: '2px 6px',
+                    color: tags.includes(s) ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                    textTransform: 'lowercase',
+                    opacity: tags.includes(s) ? 0.5 : 1,
+                    cursor: tags.includes(s) ? 'default' : 'pointer',
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
           <div
             style={{
               display: 'flex',
@@ -389,6 +489,50 @@ const CaptureTechnique = ({
           <button type="submit" className="primary" disabled={!canSave} style={{ minWidth: '140px' }}>
             Save to Notebook
           </button>
+        </div>
+
+        {/* Form-level error (Phase 2.5 §3.5.3) */}
+        {localError && (
+          <div
+            role="alert"
+            style={{
+              marginTop: '8px',
+              padding: '6px 10px',
+              background: 'rgba(255, 82, 82, 0.1)',
+              border: '1px solid var(--color-error)',
+              color: 'var(--color-error)',
+              fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span>{localError}</span>
+            <button
+              type="button"
+              onClick={() => setLocalError('')}
+              className="ghost"
+              aria-label="Dismiss error"
+              style={{ fontSize: '11px', padding: '0 6px', color: 'var(--color-error)' }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Keyboard shortcut hint */}
+        <div
+          style={{
+            marginTop: '6px',
+            fontSize: '9px',
+            color: 'var(--text-tertiary)',
+            fontFamily: 'JetBrains Mono, monospace',
+            textAlign: 'right',
+          }}
+        >
+          Ctrl+Enter to save · Esc to discard
         </div>
       </form>
     </footer>

@@ -241,12 +241,31 @@ const LensPanel = ({
   onResponseChange,
   onPromptsSaved,
   listeningFocus,
+  customPrompts,
+  lensDescription,
 }) => {
   const [showSavedAll, setShowSavedAll] = useState(false);
-  const prompts = LENS_PROMPTS[activeLens] || LENS_PROMPTS.harmony;
+  const templatePrompts = customPrompts || LENS_PROMPTS[activeLens] || LENS_PROMPTS.harmony;
+  const prompts = templatePrompts;
   const keyRoot = song?.audioOverrides?.key || song?.audioAnalysis?.key;
   const scale = song?.audioOverrides?.scale || song?.audioAnalysis?.scale;
   const scaleRow = buildScaleDegreeRow(keyRoot, scale);
+
+  // Distinguish description vs listening focus.
+  // Prefer the explicit `listeningFocus` prop, then `lensDescription`, then
+  // the template's description field. Wrap as "Today's focus: …" per handoff §3.3.
+  const focusText = useMemo(() => {
+    const raw = listeningFocus || lensDescription || '';
+    if (!raw) return null;
+    if (/today's focus/i.test(raw)) return raw;
+    return `Today's focus: ${raw}`;
+  }, [listeningFocus, lensDescription]);
+
+  // Prompt completion: ≥10 chars counts as answered.
+  const answeredCount = useMemo(() => {
+    if (!Array.isArray(prompts)) return 0;
+    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
+  }, [prompts, activeLens, responses]);
 
   const handleSaved = () => {
     setShowSavedAll(true);
@@ -262,7 +281,7 @@ const LensPanel = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '16px',
+          marginBottom: '6px',
         }}
       >
         <h2
@@ -299,6 +318,47 @@ const LensPanel = ({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Lens description + progress row */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          gap: '12px',
+          marginBottom: '16px',
+        }}
+      >
+        {focusText ? (
+          <p
+            style={{
+              margin: 0,
+              fontSize: '11px',
+              color: 'var(--text-secondary)',
+              fontFamily: 'Inter, sans-serif',
+              lineHeight: 1.4,
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {focusText}
+          </p>
+        ) : <span style={{ flex: 1 }} />}
+        {Array.isArray(prompts) && prompts.length > 0 && (
+          <span
+            style={{
+              fontSize: '10px',
+              fontFamily: 'JetBrains Mono, monospace',
+              color: answeredCount >= prompts.length ? 'var(--status-success)' : 'var(--text-tertiary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {answeredCount}/{prompts.length} answered
+          </span>
+        )}
       </div>
 
       {/* Key Center Context (Harmony only) */}
@@ -365,10 +425,8 @@ const LensPanel = ({
         </div>
       )}
 
-      <ListeningFocus text={listeningFocus} />
-
       {/* Guided prompts */}
-      {prompts.map((p, i) => (
+      {Array.isArray(prompts) && prompts.map((p, i) => (
         <LensPrompt
           key={`${activeLens}-${i}`}
           index={i}

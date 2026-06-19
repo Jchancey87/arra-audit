@@ -58,6 +58,28 @@ function formatTime(seconds) {
 }
 const stripTopic = (name) => (name || '').replace(/\s*-\s*Topic\s*$/i, '').replace(/\s*\(Official.*?\)/gi, '').replace(/\s*\[Official.*?\]/gi, '').trim();
 
+const parseTimestamp = (raw) => {
+  if (raw == null) return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const match = s.match(/^(\d+):(\d{1,2})$/);
+  if (match) {
+    return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+  }
+  const n = Number(s);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+};
+
+const getTechniqueTimestamp = (tech) => {
+  const parsed = parseTimestamp(tech?.timestamp);
+  if (parsed != null) return parsed;
+  if (Number.isFinite(tech?.exampleTimestamp) && tech.exampleTimestamp >= 0) {
+    return Math.floor(tech.exampleTimestamp);
+  }
+  return null;
+};
+
 // ── AuditForm ────────────────────────────────────────────────────────────────
 const AuditForm = () => {
   const { auditId } = useParams();
@@ -275,10 +297,13 @@ const AuditForm = () => {
 
   // Completion check (AC-08): ≥2 prompts answered OR ≥1 technique saved
   const answeredPrompts = useMemo(() => {
-    if (activeTab !== 'lens') return 0;
-    const prompts = LENS_PROMPTS[activeLens] || [];
-    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length > 10).length;
-  }, [activeTab, activeLens, responses]);
+    const template = audit?.templateQuestions;
+    const customPrompts = template?.lenses?.[activeLens]?.prompts;
+    const prompts = (Array.isArray(customPrompts) && customPrompts.length > 0)
+      ? customPrompts
+      : (LENS_PROMPTS[activeLens] || []);
+    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
+  }, [activeLens, responses, audit?.templateQuestions]);
   const canComplete = techniques.length >= 1 || answeredPrompts >= 2;
 
   // ── Render guards ────────────────────────────────────────────────────────
@@ -404,7 +429,9 @@ const AuditForm = () => {
       setTechniques((prev) => [...prev, saved]);
       setCaptureSavedTick((t) => t + 1);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to save technique');
+      const msg = err.response?.data?.error || err.message || 'Failed to save technique';
+      setError(msg);
+      throw err;
     }
   };
 
@@ -694,7 +721,9 @@ const AuditForm = () => {
             currentTime={currentTime}
             responses={responses}
             onResponseChange={handleResponseChange}
-            listeningFocus={template?.lenses?.[activeLens]?.description}
+            listeningFocus={template?.lenses?.[activeLens]?.focus || template?.lenses?.[activeLens]?.listening_focus}
+            lensDescription={template?.lenses?.[activeLens]?.description}
+            customPrompts={template?.lenses?.[activeLens]?.prompts}
           />
         )}
 
@@ -732,47 +761,71 @@ const AuditForm = () => {
               Logged This Session ({techniques.length})
             </h3>
             <div style={{ display: 'grid', gap: '8px' }}>
-              {techniques.map((tech) => (
-                <div
-                  key={tech._id || tech._tempId}
-                  style={{
-                    background: 'var(--bg-surface-2)',
-                    padding: '10px 12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '10px',
-                    border: '1px solid var(--border-subtle)',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <strong
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--accent-primary)',
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}
-                    >
-                      {tech.techniqueName || 'Untitled'}
-                    </strong>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        color: 'var(--text-secondary)',
-                        marginTop: '2px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {tech.description}
+              {techniques.map((tech) => {
+                const ts = getTechniqueTimestamp(tech);
+                return (
+                  <div
+                    key={tech._id || tech._tempId}
+                    style={{
+                      background: 'var(--bg-surface-2)',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '10px',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <strong
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--accent-primary)',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}
+                      >
+                        {tech.techniqueName || 'Untitled'}
+                      </strong>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--text-secondary)',
+                          marginTop: '2px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {tech.description}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {ts != null && (
+                        <button
+                          onClick={() => seekTo(ts)}
+                          title="Seek to timestamp"
+                          style={{
+                            background: 'var(--bg-surface-3)',
+                            color: 'var(--accent-primary)',
+                            fontSize: '10px',
+                            fontFamily: 'JetBrains Mono, monospace',
+                            padding: '2px 8px',
+                            border: '1px solid var(--border-subtle)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <span style={{ width: '4px', height: '4px', background: 'var(--accent-primary)', display: 'inline-block' }} />
+                          {formatTime(ts)}
+                        </button>
+                      )}
+                      <span className="badge">{tech.lens}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                    <span className="badge">{tech.lens}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

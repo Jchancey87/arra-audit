@@ -6,6 +6,29 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-19: Audit Panel Phase 2 — Track Analysis + Timeline
+
+- **Context**: Continue from Analysis Panel Phase 1 handoff. Session 1 scope: Phase 2.1 (Track Analysis override) + Phase 2.2 (Timeline markers + keyboard). Open Q1-Q6 all defaulted per handoff §2.
+- **Commit**: `09ff8ef` — `feat(audit): Phase 2.1+2.2 — track analysis override flow, timeline markers + keyboard shortcuts`
+- **Phase 2.1 — TrackAnalysisModules.jsx**:
+  - `handleTapTempo`: tap-time ring buffer (max 8), avg interval → BPM, updates `draft.tempo_bpm`. ≥2 taps required.
+  - `handleReset`: restores draft from `song.audioAnalysis` (not overrides) — "Reset" button between Cancel and Save.
+  - `cellEditingStyle`: 1px `--accent-primary` outline + `EDITING` 8px mono label per cell.
+  - All state lives in `TrackAnalysisModules`; `onChangeOverride` only fires on Save.
+- **Phase 2.2 — AuditTimeline.jsx + AuditForm.jsx**:
+  - Markers = bookmarks (per Q3). Added `deleteBookmark` to service/route/both adapters.
+  - New `syncBookmarks(updated)` in AuditForm updates both `audit.bookmarks` and `useAudio().bookmarks` (so global list stays in sync).
+  - `M` key shortcut gated on `hasArrangementLens` (checks `lensSelection` or `templateQuestions.lenses`).
+  - `Space` shortcut calls `useAudio().togglePlay()`. `isTextEntry` guard skips inputs/textarea/select/contenteditable.
+  - Click-anywhere-to-seek: added `onMouseDown={startScrub}` wrapper to 5 non-waveform lane contents. Markers/sections stop propagation on mousedown to avoid double-seek.
+  - Section storage: `responses['arrangement-timeline']` as JSON string in `ArrangementTimelineWidget` shape `{ id, name, type, startTime, duration, notes }`. `handleAddSection` computes duration to next section start (default 30s).
+  - Synthetic waveform: beat-envelope multiplier (120bpm default phase) gives musical pulse vs raw sin/cos.
+- **Backend**:
+  - `DELETE /api/audits/:id/bookmarks/:bookmarkId` → 404 if not found.
+  - `auditService.deleteBookmark` filters by id, returns 404-via-throw if no change.
+  - 44/44 server tests pass, `vite build` green.
+- **SigMap**: `.github/copilot-instructions.md` + `gemini-context.md` auto-regen'd from new imports. Committed alongside per prior pattern (`ed9c8c6`).
+
 ### 2026-06-18: Start Services via PM2
 
 - **Context**: Start Arra backend, client, analysis services.

@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T11:46:11.142Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T12:06:03.175Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -29,6 +29,7 @@ server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/context/AudioContext.jsx ← BackendContext
 client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/audit/AuditPanelHeader, components/audit/AuditTabBar, components/audit/TrackAnalysisModules
@@ -38,10 +39,13 @@ analysis_service/app.py ← fastapi, pydantic, analyzer
 
 ## changes (last 5 commits — 1 second ago)
 ```
+server/services/auditService.js               ~AuditService
+client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
+client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
 client/src/pages/AuditForm.jsx                ~formatTime  ~useAutosave
 .github/context-cold.md                       +HttpBackendAdapter  +IBackendService
-.github/copilot-instructions.md               +App  ~App  ~HttpBackendAdapter  ~IBackendService
-.github/gemini-context.md                     +App  ~App  ~HttpBackendAdapter  ~IBackendService
+.github/copilot-instructions.md               +App  +useAutosave  +formatTime  ~App
+.github/gemini-context.md                     +App  +useAutosave  +formatTime  ~App
 ```
 
 ## .github
@@ -81,7 +85,7 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -110,7 +114,7 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
@@ -159,6 +163,19 @@ POST /analyze  →  trigger_analysis()  :44-65
 ### client/src/App.jsx
 ```
 function App()  :721-733
+```
+
+### client/src/adapters/HttpBackendAdapter.js
+```
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
 ```
 
 ### client/src/adapters/InMemoryBackendAdapter.js

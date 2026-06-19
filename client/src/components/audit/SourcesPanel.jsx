@@ -1,25 +1,90 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 
 const SOURCE_DOT_COLORS = {
-  YouTube: '#ff0033',
-  Genius: '#ffff64',
-  Wikipedia: '#a0a0a0',
-  MusicBrainz: '#ba478f',
-  WhoSampled: '#ff6a00',
-  Discogs: '#333333',
+  youtube: '#ff0033',
+  'youtube.com': '#ff0033',
+  'youtu.be': '#ff0033',
+  genius: '#ffff64',
+  'genius.com': '#ffff64',
+  wikipedia: '#a0a0a0',
+  'wikipedia.org': '#a0a0a0',
+  musicbrainz: '#ba478f',
+  'musicbrainz.org': '#ba478f',
+  whosampled: '#ff6a00',
+  'whosampled.com': '#ff6a00',
+  discogs: '#9a9a9a',
+  'discogs.com': '#9a9a9a',
+  allmusic: '#3b6db5',
+  'allmusic.com': '#3b66db5',
   default: 'var(--text-secondary)',
 };
 
-const getDomain = (url) => {
+const VIDEO_HOSTNAMES = new Set([
+  'youtube', 'youtu', 'vimeo', 'dailymotion',
+]);
+
+const getHostname = (url) => {
   if (!url) return null;
   try {
-    return new URL(url).hostname.replace('www.', '').split('.')[0];
+    return new URL(url).hostname.replace('www.', '').toLowerCase();
   } catch {
     return null;
   }
 };
 
-const SourcesPanel = ({ sources = [] }) => {
+const getDomainRoot = (url) => {
+  const host = getHostname(url);
+  if (!host) return null;
+  return host.split('.')[0] || null;
+};
+
+const pickDotColor = (source, url) => {
+  if (source) {
+    const key = String(source).toLowerCase().trim();
+    if (SOURCE_DOT_COLORS[key]) return SOURCE_DOT_COLORS[key];
+  }
+  const host = getHostname(url);
+  if (host && SOURCE_DOT_COLORS[host]) return SOURCE_DOT_COLORS[host];
+  const root = getDomainRoot(url);
+  if (root && SOURCE_DOT_COLORS[root]) return SOURCE_DOT_COLORS[root];
+  return SOURCE_DOT_COLORS.default;
+};
+
+const isVideoUrl = (url) => {
+  const root = getDomainRoot(url);
+  return root && VIDEO_HOSTNAMES.has(root);
+};
+
+const SourcesPanel = ({ sources = [], onAddSource, onReimportResearch }) => {
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAdd = () => {
+    if (onAddSource) {
+      onAddSource();
+    } else {
+      showToast('Manual source addition coming in Phase 3');
+    }
+  };
+
+  const handleReimport = () => {
+    if (onReimportResearch) {
+      onReimportResearch();
+    } else {
+      showToast('Re-import coming in Phase 3');
+    }
+  };
+
+  const validSources = useMemo(
+    () => (sources || []).filter((s) => s && s.url && (() => { try { new URL(s.url); return true; } catch { return false; } })()),
+    [sources]
+  );
+  const invalidCount = (sources || []).length - validSources.length;
+
   return (
     <section role="region" aria-label="Linked research sources" style={{ padding: '16px' }}>
       <div
@@ -41,24 +106,65 @@ const SourcesPanel = ({ sources = [] }) => {
             color: 'var(--text-primary)',
           }}
         >
-          Linked Sources ({sources.length})
+          Linked Sources ({validSources.length})
         </h2>
-        <button className="ghost" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+        <button
+          onClick={handleAdd}
+          className="ghost"
+          style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+        >
           + Add Source
         </button>
       </div>
 
-      {sources.length === 0 ? (
+      {toast && (
         <div
+          role="status"
           style={{
-            color: 'var(--text-tertiary)',
+            background: 'var(--accent-primary-bg)',
+            color: 'var(--accent-primary)',
+            padding: '8px 12px',
             fontSize: '11px',
             fontFamily: 'JetBrains Mono, monospace',
-            padding: '24px 0',
+            marginBottom: '12px',
+            border: '1px solid var(--accent-primary-muted)',
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
+      {validSources.length === 0 ? (
+        <div
+          style={{
+            background: 'var(--bg-surface-2)',
+            border: '1px solid var(--border-subtle)',
+            padding: '24px',
             textAlign: 'center',
           }}
         >
-          No sources linked yet.
+          <p
+            style={{
+              color: 'var(--text-tertiary)',
+              fontSize: '11px',
+              fontFamily: 'JetBrains Mono, monospace',
+              margin: '0 0 12px 0',
+              lineHeight: 1.5,
+            }}
+          >
+            No sources linked yet.
+            <br />
+            {sources.length === 0
+              ? 'Re-import research to pull in references for this song.'
+              : `${invalidCount} source${invalidCount === 1 ? '' : 's'} had malformed URLs and were skipped.`}
+          </p>
+          <button
+            onClick={handleReimport}
+            className="ghost"
+            style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+          >
+            Import research on this song
+          </button>
         </div>
       ) : (
         <div
@@ -67,8 +173,9 @@ const SourcesPanel = ({ sources = [] }) => {
             border: '1px solid var(--border-subtle)',
           }}
         >
-          {sources.map((s, i) => {
-            const dotColor = SOURCE_DOT_COLORS[s.source] || SOURCE_DOT_COLORS[getDomain(s.url)] || SOURCE_DOT_COLORS.default;
+          {validSources.map((s, i) => {
+            const dotColor = pickDotColor(s.source, s.url);
+            const video = isVideoUrl(s.url);
             return (
               <a
                 key={i}
@@ -82,7 +189,7 @@ const SourcesPanel = ({ sources = [] }) => {
                   height: '36px',
                   padding: '0 14px',
                   color: 'var(--text-primary)',
-                  borderBottom: i < sources.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  borderBottom: i < validSources.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   transition: 'background 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
@@ -111,7 +218,8 @@ const SourcesPanel = ({ sources = [] }) => {
                     letterSpacing: '0.04em',
                   }}
                 >
-                  {s.source || getDomain(s.url) || 'Source'}
+                  {s.source || getDomainRoot(s.url) || 'Source'}
+                  {video && s.source && !/video/i.test(s.source) ? ' · video' : ''}
                 </span>
                 <span
                   style={{
@@ -131,6 +239,19 @@ const SourcesPanel = ({ sources = [] }) => {
             );
           })}
         </div>
+      )}
+
+      {invalidCount > 0 && validSources.length > 0 && (
+        <p
+          style={{
+            marginTop: '8px',
+            fontSize: '10px',
+            color: 'var(--text-tertiary)',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
+          {invalidCount} source{invalidCount === 1 ? '' : 's'} skipped (malformed URL).
+        </p>
       )}
     </section>
   );

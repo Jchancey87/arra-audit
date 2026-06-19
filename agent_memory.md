@@ -25,6 +25,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-19 | Audit Panel Phase 2.1+2.2: Tap Tempo, Reset, edit indicator on Track Analysis; marker CRUD (M key, right-click menu), Space play/pause, click-anywhere-seek on all 6 lanes, inline section add form, beat-envelope synthetic waveform | `09ff8ef` |
 | 2026-06-19 | DAW-native UI refinement: design tokens, borderless panels, 4-card matrix, waveform SVG, technique log, header redesign | `—` |
 | 2026-06-19 | Analysis Panel redesign Phase 1: tab system (Analysis/Lens/Sources/Notebook), new header, Capture Technique sticky footer, design tokens (JetBrains Mono, surface scale), Track Analysis modules with scale degree row, multi-lane timeline, Sources panel | `—` |
 | 2026-06-18 | Start all services (backend, client, analysis) via PM2 ecosystem config. Tests pass. | - |

@@ -22,7 +22,6 @@ server/adapters/MockAIAdapter.js ← ports/IAIModelService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
 server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
-client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 ```
@@ -39,19 +38,6 @@ div#root
 ```
 title: Arra Audit
 div#root
-```
-
-### client/src/adapters/HttpBackendAdapter.js
-```
-export class HttpBackendAdapter  :8-172
-  constructor(baseURL)  :9-22
-  async login(email, password)  :25-28
-  async register(email, password, name)  :30-33
-  async getUserProfile()  :35-38
-  async updatePreferences(preferences)  :40-43
-  async updateProfile(profileData)  :45-48
-  async changePassword(oldPassword, newPassword)  :50-53
-  async deleteAccount()  :55-58
 ```
 
 ### client/src/components/ResearchSummaryRenderer.jsx
