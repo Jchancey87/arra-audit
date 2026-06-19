@@ -179,6 +179,7 @@ const NotebookPanel = ({
 
       {/* Controls row */}
       <div
+        role="search"
         style={{
           display: 'flex',
           gap: '8px',
@@ -187,7 +188,7 @@ const NotebookPanel = ({
         }}
       >
         <input
-          type="text"
+          type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search this song's techniques…"

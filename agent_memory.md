@@ -1,8 +1,8 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Architecture audit — identify and fix glaring runtime, security, and architecture issues across the Arra codebase.
-- **Status**: ✅ Complete — all audited issues implemented, committed (`2cc8bf1`, `ed9c8c6`), server tests pass (44/44), and `arra-server` restarted on port 5050.
+- **Goal**: Audit Panel Phase 3 + 4 — polish, a11y, perf, Tailwind CDN removal, responsive breakpoints. All 9 line items from `HANDOFF_AUDIT_PANEL_PHASE_3_4.md` shipped.
+- **Status**: ✅ Complete — 8 audit components lazy-loaded, `ErrorBoundary` wrapping `<Routes>`, Tailwind CDN removed, responsive breakpoints in `global.js`. Server tests 44/44 pass. Build clean (no Tailwind warning).
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -15,16 +15,23 @@
 - **Audit Lenses**: Keep auditing templates and questions strictly structured under the four core lenses: rhythm, texture, harmony, and arrangement.
 - **Export Formats**: Prefer beautiful HTML files over markdown for generated reference documents, lessons, and exportable handoff sheets.
 - **Token Optimization (Caveman Style)**: Write devlogs, session summaries, and agent logs in highly terse, compressed "caveman" style (omit articles, pleasantries, fluff) to maximize token efficiency. Skip backend testing on pure frontend/style changes to conserve context window tokens.
+- **Tailwind CDN banned**: No `<script src="https://cdn.tailwindcss.com">` in `index.html`. All utility classes must be ported to inline styles. Affects Dashboard, AuditDetail, StudySessionWorkspace.
+- **Audit panel responsive classes**: `.audit-modules` (4→2 col), `.audit-lane-label` (80→60→56px), `.audit-lane-waveform` (40→28px mobile), `.audit-meta-chips` (hidden mobile), `.audit-override-button` (hidden mobile), `.audit-tabbar` (overflow-x mobile), `.capture-top-row`/`capture-textareas` (4→2, 2→1 col), `.audit-form-main` (16→10px padding). All in `client/src/styles/global.js`.
+- **Lazy audit components**: All 8 audit components in `AuditForm.jsx` use `React.lazy()` + `<Suspense>`. LensPanel constants extracted to `lensConstants.js` to avoid static-import collision.
 
 ## 🛠️ Open Priority TODOs
 - [x] Time signature selector (3/4, 6/8) in ArrangementTimelineWidget.
 - [x] Horizontal zoom control (PX_PER_SEC slider) in timeline.
 - [ ] Multi-select and bulk-delete track blocks.
 - [ ] Export arrangement as image/PDF.
+- [ ] Lighthouse CI gate + a11y/manual walkthrough (Phase 4.1 follow-up; AC_AUDIT.md created).
+- [ ] Live-region for playhead time updates (AC-06 follow-up).
+- [ ] Code-split Dashboard + remaining pages to drop main bundle below 800KB.
 
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-19 | Audit Panel Phase 3 + 4: polish, a11y (ErrorBoundary, prefers-contrast, AC_AUDIT.md), perf (lazy 8 audit chunks + useMemo), Tailwind CDN removal, responsive (audit-modules 2x2, mobile lane heights) | `—` |
 | 2026-06-19 | Audit Panel Phase 2.3+2.4+2.5: LensPanel focus + count + customPrompts, SourcesPanel URL guard + hostname dot color + add/reimport stubs, CaptureTechnique tag suggestions + Ctrl+Enter/Esc + localized error, saved-list clickable timestamp | `88df2c3` |
 | 2026-06-19 | Audit Panel Phase 2.6+2.7: Header Save Draft + Saving state + inline completion warning, completionReason useMemo (3 msgs) + hasAnyResponse gate, NotebookPanel rewrite (search/sort/delete/seek) + 2-step confirm, InMemoryBackendAdapter songId/auditId/artist/tags/sortBy parity | `e19adb6` |
 | 2026-06-19 | Fix TDZ: hoist loadNotebookTechniques useCallback above dependent useEffect in AuditForm; push to origin; deploy via deploy.sh — all 3 PM2 services online | `0d25b42` |

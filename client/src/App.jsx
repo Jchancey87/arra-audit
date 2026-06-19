@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import StyleProvider from './styles/global';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioProvider, useAudio } from './context/AudioContext';
@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import StudyPlannerDashboard from './pages/StudyPlannerDashboard';
 import StudySessionWorkspace from './pages/StudySessionWorkspace';
 import ResearchSummaryRenderer from './components/ResearchSummaryRenderer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -59,6 +60,14 @@ const AppContent = () => {
   } = useAudio();
 
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Context-aware EXIT FOCUS: in audit context, navigate to planner; elsewhere, just disable focus.
+  const isAuditContext = location.pathname.startsWith('/audit/');
+  const handleExitFocus = () => {
+    if (isAuditContext) navigate('/planner');
+    else setFocusMode(false);
+  };
 
   // Layout Panel States
   const [leftOpen, setLeftOpen] = useState(true);
@@ -89,10 +98,11 @@ const AppContent = () => {
       {/* DAW Wrapper */}
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary)' }}>
         
-        {/* Floating Focus Mode Close Trigger */}
+        {/* Floating Focus Mode Close Trigger (Phase 3.4: context-aware) */}
         {isAuthenticated && focusMode && (
-          <button 
-            onClick={() => setFocusMode(false)}
+          <button
+            onClick={handleExitFocus}
+            title={isAuditContext ? 'Exit focus and return to planner' : 'Exit focus mode'}
             style={{
               position: 'fixed',
               top: '8px',
@@ -396,20 +406,22 @@ const AppContent = () => {
             padding: '12px', 
             background: 'var(--bg-primary)' 
           }}>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
-              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/import" element={<PrivateRoute><ImportSong /></PrivateRoute>} />
-              <Route path="/audit/create/:songId" element={<PrivateRoute><AuditCreate /></PrivateRoute>} />
-              <Route path="/audit/form/:auditId" element={<PrivateRoute><AuditForm /></PrivateRoute>} />
-              <Route path="/audit/:id" element={<PrivateRoute><AuditDetail /></PrivateRoute>} />
-              <Route path="/techniques" element={<PrivateRoute><TechniqueNotebook /></PrivateRoute>} />
-              <Route path="/planner" element={<PrivateRoute><StudyPlannerDashboard /></PrivateRoute>} />
-              <Route path="/planner/session/:dayNumber" element={<PrivateRoute><StudySessionWorkspace /></PrivateRoute>} />
-              <Route path="/trash" element={<PrivateRoute><Trash /></PrivateRoute>} />
-              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-            </Routes>
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/import" element={<PrivateRoute><ImportSong /></PrivateRoute>} />
+                <Route path="/audit/create/:songId" element={<PrivateRoute><AuditCreate /></PrivateRoute>} />
+                <Route path="/audit/form/:auditId" element={<PrivateRoute><AuditForm /></PrivateRoute>} />
+                <Route path="/audit/:id" element={<PrivateRoute><AuditDetail /></PrivateRoute>} />
+                <Route path="/techniques" element={<PrivateRoute><TechniqueNotebook /></PrivateRoute>} />
+                <Route path="/planner" element={<PrivateRoute><StudyPlannerDashboard /></PrivateRoute>} />
+                <Route path="/planner/session/:dayNumber" element={<PrivateRoute><StudySessionWorkspace /></PrivateRoute>} />
+                <Route path="/trash" element={<PrivateRoute><Trash /></PrivateRoute>} />
+                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              </Routes>
+            </ErrorBoundary>
           </main>
 
           {/* Right Docked Video Panel */}

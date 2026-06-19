@@ -389,7 +389,7 @@ const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDelet
                 cursor: 'pointer',
                 zIndex: 2,
               }}
-              title={m.label ? `${formatTime(ts)} — ${m.label}` : formatTime(ts)}
+              title={`${formatTime(ts)} · ${m.label || 'untitled'}${m.lens ? ` · ${m.lens}` : ''}`}
             />
             {openMenuId === id && (
               <div
@@ -459,9 +459,8 @@ const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDelet
 const Lane = ({ label, children }) => (
   <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
     <div
+      className="audit-lane-label"
       style={{
-        width: '80px',
-        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         padding: '0 8px',
@@ -495,13 +494,25 @@ const AuditTimeline = ({
   const waveformRef = useRef(null);
   const { scrubX, startScrub } = useScrubState(waveformRef, duration, onSeek);
   const [showScrubTooltip, setShowScrubTooltip] = useState(false);
+  const [tooltipMounted, setTooltipMounted] = useState(false);
 
   useEffect(() => {
     setShowScrubTooltip(scrubX != null);
   }, [scrubX]);
 
+  // Phase 3.5: trigger fade-in on first paint
+  useEffect(() => {
+    if (showScrubTooltip) {
+      const id = requestAnimationFrame(() => setTooltipMounted(true));
+      return () => cancelAnimationFrame(id);
+    }
+    setTooltipMounted(false);
+    return undefined;
+  }, [showScrubTooltip]);
+
   if (!song) return null;
   const analysis = song.audioAnalysis || {};
+  const overrides = song.audioOverrides || {};
   const sections = (analysis.sectional_key_candidates || []).map((s, i, arr) => ({
     name: s.section,
     start: (i / arr.length) * (duration || 0),
@@ -565,7 +576,7 @@ const AuditTimeline = ({
           flexDirection: 'column',
         }}
       >
-        <div style={{ height: `${LANE_HEIGHT}px`, borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="audit-lane-waveform">
           <Lane label="Waveform">
             <WaveformLane
               refProp={waveformRef}
@@ -578,28 +589,28 @@ const AuditTimeline = ({
             />
           </Lane>
         </div>
-        <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="audit-lane-beat">
           <Lane label="Beat Grid">
             <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
               <BeatGridLane beats={analysis.beat_times} downbeats={analysis.downbeat_times} duration={duration} />
             </div>
           </Lane>
         </div>
-        <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="audit-lane-beat">
           <Lane label="Downbeats">
             <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
               <BeatGridLane beats={analysis.downbeat_times || []} downbeats={analysis.downbeat_times || []} duration={duration} />
             </div>
           </Lane>
         </div>
-        <div style={{ height: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="audit-lane-beat">
           <Lane label="Key Center">
             <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
               <KeyCenterLane keyChanges={keyChanges} duration={duration} />
             </div>
           </Lane>
         </div>
-        <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="audit-lane-section">
           <Lane label="Sections">
             <SectionsLane
               sections={sections}
@@ -609,7 +620,7 @@ const AuditTimeline = ({
             />
           </Lane>
         </div>
-        <div style={{ height: '12px', position: 'relative' }}>
+        <div className="audit-lane-marker">
           <Lane label="Markers">
             <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer', position: 'relative' }}>
               <MarkersLane
@@ -623,25 +634,41 @@ const AuditTimeline = ({
           </Lane>
         </div>
 
-        {/* Scrub tooltip overlay */}
-        {showScrubTooltip && scrubX != null && waveformRef.current && (
-          <div
-            style={{
-              position: 'absolute',
-              left: `${scrubX + 80 + 8}px`,
-              top: 4,
-              background: 'var(--bg-surface-3)',
-              color: 'var(--text-primary)',
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              padding: '2px 6px',
-              pointerEvents: 'none',
-              zIndex: 5,
-            }}
-          >
-            {formatTime((scrubX / (waveformRef.current.getBoundingClientRect().width || 1)) * (duration || 0))}
-          </div>
-        )}
+        {/* Scrub tooltip overlay (Phase 3.5: offset + fade-in + bar/beat content) */}
+        {showScrubTooltip && scrubX != null && waveformRef.current && (() => {
+          const width = waveformRef.current.getBoundingClientRect().width || 1;
+          const timeAtX = (scrubX / width) * (duration || 0);
+          const bpm = overrides.tempo_bpm || analysis.tempo_bpm;
+          const beatSec = bpm && bpm > 0 ? 60 / bpm : null;
+          let content = formatTime(timeAtX);
+          if (beatSec) {
+            const barNumber = Math.floor(timeAtX / (beatSec * 4)) + 1;
+            const totalBars = Math.max(1, Math.floor((duration || 0) / (beatSec * 4)));
+            content = `${formatTime(timeAtX)} · bar ${barNumber}/${totalBars}`;
+          }
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${scrubX + 80 + 8}px`,
+                top: 4,
+                background: 'var(--bg-surface-3)',
+                color: 'var(--text-primary)',
+                fontSize: '10px',
+                fontFamily: 'JetBrains Mono, monospace',
+                padding: '2px 6px',
+                pointerEvents: 'none',
+                zIndex: 5,
+                border: '1px solid var(--border-subtle)',
+                opacity: tooltipMounted ? 1 : 0,
+                transition: 'opacity 100ms ease-in',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {content}
+            </div>
+          );
+        })()}
       </div>
     </section>
   );

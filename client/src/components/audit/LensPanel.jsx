@@ -1,40 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-
-const LENS_PROMPTS = {
-  harmony: [
-    { title: 'Chord Motion', question: 'Where does the bass imply a different chord inversion than the root position?' },
-    { title: 'Harmonic Surprise', question: 'Identify one borrowed chord or unexpected harmonic color. What makes it work?' },
-    { title: 'Steal Move', question: 'What chord movement or voicing technique would you steal for your own productions?' },
-  ],
-  rhythm: [
-    { title: 'Groove Pocket', question: 'How does the bass relate to the kick and snare? Where does it push or pull against the grid?' },
-    { title: 'Syncopation Map', question: 'Identify the primary syncopation pattern. Which beats are emphasized and which are ghosted?' },
-    { title: 'Steal Move', question: 'What rhythmic technique or feel would you extract for your own productions?' },
-  ],
-  form: [
-    { title: 'Section Architecture', question: 'Map out the song\u2019s sections. Where does the form surprise you or deviate from convention?' },
-    { title: 'Transition Technique', question: 'How does the song move between sections? What elements signal a change?' },
-    { title: 'Steal Move', question: 'What structural technique would you borrow for your own arrangements?' },
-  ],
-  texture: [
-    { title: 'Layer Inventory', question: 'List every sound/instrument you can identify. How do they occupy frequency space?' },
-    { title: 'Density Arc', question: 'How does the arrangement density change over time? Where is it thinnest and thickest?' },
-    { title: 'Steal Move', question: 'What production texture or layering choice would you recreate?' },
-  ],
-  melody: [
-    { title: 'Motif Tracker', question: 'Identify the main melodic motif. How does it transform over the course of the song?' },
-    { title: 'Phrase Shape', question: 'Describe the contour of one full melodic phrase. Where does it peak?' },
-    { title: 'Steal Move', question: 'What melodic device (interval, ornament, repetition) would you borrow?' },
-  ],
-};
-
-const LENS_LABEL = {
-  harmony: 'Harmony',
-  rhythm: 'Rhythm',
-  form: 'Form',
-  texture: 'Texture',
-  melody: 'Melody',
-};
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { LENS_PROMPTS, LENS_LABEL } from './lensConstants';
 
 const KEY_TO_SCALE_DEGREES = {
   major: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
@@ -175,6 +140,7 @@ const LensPrompt = ({ index, prompt, value, onChange, currentTime, onSaved }) =>
         </h3>
       </div>
       <p
+        title={prompt.question}
         style={{
           margin: '0 0 10px 0',
           paddingLeft: '24px',
@@ -249,23 +215,18 @@ const LensPanel = ({
   const prompts = templatePrompts;
   const keyRoot = song?.audioOverrides?.key || song?.audioAnalysis?.key;
   const scale = song?.audioOverrides?.scale || song?.audioAnalysis?.scale;
-  const scaleRow = buildScaleDegreeRow(keyRoot, scale);
-
-  // Distinguish description vs listening focus.
-  // Prefer the explicit `listeningFocus` prop, then `lensDescription`, then
-  // the template's description field. Wrap as "Today's focus: …" per handoff §3.3.
+  // Phase 4.3: memoize derived scale-degree row + answered count + focus text
+  const scaleRow = useMemo(() => buildScaleDegreeRow(keyRoot, scale), [keyRoot, scale]);
+  const answeredCount = useMemo(() => {
+    if (!Array.isArray(prompts)) return 0;
+    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
+  }, [prompts, activeLens, responses]);
   const focusText = useMemo(() => {
     const raw = listeningFocus || lensDescription || '';
     if (!raw) return null;
     if (/today's focus/i.test(raw)) return raw;
     return `Today's focus: ${raw}`;
   }, [listeningFocus, lensDescription]);
-
-  // Prompt completion: ≥10 chars counts as answered.
-  const answeredCount = useMemo(() => {
-    if (!Array.isArray(prompts)) return 0;
-    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
-  }, [prompts, activeLens, responses]);
 
   const handleSaved = () => {
     setShowSavedAll(true);
@@ -442,4 +403,3 @@ const LensPanel = ({
 };
 
 export default LensPanel;
-export { LENS_PROMPTS, LENS_LABEL };

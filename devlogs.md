@@ -6,6 +6,38 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-19: Audit Panel Phase 3 + 4 — Polish, A11y, Perf, Tailwind Removal, Responsive
+
+- **Context**: Continue from `HANDOFF_AUDIT_PANEL_PHASE_3_4.md` (e814040). All 9 line items shipped in single session.
+- **Phase 3 — Visual polish (3.1–3.5)**:
+  - **3.1**: `rg box-shadow|border-radius` returns 0 lines in `audit/*`. Removed 3 stale `box-shadow`/`boxShadow` refs in `CaptureTechnique.jsx`, `AuditTabBar.jsx`, `TrackAnalysisModules.jsx`.
+  - **3.2**: Added `.locked` class (`opacity:0.4; pointer-events:none; cursor:not-allowed`) to `global.js` for future collab scenarios. Hover surfaces already use `--bg-surface-hover` from Phase 1.
+  - **3.3**: Tooltip sweep — added `title` to `ConfidenceDot` (dynamic % + override hint), expanded marker tooltip to `time · note · lens`, added `title` to `LensPrompt` question and Capture Technique tag suggestions. `SourcesPanel` Add/Reimport buttons got `title` attrs.
+  - **3.4**: Context-aware EXIT FOCUS — `App.jsx` `useNavigate` + `handleExitFocus` checks `location.pathname.startsWith('/audit/')`; in audit context navigates to `/planner`, else just `setFocusMode(false)`. Auto-focus first interactive on tab switch: `tabBodyRef` in `AuditForm` + `useEffect` querying `input|button|select|textarea|[tabindex="0"]`. Added `role="tabpanel"` and `id/aria-labelledby` to the `<main>`.
+  - **3.5**: Scrub tooltip — added `tooltipMounted` state for 100ms fade-in transition, content now shows `time · bar N/M` when BPM known. Reads `overrides.tempo_bpm || analysis.tempo_bpm`. `overrides` hoisted to AuditTimeline scope.
+- **Phase 4.1 — A11y**:
+  - `ErrorBoundary.jsx` (new) — class component with `getDerivedStateFromError`, renders "Workspace Error" with reload button.
+  - Wrapped `<Routes>` in `App.jsx` with `<ErrorBoundary>`.
+  - `prefers-contrast: more` media query in `global.js` bumps `--text-secondary`/`--border-subtle` and focus outline width to 3px.
+  - `NotebookPanel` search wrapper → `role="search"`, input `type="search"`.
+  - `client/UI/AC_AUDIT.md` (new) walks AC-01 to AC-09 with status, evidence, regression-check commands.
+- **Phase 4.3 — Perf**:
+  - All 8 audit components lazy-loaded in `AuditForm.jsx` via `React.lazy` + `<Suspense>`. Skeletons: `AuditPanelSkeleton` for header, `TabLoadingPanel` (with `role="status" aria-live="polite"`) for tab bodies.
+  - Extracted `LENS_PROMPTS`/`LENS_LABEL` to `lensConstants.js` so static import doesn't pull the entire LensPanel chunk into main bundle.
+  - `useMemo` for `scaleRow` in TrackAnalysisModules + LensPanel, `answeredCount` and `focusText` in LensPanel.
+  - Build: main 999 KB (was 1082 KB), 8 separate audit chunks totaling ~95 KB.
+- **Phase 4.4 — Tailwind removal**:
+  - Removed `<script src="https://cdn.tailwindcss.com">` from `client/index.html:12`.
+  - Ported `flex flex-col gap-6`, `p-6 border-l-2 border-[#ff6600] rounded-[1px] bg-[#070709]`, `space-y-3 mt-3`, `list-disc list-inside text-sm leading-7 text-zinc-300 w-full pl-1`, `text-sm leading-7 text-zinc-300 w-full` in `AuditDetail.jsx` (concrete exercises + recreation notes) to inline styles.
+  - Build: zero Tailwind warnings.
+- **Phase 4.2 — Responsive**:
+  - Added `@media (max-width: 1199px)` and `@media (max-width: 767px)` blocks in `global.js`.
+  - `.audit-modules` 4-col flex → 2x2 grid on tablet/mobile, `.audit-lane-label` 80px→60px→56px, `.audit-lane-waveform` 40px→28px on mobile.
+  - `.audit-meta-chips` hidden on mobile, `.audit-override-button` hidden on mobile (per spec), `.audit-tabbar` overflow-x on mobile.
+  - `.capture-top-row` 4-col → 2-col on mobile, `.capture-textareas` 2-col → 1-col.
+  - `AuditPanelHeader` meta chips row uses `audit-meta-chips` class.
+- **Server tests**: 44/44 pass. `npm run build` clean except 500KB main bundle warning (out of scope).
+
 ### 2026-06-19: Audit Panel Phase 2.3+2.4+2.5 — Lens/Sources/Capture
 
 - **Context**: Session 2 of Audit Panel Phase 2 handoff. Scope: 3.3 LensPanel real curriculum data, 3.4 Sources tab polish, 3.5 Capture Technique keyboard + tag suggestions.

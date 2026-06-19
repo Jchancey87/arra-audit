@@ -543,24 +543,53 @@ const AuditDetail = () => {
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                                 CONCRETE EXERCISES (TAILORED)
                               </strong>
-                              <div className="flex flex-col gap-6">
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                                 {lensData.exercises.map((ex, idx) => (
-                                  <div key={idx} className="p-6 border-l-2 border-[#ff6600] rounded-[1px] bg-[#070709]">
+                                  <div
+                                    key={idx}
+                                    style={{
+                                      padding: '24px',
+                                      borderLeft: '2px solid #ff6600',
+                                      borderRadius: '1px',
+                                      backgroundColor: '#070709',
+                                    }}
+                                  >
                                     <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{ex.name}</div>
-                                    <div className="space-y-3 mt-3">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                                       {(ex.description || '').split('\n').filter(line => line.trim()).map((para, pIdx) => {
                                         const trimmed = para.trim();
                                         const isBullet = trimmed.startsWith('-') || trimmed.startsWith('*');
                                         const cleanText = isBullet ? trimmed.substring(1).trim() : para;
                                         if (isBullet) {
                                           return (
-                                            <ul key={pIdx} className="list-disc list-inside text-sm leading-7 text-zinc-300 w-full pl-1">
+                                            <ul
+                                              key={pIdx}
+                                              style={{
+                                                listStyleType: 'disc',
+                                                listStylePosition: 'inside',
+                                                fontSize: '14px',
+                                                lineHeight: '1.75',
+                                                color: '#d4d4d8',
+                                                width: '100%',
+                                                paddingLeft: '4px',
+                                                margin: 0,
+                                              }}
+                                            >
                                               <li>{cleanText}</li>
                                             </ul>
                                           );
                                         }
                                         return (
-                                          <p key={pIdx} className="text-sm leading-7 text-zinc-300 w-full">
+                                          <p
+                                            key={pIdx}
+                                            style={{
+                                              fontSize: '14px',
+                                              lineHeight: '1.75',
+                                              color: '#d4d4d8',
+                                              width: '100%',
+                                              margin: 0,
+                                            }}
+                                          >
                                             {para}
                                           </p>
                                         );

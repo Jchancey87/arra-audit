@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T12:31:44.068Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T12:46:13.136Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -24,20 +24,9 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ## deps
 ```
 server/services/auditService.js ← models/Audit
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
-client/src/context/AudioContext.jsx ← BackendContext
 client/src/pages/AuditForm.jsx ← context/BackendContext, context/AudioContext, components/audit/AuditPanelHeader, components/audit/AuditTabBar, components/audit/TrackAnalysisModules
-```
-
-## changes (last 5 commits — 1 second ago)
-```
-client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
-client/src/pages/AuditForm.jsx                ~formatTime
-.github/context-cold.md                       +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
-.github/copilot-instructions.md               +HttpBackendAdapter  ~ClapAnalyzer  ~__init__  ~analyze_features
-.github/gemini-context.md                     +HttpBackendAdapter  ~ClapAnalyzer  ~__init__  ~analyze_features
 ```
 
 ## .github
@@ -53,7 +42,9 @@ h3 analysis_service/app.py
 h2 client
 h3 client/index.html
 h3 client/public/index.html
+h3 client/src/App.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
 h3 client/src/ports/IBackendService.js
@@ -67,8 +58,6 @@ h3 server/adapters/TavilyAdapter.js
 h3 server/bin/seedCurriculum.js
 h3 server/middleware/auth.js
 h3 server/ports/IAIModelService.js
-h3 server/ports/IRepository.js
-h3 server/ports/ISearchService.js
 ```
 
 ### .github/copilot-instructions.md
@@ -83,10 +72,8 @@ h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
 h2 client
-h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/context/AudioContext.jsx
 h3 client/src/pages/AuditForm.jsx
 h2 server
 h3 server/services/auditService.js
@@ -105,10 +92,8 @@ h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
 h2 client
-h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/context/AudioContext.jsx
 h3 client/src/pages/AuditForm.jsx
 h2 server
 h3 server/services/auditService.js
@@ -116,11 +101,6 @@ code-fence plain
 ```
 
 ## client
-
-### client/src/App.jsx
-```
-function App()  :721-733
-```
 
 ### client/src/adapters/HttpBackendAdapter.js
 ```
@@ -139,12 +119,6 @@ export class HttpBackendAdapter  :8-172
 ```
 export class InMemoryBackendAdapter  :7-31
   constructor()  :8-31
-```
-
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :8-150
-export const useAudio = () =>  :354-360
 ```
 
 ### client/src/pages/AuditForm.jsx

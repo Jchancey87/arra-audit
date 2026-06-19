@@ -272,6 +272,189 @@ const styles = `
     background: var(--bg-surface-2);
   }
 
+  /* Locked state — read-only collab / external control (Phase 3.2) */
+  .locked, [aria-disabled="true"].locked {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
+  /* High contrast mode (Phase 4.1 AC-08) */
+  @media (prefers-contrast: more) {
+    :root {
+      --text-secondary: #c0c4ca;
+      --border-subtle: #3a3a44;
+    }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline-width: 3px;
+    }
+  }
+
+  /* Phase 4.2 — Responsive layout ──────────────────────────────────────────
+   * Tablet (768–1199): 2-col metric grid, narrower timeline lane labels,
+   *                    Capture Technique footer collapses by default.
+   * Mobile (<768):     Stack module grid 2x2, smaller lane height (28px),
+   *                    hide metadata chips row, hide Track Analysis label
+   *                    header, make Capture Technique footer icon-only.
+   * ─────────────────────────────────────────────────────────────────────── */
+
+  /* Capture Technique collapse / expand helpers */
+  .capture-collapsed-mobile {
+    display: flex;
+  }
+  @media (max-width: 767px) {
+    .capture-collapsed-mobile {
+      padding: 6px 12px;
+    }
+  }
+
+  /* Audit metric grid: 4-col on desktop, 2-col on tablet, 2x2 on mobile */
+  .audit-modules {
+    display: flex;
+    background: var(--bg-surface-1);
+    border: 1px solid var(--border-subtle);
+  }
+  .audit-modules > .audit-module-cell {
+    flex: 1;
+    background: var(--bg-surface-2);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+  }
+  .audit-modules > .audit-module-cell + .audit-module-cell {
+    border-left: 1px solid var(--border-subtle);
+  }
+  @media (max-width: 1199px) {
+    .audit-modules {
+      flex-wrap: wrap;
+    }
+    .audit-modules > .audit-module-cell {
+      flex: 0 0 50%;
+    }
+  }
+  @media (max-width: 767px) {
+    .audit-modules > .audit-module-cell {
+      flex: 0 0 50%;
+      padding: 10px 12px;
+    }
+  }
+
+  /* Track Analysis label header — hide on mobile */
+  .audit-analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 767px) {
+    .audit-analysis-header {
+      margin-bottom: 8px;
+    }
+  }
+
+  /* Header metadata chips — hide on mobile */
+  .audit-meta-chips {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+  @media (max-width: 767px) {
+    .audit-meta-chips {
+      display: none;
+    }
+  }
+
+  /* Override values button — hide on mobile per spec */
+  .audit-override-button {
+    display: inline-flex;
+  }
+  @media (max-width: 767px) {
+    .audit-override-button {
+      display: none;
+    }
+  }
+
+  /* Timeline lane label — narrower on tablet */
+  .audit-lane-label {
+    width: 80px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 1199px) {
+    .audit-lane-label {
+      width: 60px;
+    }
+  }
+  @media (max-width: 767px) {
+    .audit-lane-label {
+      width: 56px;
+      padding: 0 6px;
+      font-size: 8px;
+    }
+  }
+
+  /* Timeline lane height — reduce on mobile (28px from 40px) */
+  .audit-lane-waveform { height: 40px; border-bottom: 1px solid var(--border-subtle); }
+  .audit-lane-beat { height: 16px; border-bottom: 1px solid var(--border-subtle); }
+  .audit-lane-section { border-bottom: 1px solid var(--border-subtle); }
+  .audit-lane-marker { height: 12px; position: relative; }
+  @media (max-width: 767px) {
+    .audit-lane-waveform { height: 28px; }
+  }
+
+  /* Tab bar — scrollable on overflow */
+  .audit-tabbar {
+    background: var(--bg-surface-1);
+    height: 40px;
+    display: flex;
+    align-items: stretch;
+    padding: 0 24px;
+    gap: 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    overflow-x: auto;
+  }
+  @media (max-width: 767px) {
+    .audit-tabbar {
+      padding: 0 12px;
+      gap: 16px;
+    }
+  }
+
+  /* Capture Technique top row — single column on mobile */
+  .capture-top-row {
+    grid-template-columns: 140px 1fr 100px auto;
+  }
+  @media (max-width: 767px) {
+    .capture-top-row {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Capture Technique textareas — single column on mobile */
+  .capture-textareas {
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 767px) {
+    .capture-textareas {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* AuditForm main padding — reduce on mobile */
+  .audit-form-main {
+    padding: 16px;
+  }
+  @media (max-width: 767px) {
+    .audit-form-main {
+      padding: 10px;
+    }
+  }
+
   /* Forms & Inputs — per spec, no border-radius */
   .form-group {
     margin-bottom: 10px;

@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
-import AuditPanelHeader from '../components/audit/AuditPanelHeader';
-import AuditTabBar from '../components/audit/AuditTabBar';
-import TrackAnalysisModules from '../components/audit/TrackAnalysisModules';
-import AuditTimeline from '../components/audit/AuditTimeline';
-import LensPanel, { LENS_PROMPTS, LENS_LABEL } from '../components/audit/LensPanel';
-import SourcesPanel from '../components/audit/SourcesPanel';
-import NotebookPanel from '../components/audit/NotebookPanel';
-import CaptureTechnique from '../components/audit/CaptureTechnique';
+// Phase 4.3: lazy-load audit panel subcomponents to shrink the initial bundle
+const AuditPanelHeader = lazy(() => import('../components/audit/AuditPanelHeader'));
+const AuditTabBar = lazy(() => import('../components/audit/AuditTabBar'));
+const TrackAnalysisModules = lazy(() => import('../components/audit/TrackAnalysisModules'));
+const AuditTimeline = lazy(() => import('../components/audit/AuditTimeline'));
+const LensPanel = lazy(() => import('../components/audit/LensPanel'));
+const SourcesPanel = lazy(() => import('../components/audit/SourcesPanel'));
+const NotebookPanel = lazy(() => import('../components/audit/NotebookPanel'));
+const CaptureTechnique = lazy(() => import('../components/audit/CaptureTechnique'));
+import { LENS_PROMPTS, LENS_LABEL } from '../components/audit/lensConstants';
 
 // ── Autosave hook ────────────────────────────────────────────────────────────
 function useAutosave(auditId, data, backend, delay = 3000) {
@@ -57,6 +59,37 @@ function formatTime(seconds) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 const stripTopic = (name) => (name || '').replace(/\s*-\s*Topic\s*$/i, '').replace(/\s*\(Official.*?\)/gi, '').replace(/\s*\[Official.*?\]/gi, '').trim();
+
+// ── Suspense fallback (Phase 4.3) ──────────────────────────────────────────
+const AuditPanelSkeleton = () => (
+  <div
+    aria-busy="true"
+    style={{
+      background: 'var(--bg-surface-2)',
+      padding: '20px 24px',
+      borderBottom: '1px solid var(--border-subtle)',
+      minHeight: '88px',
+    }}
+  />
+);
+
+const TabLoadingPanel = ({ label = 'Loading…' }) => (
+  <div
+    role="status"
+    aria-live="polite"
+    style={{
+      padding: '32px 16px',
+      textAlign: 'center',
+      color: 'var(--text-tertiary)',
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+    }}
+  >
+    {label}
+  </div>
+);
 
 const parseTimestamp = (raw) => {
   if (raw == null) return null;
@@ -306,6 +339,18 @@ const AuditForm = () => {
     try { sessionStorage.setItem(`audit-tab-${auditId}`, activeTab); } catch {}
   }, [activeTab, auditId]);
 
+  // ── Tab body ref + auto-focus first interactive on tab switch (Phase 3.4)
+  const tabBodyRef = useRef(null);
+  useEffect(() => {
+    if (!tabBodyRef.current) return;
+    const first = tabBodyRef.current.querySelector(
+      'input:not([type="hidden"]), button:not([disabled]), select, textarea, [tabindex="0"]'
+    );
+    if (first && typeof first.focus === 'function') {
+      first.focus();
+    }
+  }, [activeTab]);
+
   // Active lens for the Lens tab (must be above render guards per Rules of Hooks)
   const [activeLens, setActiveLens] = useState('harmony');
   useEffect(() => {
@@ -540,23 +585,31 @@ const AuditForm = () => {
       {success && <div className="success" style={{ margin: '8px 12px 0' }}>{success}</div>}
 
       {/* ── Panel Header (4.1) ── */}
-      <AuditPanelHeader
-        song={song}
-        audioContext={{ isPlaying, currentTime, duration }}
-        saveStatus={saveStatus}
-        isComplete={canComplete}
-        isSaving={isSaving}
-        completionReason={completionReason}
-        onComplete={saveAudit}
-        onSaveDraft={handleSaveDraft}
-        onReturnToPlan={() => navigate('/planner')}
-      />
+      <Suspense fallback={<AuditPanelSkeleton />}>
+        <AuditPanelHeader
+          song={song}
+          audioContext={{ isPlaying, currentTime, duration }}
+          saveStatus={saveStatus}
+          isComplete={canComplete}
+          isSaving={isSaving}
+          completionReason={completionReason}
+          onComplete={saveAudit}
+          onSaveDraft={handleSaveDraft}
+          onReturnToPlan={() => navigate('/planner')}
+        />
+      </Suspense>
 
       {/* ── Tab Bar (4.2) ── */}
-      <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <Suspense fallback={<div style={{ height: '40px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border-subtle)' }} />}>
+        <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </Suspense>
 
       {/* ── Tab Content Area (scrolls) ── */}
       <main
+        ref={tabBodyRef}
+        id={`tab-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab}`}
         style={{
           flex: 1,
           minHeight: 0,
@@ -566,7 +619,7 @@ const AuditForm = () => {
       >
         {/* ── ANALYSIS TAB ── */}
         {activeTab === 'analysis' && (
-          <div style={{ padding: '16px' }}>
+          <div className="audit-form-main">
             {/* Analysis pipeline states */}
             {song?.audioAnalysisStatus === 'not_started' && (
               <div
@@ -669,21 +722,25 @@ const AuditForm = () => {
 
             {song?.audioAnalysisStatus === 'success' && song.audioAnalysis && (
               <>
-                <TrackAnalysisModules
-                  song={song}
-                  onChangeOverride={handleAnalysisChangeOverride}
-                />
-                <AuditTimeline
-                  song={song}
-                  currentTime={currentTime}
-                  duration={duration || song.durationSeconds || 0}
-                  onSeek={seekTo}
-                  onAddMarker={handleAddMarker}
-                  onUpdateMarker={handleUpdateMarker}
-                  onDeleteMarker={handleDeleteMarker}
-                  onAddSection={handleAddSection}
-                  markers={globalBookmarks}
-                />
+                <Suspense fallback={<TabLoadingPanel label="Loading analysis modules…" />}>
+                  <TrackAnalysisModules
+                    song={song}
+                    onChangeOverride={handleAnalysisChangeOverride}
+                  />
+                </Suspense>
+                <Suspense fallback={<TabLoadingPanel label="Loading timeline…" />}>
+                  <AuditTimeline
+                    song={song}
+                    currentTime={currentTime}
+                    duration={duration || song.durationSeconds || 0}
+                    onSeek={seekTo}
+                    onAddMarker={handleAddMarker}
+                    onUpdateMarker={handleUpdateMarker}
+                    onDeleteMarker={handleDeleteMarker}
+                    onAddSection={handleAddSection}
+                    markers={globalBookmarks}
+                  />
+                </Suspense>
                 {/* Fallback template notice */}
                 {audit.templateVersion?.startsWith('fallback') && (
                   <div
@@ -801,34 +858,40 @@ const AuditForm = () => {
 
         {/* ── LENS TAB (4.5) ── */}
         {activeTab === 'lens' && (
-          <LensPanel
-            activeLens={activeLens}
-            onChangeLens={setActiveLens}
-            song={song}
-            currentTime={currentTime}
-            responses={responses}
-            onResponseChange={handleResponseChange}
-            listeningFocus={template?.lenses?.[activeLens]?.focus || template?.lenses?.[activeLens]?.listening_focus}
-            lensDescription={template?.lenses?.[activeLens]?.description}
-            customPrompts={template?.lenses?.[activeLens]?.prompts}
-          />
+          <Suspense fallback={<TabLoadingPanel label="Loading lens…" />}>
+            <LensPanel
+              activeLens={activeLens}
+              onChangeLens={setActiveLens}
+              song={song}
+              currentTime={currentTime}
+              responses={responses}
+              onResponseChange={handleResponseChange}
+              listeningFocus={template?.lenses?.[activeLens]?.focus || template?.lenses?.[activeLens]?.listening_focus}
+              lensDescription={template?.lenses?.[activeLens]?.description}
+              customPrompts={template?.lenses?.[activeLens]?.prompts}
+            />
+          </Suspense>
         )}
 
         {/* ── SOURCES TAB (4.7) ── */}
         {activeTab === 'sources' && (
-          <SourcesPanel sources={researchSources} />
+          <Suspense fallback={<TabLoadingPanel label="Loading sources…" />}>
+            <SourcesPanel sources={researchSources} />
+          </Suspense>
         )}
 
         {/* ── NOTEBOOK TAB ── */}
         {activeTab === 'notebook' && (
-          <NotebookPanel
-            techniques={notebookTechniques}
-            loading={notebookLoading}
-            error={notebookError}
-            onDelete={handleDeleteNotebookTechnique}
-            onSeek={seekTo}
-            onOpenNotebook={() => navigate('/techniques')}
-          />
+          <Suspense fallback={<TabLoadingPanel label="Loading notebook…" />}>
+            <NotebookPanel
+              techniques={notebookTechniques}
+              loading={notebookLoading}
+              error={notebookError}
+              onDelete={handleDeleteNotebookTechnique}
+              onSeek={seekTo}
+              onOpenNotebook={() => navigate('/techniques')}
+            />
+          </Suspense>
         )}
 
         {/* Recently logged techniques (visible on every tab) */}
@@ -962,12 +1025,14 @@ const AuditForm = () => {
       </main>
 
       {/* ── Capture Technique (sticky footer, always visible) ── */}
-      <CaptureTechnique
-        initialLens={activeLens}
-        currentTime={currentTime}
-        onSubmit={handleCaptureTechniqueSubmit}
-        savedIndicator={captureSavedTick}
-      />
+      <Suspense fallback={<div style={{ minHeight: '180px', background: 'var(--bg-surface-2)', borderTop: '1px solid var(--border-subtle)' }} />}>
+        <CaptureTechnique
+          initialLens={activeLens}
+          currentTime={currentTime}
+          onSubmit={handleCaptureTechniqueSubmit}
+          savedIndicator={captureSavedTick}
+        />
+      </Suspense>
     </div>
   );
 };

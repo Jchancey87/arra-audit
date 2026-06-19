@@ -26,6 +26,8 @@ server/adapters/OpenAIAdapter.js ← ports/IAIModelService
 server/adapters/TavilyAdapter.js ← ports/ISearchService
 server/bin/seedCurriculum.js ← models/Curriculum
 server/routes/curricula.js ← models/Curriculum
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 analysis_service/analyzer.py ← requests
@@ -67,9 +69,20 @@ title: Arra Audit
 div#root
 ```
 
+### client/src/App.jsx
+```
+function App()  :721-733
+```
+
 ### client/src/components/ResearchSummaryRenderer.jsx
 ```
 export const parseSummaryText = (text) =>  :49-90
+```
+
+### client/src/context/AudioContext.jsx
+```
+export const AudioProvider = ({ children }) =>  :8-150
+export const useAudio = () =>  :354-360
 ```
 
 ### client/src/context/AuthContext.jsx

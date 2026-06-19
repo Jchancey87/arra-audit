@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 
 const AuditTabBar = ({ tabs, activeTab, onChange }) => {
   const barRef = useRef(null);
@@ -27,16 +27,8 @@ const AuditTabBar = ({ tabs, activeTab, onChange }) => {
       aria-label="Audit workspace tabs"
       tabIndex={0}
       onKeyDown={handleKey}
-      style={{
-        background: 'var(--bg-surface-1)',
-        height: '40px',
-        display: 'flex',
-        alignItems: 'stretch',
-        padding: '0 24px',
-        gap: '24px',
-        borderBottom: '1px solid var(--border-subtle)',
-        outline: 'none',
-      }}
+      className="audit-tabbar"
+      style={{ outline: 'none' }}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
@@ -67,7 +59,6 @@ const AuditTabBar = ({ tabs, activeTab, onChange }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: 'none',
             }}
             onMouseEnter={(e) => {
               if (!isActive) e.currentTarget.style.color = 'var(--text-primary)';

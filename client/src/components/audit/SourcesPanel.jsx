@@ -111,6 +111,7 @@ const SourcesPanel = ({ sources = [], onAddSource, onReimportResearch }) => {
         <button
           onClick={handleAdd}
           className="ghost"
+          title="Add a research source URL"
           style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
         >
           + Add Source
@@ -161,6 +162,7 @@ const SourcesPanel = ({ sources = [], onAddSource, onReimportResearch }) => {
           <button
             onClick={handleReimport}
             className="ghost"
+            title="Re-run research and reload sources for this song"
             style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
           >
             Import research on this song

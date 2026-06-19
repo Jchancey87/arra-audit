@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 const SCALE_DEGREES = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
 
@@ -66,6 +66,7 @@ const ConfidenceDot = ({ conf, prefix = '●' }) => {
   const pct = Math.round((parseFloat(conf) || 0) * 100);
   return (
     <span
+      title={`Confidence level: ${pct}% (analysis confidence). Click to override.`}
       style={{
         fontSize: '10px',
         fontFamily: 'JetBrains Mono, monospace',
@@ -226,7 +227,8 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
   const meter = overrides.estimated_meter || analysis.estimated_meter;
   const lufs = analysis.loudness_integrated;
 
-  const scaleRow = buildScaleDegreeRow(key, scale);
+  // Phase 4.3: memoize scale-degree row — recomputes only when key/scale change
+  const scaleRow = useMemo(() => buildScaleDegreeRow(key, scale), [key, scale]);
 
   const startEditing = () => {
     setDraft({
@@ -288,14 +290,7 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
   return (
     <section role="group" aria-label="Track Analysis">
       {/* Section header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-        }}
-      >
+      <div className="audit-analysis-header">
         <h2
           style={{
             margin: 0,
@@ -328,7 +323,7 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
           {!editing ? (
             <button
               onClick={startEditing}
-              className="ghost"
+              className="ghost audit-override-button"
               style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
               title="Manually correct detected values"
             >
@@ -352,26 +347,11 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
       </div>
 
       {/* Module row */}
-      <div
-        style={{
-          display: 'flex',
-          background: 'var(--bg-surface-1)',
-          border: '1px solid var(--border-subtle)',
-        }}
-      >
+      <div className="audit-modules">
         {/* TEMPO */}
         <div
-          style={{
-            flex: 1,
-            background: 'var(--bg-surface-2)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            borderRight: '1px solid var(--border-subtle)',
-            position: 'relative',
-            ...cellEditingStyle,
-          }}
+          className="audit-module-cell"
+          style={{ ...cellEditingStyle }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span
@@ -446,16 +426,8 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
 
         {/* KEY */}
         <div
-          style={{
-            flex: 1,
-            background: 'var(--bg-surface-2)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            borderRight: '1px solid var(--border-subtle)',
-            ...cellEditingStyle,
-          }}
+          className="audit-module-cell"
+          style={{ ...cellEditingStyle }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span
@@ -527,16 +499,8 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
 
         {/* METER */}
         <div
-          style={{
-            flex: 1,
-            background: 'var(--bg-surface-2)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            borderRight: '1px solid var(--border-subtle)',
-            ...cellEditingStyle,
-          }}
+          className="audit-module-cell"
+          style={{ ...cellEditingStyle }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span
@@ -598,15 +562,8 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
 
         {/* LOUDNESS */}
         <div
-          style={{
-            flex: 1,
-            background: 'var(--bg-surface-2)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            ...cellEditingStyle,
-          }}
+          className="audit-module-cell"
+          style={{ ...cellEditingStyle }}
         >
           <span
             style={{

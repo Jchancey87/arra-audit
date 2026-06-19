@@ -214,17 +214,7 @@ const AuditPanelHeader = ({
 
       {/* Metadata chips row */}
       {meta && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '14px',
-            fontSize: '11px',
-            fontFamily: 'JetBrains Mono, monospace',
-            color: 'var(--text-tertiary)',
-            letterSpacing: '0.04em',
-          }}
-        >
+        <div className="audit-meta-chips">
           {meta.year && <span>{meta.year}</span>}
           {meta.duration ? <span>{formatTimeShort(meta.duration)}</span> : null}
           {meta.key && (

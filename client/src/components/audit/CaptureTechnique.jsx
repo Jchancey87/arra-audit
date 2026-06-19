@@ -250,6 +250,7 @@ const CaptureTechnique = ({
       <form onSubmit={handleSave} onKeyDown={handleFormKeyDown}>
         {/* Top row: Lens + Name + Timestamp */}
         <div
+          className="capture-top-row"
           style={{
             display: 'grid',
             gridTemplateColumns: '140px 1fr 100px auto',
@@ -347,6 +348,7 @@ const CaptureTechnique = ({
                   onClick={() => addTag(s)}
                   disabled={tags.includes(s)}
                   className="ghost"
+                  title={tags.includes(s) ? `${s} already added` : `Click to add this tag: ${s}`}
                   style={{
                     fontSize: '9px',
                     fontFamily: 'JetBrains Mono, monospace',
@@ -401,7 +403,6 @@ const CaptureTechnique = ({
                     padding: 0,
                     fontSize: '12px',
                     lineHeight: 1,
-                    boxShadow: 'none',
                   }}
                 >
                   ×
@@ -431,7 +432,7 @@ const CaptureTechnique = ({
         </div>
 
         {/* Textareas row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+        <div className="capture-textareas" style={{ display: 'grid', gap: '10px', marginBottom: '12px' }}>
           <div className="form-group" style={{ margin: 0 }}>
             <label htmlFor="capture-what">What happened?</label>
             <textarea
