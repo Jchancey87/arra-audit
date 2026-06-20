@@ -73,6 +73,37 @@ const AutoExpandingTextarea = ({ value, onChange, placeholder, disabled }) => {
   );
 };
 
+const ContextMenuItem = ({ onClick, children, style = {} }) => {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '100%',
+        background: hover ? 'rgba(255, 102, 0, 0.15)' : 'none',
+        border: 'none',
+        padding: '8px 16px',
+        color: hover ? '#ffffff' : 'rgba(255, 255, 255, 0.8)',
+        fontSize: '12px',
+        textAlign: 'left',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        fontFamily: '"Roboto Mono", monospace',
+        transition: 'background 0.15s, color 0.15s',
+        outline: 'none',
+        boxSizing: 'border-box',
+        ...style,
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
 // ── Main component ────────────────────────────────────────────────────────────
 const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOnly = false, saveNow }) => {
   const { loadSong, activeSong, play, seekTo, currentTime } = useAudio();
@@ -98,6 +129,28 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     const bd = barDurSecs(bpm);
     return Math.max(0, Math.round(sec / bd) * bd);
   };
+
+  // ── Context menu & dragged section states ──
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, type, data }
+  const [draggedSection, setDraggedSection] = useState(null);
+  const [draggedSectionPosition, setDraggedSectionPosition] = useState({ x: 0, y: 0 });
+
+  // ── Sync refs with latest state to prevent stale closures ──
+  const blocksRef = useRef([]);
+  const tracksRef = useRef([]);
+  const selectedBlockIdRef = useRef(null);
+  const multiSelectedIdsRef = useRef(new Set());
+
+  // ── Dismiss context menu on click or scroll anywhere ──
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, []);
 
   // ── Existing section state ──
   const [selectedBlockId, setSelectedBlockId]   = useState(null);
@@ -136,6 +189,12 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   try {
     blocks = typeof rawTimeline === 'string' ? JSON.parse(rawTimeline) : (rawTimeline || []);
   } catch { console.error('Failed to parse arrangement timeline'); }
+
+  // Sync the mutable refs synchronously on every render
+  blocksRef.current = blocks;
+  tracksRef.current = tracks;
+  selectedBlockIdRef.current = selectedBlockId;
+  multiSelectedIdsRef.current = multiSelectedIds;
 
   const sortedBlocks   = [...blocks].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
   const totalDuration  = song?.durationSeconds
@@ -266,7 +325,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     setNewTrackName(''); setShowAddTrack(false);
   };
   const deleteTrack = (trackId) => {
-    saveTracks(tracks.filter(t => t.id !== trackId));
+    saveTracks(tracksRef.current.filter(t => t.id !== trackId));
     if (selectedTrackBlock?.trackId === trackId) setSelectedTrackBlock(null);
   };
   const addTrackBlock = (trackId, startSec) => {
@@ -275,20 +334,103 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       id: 'tb-' + Date.now() + Math.random().toString(36).substr(2, 5),
       startTime: Math.max(0, startSec), duration: defDur,
     };
-    const next = tracks.map(t => t.id === trackId ? { ...t, blocks: [...t.blocks, tb] } : t);
+    const next = tracksRef.current.map(t => t.id === trackId ? { ...t, blocks: [...(t.blocks || []), tb] } : t);
     saveTracks(next);
     setSelectedTrackBlock({ trackId, blockId: tb.id });
   };
   const updateTrackBlock = (trackId, blockId, fields) => {
-    saveTracks(tracks.map(t => t.id !== trackId ? t : {
-      ...t, blocks: t.blocks.map(b => b.id === blockId ? { ...b, ...fields } : b),
+    saveTracks(tracksRef.current.map(t => t.id !== trackId ? t : {
+      ...t, blocks: (t.blocks || []).map(b => b.id === blockId ? { ...b, ...fields } : b),
     }));
   };
   const deleteTrackBlock = (trackId, blockId) => {
-    saveTracks(tracks.map(t => t.id !== trackId ? t : {
-      ...t, blocks: t.blocks.filter(b => b.id !== blockId),
+    saveTracks(tracksRef.current.map(t => t.id !== trackId ? t : {
+      ...t, blocks: (t.blocks || []).filter(b => b.id !== blockId),
     }));
     setSelectedTrackBlock(null);
+  };
+
+  // ── Context menu trigger ──
+  const handleContextMenu = (e, type, data) => {
+    if (readOnly) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type,
+      data
+    });
+  };
+
+  // ── Section drag-and-drop to tracks (Copy & Paste) ──
+  const handleSectionDragStart = (e, block) => {
+    if (readOnly) return;
+    if (e.button !== 0) return; // Only left-click drags
+    if (e.target.closest('[data-no-drag]')) return;
+
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let isDragging = false;
+
+    const onMove = (me) => {
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      if (!isDragging && Math.sqrt(dx * dx + dy * dy) > 5) {
+        isDragging = true;
+        setDraggedSection(block);
+        document.body.style.cursor = 'copy';
+      }
+      if (isDragging) {
+        setDraggedSectionPosition({ x: me.clientX, y: me.clientY });
+      }
+    };
+
+    const onUp = (ue) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+
+      if (isDragging) {
+        setDraggedSection(null);
+        document.body.style.cursor = '';
+        const element = document.elementFromPoint(ue.clientX, ue.clientY);
+        const trackLane = element?.closest('[data-track-id]');
+        if (trackLane) {
+          const trackId = trackLane.getAttribute('data-track-id');
+          const tb = {
+            id: 'tb-' + Date.now() + Math.random().toString(36).substr(2, 5),
+            startTime: block.startTime,
+            duration: block.duration,
+          };
+          const next = tracksRef.current.map(t => t.id === trackId ? { ...t, blocks: [...(t.blocks || []), tb] } : t);
+          saveTracks(next);
+          setSelectedTrackBlock({ trackId, blockId: tb.id });
+        }
+      } else {
+        // Selection and multi-selection logic (formerly in onClick)
+        const isSel = block.id === selectedBlockIdRef.current;
+        const mod = detectModifier(e);
+        if (mod) {
+          const order = sortedBlocks.map((b) => b.id);
+          setMultiSelectedIds(applyBlockClick({
+            selected: multiSelectedIdsRef.current,
+            order,
+            clickedId: block.id,
+            lastClickedId: lastClickedIdRef.current,
+            modifier: mod,
+          }));
+          lastClickedIdRef.current = block.id;
+        } else {
+          setSelectedBlockId(isSel ? null : block.id);
+          setMultiSelectedIds(new Set());
+          lastClickedIdRef.current = block.id;
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
   // ── Section resize drag ──
@@ -302,7 +444,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       let dur = Math.max(1, startDur + delta);
       dur = viewMode === 'bars' ? snapDurBars(dur, bpm) : Math.round(dur);
       onChange('arrangement-timeline', JSON.stringify(
-        blocks.map(b => b.id === block.id ? { ...b, duration: dur } : b)
+        blocksRef.current.map(b => b.id === block.id ? { ...b, duration: dur } : b)
       ));
     };
     const onUp = () => {
@@ -790,11 +932,20 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
                 {/* Sections row */}
                 {sortedBlocks.length > 0 && (
-                  <div style={{
-                    height: SECTION_ROW_H, position: 'relative',
-                    background: '#070709',
-                    borderBottom: tracks.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                  }}>
+                  <div
+                    onContextMenu={(e) => {
+                      if (e.target.closest('[data-track-block]') || e.target.closest('[data-section-block]')) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      let s = (e.clientX - rect.left) / pxPerSec;
+                      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
+                      handleContextMenu(e, 'sections-lane', { time: s });
+                    }}
+                    style={{
+                      height: SECTION_ROW_H, position: 'relative',
+                      background: '#070709',
+                      borderBottom: tracks.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                    }}
+                  >
                     {/* Decorative waveform background — continuous amplitude peaks */}
                     <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.08 }} preserveAspectRatio="none">
                       <defs>
@@ -850,26 +1001,12 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                       return (
                         <div
                           key={block.id}
+                          data-section-block="true"
+                          onMouseDown={(e) => handleSectionDragStart(e, block)}
+                          onContextMenu={(e) => handleContextMenu(e, 'section-block', { block })}
                           onClick={(e) => {
-                            if (readOnly) { handleSeek(block.startTime || 0); return; }
-                            const mod = detectModifier(e);
-                            // Modifier clicks drive multi-select only;
-                            // plain click keeps the existing single-
-                            // select inspector behavior.
-                            if (mod) {
-                              const order = sortedBlocks.map((b) => b.id);
-                              setMultiSelectedIds(applyBlockClick({
-                                selected: multiSelectedIds,
-                                order,
-                                clickedId: block.id,
-                                lastClickedId: lastClickedIdRef.current,
-                                modifier: mod,
-                              }));
-                              lastClickedIdRef.current = block.id;
-                            } else {
-                              setSelectedBlockId(isSel ? null : block.id);
-                              setMultiSelectedIds(new Set());
-                              lastClickedIdRef.current = block.id;
+                            if (readOnly) {
+                              handleSeek(block.startTime || 0);
                             }
                           }}
                           title={block.notes ? `Observations: ${block.notes}` : `Click to ${readOnly ? 'seek' : 'edit'}`}
@@ -892,7 +1029,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                           )}
 
                           {/* Block header */}
-                          <div>
+                          <div data-no-drag="true">
                             <span style={{ fontWeight: '600', fontSize: '12px', color: isSel ? '#ffffff' : 'rgba(255,255,255,0.85)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {block.name}
                             </span>
@@ -957,7 +1094,15 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                 {tracks.map((track, idx) => (
                   <div
                     key={track.id}
+                    data-track-id={track.id}
                     onClick={e => handleLaneClick(e, track)}
+                    onContextMenu={(e) => {
+                      if (e.target.closest('[data-track-block]')) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      let s = (e.clientX - rect.left) / pxPerSec;
+                      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
+                      handleContextMenu(e, 'track-lane', { track, time: s });
+                    }}
                     title={readOnly ? undefined : 'Click empty space to add an activity block'}
                     style={{
                       height: TRACK_ROW_H, position: 'relative',
@@ -999,6 +1144,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                             }
                           }}
                           onMouseDown={e => handleTrackBlockMove(e, track, block)}
+                          onContextMenu={e => handleContextMenu(e, 'track-block', { track, block })}
                           style={{
                             position: 'absolute', left, top: 7, bottom: 7, width,
                             background: isSel || isMulti ? `${track.color}45` : `${track.color}28`,
@@ -1398,6 +1544,160 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           </div>
         )}
       </div>
+
+      {/* ── DRAGGED SECTION GHOST ── */}
+      {draggedSection && (
+        <div style={{
+          position: 'fixed',
+          left: draggedSectionPosition.x - 20,
+          top: draggedSectionPosition.y - 15,
+          width: Math.max(80, (draggedSection.duration || 30) * pxPerSec),
+          height: TRACK_ROW_H - 14,
+          background: `${TYPE_COLORS[draggedSection.type] || TYPE_COLORS.custom}40`,
+          border: `2px dashed ${TYPE_COLORS[draggedSection.type] || TYPE_COLORS.custom}`,
+          borderRadius: '3px',
+          pointerEvents: 'none',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: '8px',
+          color: '#fff',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          📄 Copy {draggedSection.name}
+        </div>
+      )}
+
+      {/* ── CUSTOM CONTEXT MENU ── */}
+      {contextMenu && (
+        <div style={{
+          position: 'fixed',
+          left: contextMenu.x,
+          top: contextMenu.y,
+          zIndex: 10000,
+          background: 'rgba(20, 20, 24, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '6px',
+          padding: '6px 0',
+          minWidth: '170px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+        }}>
+          {contextMenu.type === 'section-block' && (
+            <>
+              <ContextMenuItem onClick={() => setSelectedBlockId(contextMenu.data.block.id)}>
+                🔍 Inspect Section
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => handleSeek(contextMenu.data.block.startTime || 0)}>
+                ▶ Play Section
+              </ContextMenuItem>
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+              <div style={{ padding: '4px 12px', fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Change Type</div>
+              {Object.keys(TYPE_COLORS).map(type => (
+                <ContextMenuItem
+                  key={type}
+                  onClick={() => updateBlock(contextMenu.data.block.id, { type })}
+                  style={{
+                    paddingLeft: '24px',
+                    color: contextMenu.data.block.type === type ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                  }}
+                >
+                  <span style={{
+                    display: 'inline-block',
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: TYPE_COLORS[type],
+                    marginRight: '8px',
+                    verticalAlign: 'middle'
+                  }} />
+                  {type}
+                </ContextMenuItem>
+              ))}
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+              <ContextMenuItem
+                onClick={() => deleteBlock(contextMenu.data.block.id)}
+                style={{ color: '#f43f5e' }}
+              >
+                🗑 Delete Section
+              </ContextMenuItem>
+            </>
+          )}
+
+          {contextMenu.type === 'sections-lane' && (
+            <ContextMenuItem
+              onClick={() => {
+                const defDur = viewMode === 'bars' ? snapDurBars(32, bpm) : 32;
+                const nb = {
+                  id: 'block-' + Date.now() + Math.random().toString(36).substr(2, 5),
+                  name: 'New Section',
+                  type: 'verse',
+                  startTime: contextMenu.data.time,
+                  duration: defDur,
+                  notes: '',
+                };
+                saveBlocks([...blocksRef.current, nb]);
+                setSelectedBlockId(nb.id);
+                if (saveNow) setTimeout(saveNow, 100);
+              }}
+            >
+              ➕ Add Section Here
+            </ContextMenuItem>
+          )}
+
+          {contextMenu.type === 'track-block' && (
+            <>
+              <ContextMenuItem onClick={() => handleSeek(contextMenu.data.block.startTime || 0)}>
+                ▶ Play Block
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => updateTrackBlock(contextMenu.data.track.id, contextMenu.data.block.id, { startTime: Math.floor(currentTime) })}>
+                🎯 Sync to Playhead
+              </ContextMenuItem>
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+              <ContextMenuItem
+                onClick={() => deleteTrackBlock(contextMenu.data.track.id, contextMenu.data.block.id)}
+                style={{ color: '#f43f5e' }}
+              >
+                🗑 Delete Block
+              </ContextMenuItem>
+            </>
+          )}
+
+          {contextMenu.type === 'track-lane' && (
+            <>
+              <ContextMenuItem onClick={() => addTrackBlock(contextMenu.data.track.id, contextMenu.data.time)}>
+                ➕ Add Block Here
+              </ContextMenuItem>
+              <ContextMenuItem
+                onClick={() => {
+                  if (window.confirm(`Clear all blocks in track "${contextMenu.data.track.name}"?`)) {
+                    saveTracks(tracksRef.current.map(t => t.id === contextMenu.data.track.id ? { ...t, blocks: [] } : t));
+                  }
+                }}
+              >
+                🧹 Clear Track
+              </ContextMenuItem>
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 0' }} />
+              <ContextMenuItem
+                onClick={() => {
+                  if (window.confirm(`Delete track "${contextMenu.data.track.name}"?`)) {
+                    deleteTrack(contextMenu.data.track.id);
+                  }
+                }}
+                style={{ color: '#f43f5e' }}
+              >
+                🗑 Delete Track
+              </ContextMenuItem>
+            </>
+          )}
+        </div>
+      )}
 
     </div>
   );
