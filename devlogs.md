@@ -8,6 +8,18 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Fix Canvas Timeline compilation, initialization, and scrubbing test regressions
+
+- **Context**: Resolved syntax and runtime errors in the newly migrated Canvas-based `AuditTimeline.jsx` component that broke the frontend client build, and fixed subsequent Vitest failures.
+- **Fixed Build & Syntax Errors**:
+  - Removed dangling closing `</div>` tags below the scrub tooltip expression that caused a mismatch with the root `<section>` container tag and broke esbuild/Vite.
+  - Relocated the initialization hooks of `arrangementDensityPoints` and `densitySvgPath` before they are accessed in the canvas rendering `useEffect` block, resolving a runtime `ReferenceError: Cannot access before initialization`.
+- **Repaired Test Suite and Mocks**:
+  - Dynamically assigned `scrubBarRef` depending on whether `showEnergy` is active, allowing JSDOM tests to measure the mocked rect of the energy slider (or Seek lane if hidden), fixing the scrubbing tests.
+  - Added a null check for canvas 2D context (`if (!ctx) return;`) to safely handle JSDOM environments where `canvas.getContext` returns null.
+  - Updated the accessibility fallback rendering of key regions to render the key/scale prefix (`r.key + scale · label`), preserving exact string queries (`queryByText`) behavior for analytical sections in existing tests.
+  - Verified 288/288 Vitest tests pass clean.
+
 ### 2026-06-20: Migrate Timeline to Layered Canvas Architecture & Repair Unit Tests
 
 - **Context**: Transitioned the DAW arrangement timeline from a DOM-based rendering system (slow React updates on zoom, scroll, and playback) to a high-performance Layered Canvas Architecture, resolved interaction issues, and fixed the unit test suite under JSDOM.
