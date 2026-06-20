@@ -496,6 +496,9 @@ const AuditTimeline = ({
   const [showEnergy, setShowEnergy] = useState(defaultShowEnergy);
   const [showBeatGrid, setShowBeatGrid] = useState(defaultShowBeatGrid);
   const [showKeyRegions, setShowKeyRegions] = useState(defaultShowKeyRegions);
+  const [zoomScale, setZoomScale] = useState(1);
+  const lanesScrollRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ scrollLeft: 0, scrollWidth: 1, clientWidth: 1 });
 
   const { scrubRatio, startScrub } = useScrubState(scrubBarRef, duration, onSeek);
   const [showScrubTooltip, setShowScrubTooltip] = useState(false);
@@ -599,6 +602,38 @@ const AuditTimeline = ({
 
   const displayPct = scrubRatio != null ? scrubRatio * 100 : (totalSec > 0 ? (currentTime / totalSec) * 100 : 0);
 
+  const arrangementDensityPoints = useMemo(() => {
+    if (totalSec <= 0) return [];
+    const pointsCount = 120;
+    const samples = [];
+    const instrumentTracks = ['vocals', 'synths', 'guitars', 'bass', 'drums'];
+    const activeClips = localSections.filter(c => instrumentTracks.includes(c.lane));
+
+    for (let i = 0; i < pointsCount; i++) {
+      const t = (i / (pointsCount - 1)) * totalSec;
+      const activeCount = activeClips.filter(c => {
+        const start = c.startTime ?? c.start ?? 0;
+        const dur = c.duration ?? (c.end ? c.end - start : 30);
+        return t >= start && t <= start + dur;
+      }).length;
+      samples.push({ time: t, density: activeCount });
+    }
+    return samples;
+  }, [localSections, totalSec]);
+
+  const densitySvgPath = useMemo(() => {
+    if (arrangementDensityPoints.length === 0) return '';
+    const w = 1000;
+    const h = 40;
+    const maxDensity = 5;
+    const points = arrangementDensityPoints.map((p, idx) => {
+      const x = (idx / (arrangementDensityPoints.length - 1)) * w;
+      const y = h - (p.density / Math.max(1, maxDensity)) * (h - 4);
+      return `${x},${y}`;
+    });
+    return `M 0,${h} L ${points.join(' L ')} L ${w},${h} Z`;
+  }, [arrangementDensityPoints]);
+
   // ── Drag and Resize Actions ──
   const handleMouseDown = useCallback((e, clip, action) => {
     e.preventDefault();
@@ -624,7 +659,7 @@ const AuditTimeline = ({
       if (trackWidth <= 0) return;
 
       const deltaX = e.clientX - dragState.initialX;
-      const deltaSecs = (deltaX / trackWidth) * totalSec;
+      const deltaSecs = (deltaX / (trackWidth * zoomScale)) * totalSec;
 
       setLocalSections((prev) => {
         return prev.map((c) => {
@@ -791,6 +826,17 @@ const AuditTimeline = ({
     setEditingClip(null);
   }, [editingClip, onUpdateSections, localSections]);
 
+  const minimapClips = useMemo(() => {
+    const raw = localSections.filter(c => (c.lane || 'arrangement') === 'arrangement');
+    if (raw.length > 0) return raw;
+    return keyRegions.map(r => ({
+      name: r.label,
+      type: parseSectionType(r.label),
+      startTime: r.start,
+      duration: r.end - r.start,
+    }));
+  }, [localSections, keyRegions]);
+
   return (
     <section
       ref={containerRef}
@@ -821,6 +867,47 @@ const AuditTimeline = ({
           Timeline
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Zoom Level Control */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-surface-3)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-subtle)', height: '23px' }}>
+            <span style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Zoom</span>
+            <button
+              type="button"
+              onClick={() => setZoomScale(z => Math.max(1, z - 0.5))}
+              style={{ background: 'transparent', border: 'none', color: zoomScale > 1 ? 'var(--text-primary)' : 'var(--text-tertiary)', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 4px' }}
+              title="Zoom Out"
+            >
+              -
+            </button>
+            <input
+              type="range"
+              min="1"
+              max="8"
+              step="0.5"
+              value={zoomScale}
+              onChange={(e) => setZoomScale(parseFloat(e.target.value))}
+              style={{ width: '60px', height: '3px', accentColor: 'var(--accent-primary)', cursor: 'pointer', background: 'var(--bg-surface-1)', border: 'none', padding: 0 }}
+            />
+            <button
+              type="button"
+              onClick={() => setZoomScale(z => Math.min(8, z + 0.5))}
+              style={{ background: 'transparent', border: 'none', color: zoomScale < 8 ? 'var(--text-primary)' : 'var(--text-tertiary)', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 4px' }}
+              title="Zoom In"
+            >
+              +
+            </button>
+            {zoomScale > 1 && (
+              <button
+                type="button"
+                onClick={() => setZoomScale(1)}
+                className="ghost"
+                style={{ fontSize: '8px', padding: '1px 4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                title="Reset zoom to fit"
+              >
+                Fit
+              </button>
+            )}
+          </div>
+
           {/* Lane Toggles */}
           <div
             style={{
@@ -926,14 +1013,165 @@ const AuditTimeline = ({
         </div>
       </div>
 
+      {/* 🗺️ BIRD'S-EYE SONG STRUCTURE MINIMAP */}
+      <div
+        style={{
+          height: '26px',
+          background: 'var(--bg-surface-1)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '4px',
+          marginBottom: '10px',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${LANE_LABEL_WIDTH}px`,
+            height: '100%',
+            background: 'var(--bg-surface-3)',
+            borderRight: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 8px',
+            fontSize: '9px',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: 'var(--text-secondary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            flexShrink: 0,
+            boxSizing: 'border-box',
+          }}
+        >
+          🗺️ Overview
+        </div>
+
+        <div
+          style={{
+            flex: 1,
+            height: '100%',
+            position: 'relative',
+            background: '#0c0c0e',
+            cursor: 'pointer',
+          }}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            onSeek && onSeek(pct * totalSec);
+          }}
+        >
+          {minimapClips.map((clip, idx) => {
+            const start = clip.startTime ?? clip.start ?? 0;
+            const dur = clip.duration ?? (clip.end ? clip.end - start : 30);
+            const leftPct = (start / totalSec) * 100;
+            const widthPct = (dur / totalSec) * 100;
+            const typeColor = {
+              intro: 'var(--status-info)',
+              verse: 'var(--accent-primary)',
+              chorus: 'var(--status-success)',
+              bridge: 'var(--status-warning)',
+              prechorus: 'var(--text-tertiary)',
+              outro: 'var(--status-error)',
+              solo: '#9b59b6',
+              breakdown: '#1abc9c',
+              interlude: '#e67e22',
+            };
+            const color = typeColor[clip.type] || 'var(--bg-surface-3)';
+            return (
+              <div
+                key={idx}
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%`,
+                  width: `${widthPct}%`,
+                  top: 2,
+                  bottom: 2,
+                  background: color,
+                  opacity: 0.7,
+                  borderRadius: '1.5px',
+                  border: '1px solid rgba(0,0,0,0.2)',
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0 4px',
+                  boxSizing: 'border-box',
+                  overflow: 'hidden',
+                }}
+              >
+                <span style={{ fontSize: '7px', color: '#fff', fontWeight: 'bold', fontFamily: 'monospace', textTransform: 'uppercase', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                  {clip.name || clip.type}
+                </span>
+              </div>
+            );
+          })}
+
+          {zoomScale > 1 && (() => {
+            const scrollLeft = scrollState.scrollLeft || 0;
+            const scrollWidth = scrollState.scrollWidth || 1;
+            const clientWidth = scrollState.clientWidth || 1;
+            const leftPct = (scrollLeft / scrollWidth) * 100;
+            const widthPct = (clientWidth / scrollWidth) * 100;
+
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${leftPct}%`,
+                  width: `${widthPct}%`,
+                  top: 0,
+                  bottom: 0,
+                  border: '1.5px solid #fff',
+                  background: 'rgba(255,255,255,0.08)',
+                  boxShadow: '0 0 8px rgba(255,255,255,0.25)',
+                  pointerEvents: 'none',
+                  zIndex: 2,
+                }}
+              />
+            );
+          })()}
+
+          <div
+            style={{
+              position: 'absolute',
+              left: `${(currentTime / totalSec) * 100}%`,
+              top: 0,
+              bottom: 0,
+              width: '1.5px',
+              background: '#00e5ff',
+              boxShadow: '0 0 4px #00e5ff',
+              zIndex: 3,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+      </div>
+
       {/* Lanes container */}
       <div
+        onScroll={(e) => {
+          const { scrollLeft, scrollWidth, clientWidth } = e.currentTarget;
+          setScrollState({ scrollLeft, scrollWidth, clientWidth });
+        }}
+        ref={lanesScrollRef}
         style={{
           background: 'var(--bg-surface-2)',
           border: '1px solid var(--border-subtle)',
           position: 'relative',
+          overflowX: 'auto',
+          width: '100%',
         }}
       >
+        <div
+          style={{
+            width: `${100 * zoomScale}%`,
+            minWidth: '100%',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
         {/* Vertical Beat Grid Overlay */}
         {showBeatGrid && analysis.beat_times && (
           <div
@@ -1249,6 +1487,41 @@ const AuditTimeline = ({
           );
         })}
 
+        {/* Interactive Arrangement Density Map Lane */}
+        <Lane label="Density">
+          <div
+            onMouseDown={startScrub}
+            style={{
+              height: `${LANE_HEIGHT}px`,
+              position: 'relative',
+              background: 'var(--bg-surface-1)',
+              overflow: 'hidden',
+              cursor: 'pointer',
+            }}
+            title="Arrangement density (active overlapping instrument clips) · Click to seek"
+          >
+            <svg viewBox="0 0 1000 40" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}>
+              <defs>
+                <linearGradient id="densityGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.45" />
+                  <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0.05" />
+                </linearGradient>
+              </defs>
+              <path d={densitySvgPath} fill="url(#densityGrad)" stroke="var(--accent-primary)" strokeWidth="1.2" />
+            </svg>
+            {/* Playhead line overlay inside the lane */}
+            <div style={{
+              position: 'absolute',
+              left: `${displayPct}%`,
+              top: 0,
+              bottom: 0,
+              width: '1px',
+              background: 'rgba(255,255,255,0.15)',
+              pointerEvents: 'none',
+            }} />
+          </div>
+        </Lane>
+
         {/* Markers Lane */}
         <Lane label="Markers" borderless>
           <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer', position: 'relative' }}>
@@ -1298,6 +1571,160 @@ const AuditTimeline = ({
             </div>
           );
         })()}
+        </div>
+      </div>
+
+      {/* 📊 STRUCTURE & COMPOSITION ANALYTICS MAP */}
+      <div
+        style={{
+          marginTop: '20px',
+          background: 'var(--bg-surface-1)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '4px',
+          padding: '16px',
+          fontFamily: 'JetBrains Mono, monospace',
+        }}
+      >
+        <h3
+          style={{
+            margin: 0,
+            fontSize: '11px',
+            fontWeight: 600,
+            color: 'var(--accent-primary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Arrangement Structure & Composition Analytics
+        </h3>
+
+        {/* Segmented horizontal timeline bar */}
+        {totalSec > 0 && (
+          <div
+            style={{
+              height: '16px',
+              borderRadius: '3px',
+              display: 'flex',
+              overflow: 'hidden',
+              background: 'var(--bg-surface-3)',
+              marginBottom: '16px',
+              border: '1px solid rgba(255,255,255,0.04)',
+            }}
+          >
+            {minimapClips.map((clip, idx) => {
+              const dur = clip.duration ?? 30;
+              const pct = (dur / totalSec) * 100;
+              const typeColor = {
+                intro: 'var(--status-info)',
+                verse: 'var(--accent-primary)',
+                chorus: 'var(--status-success)',
+                bridge: 'var(--status-warning)',
+                prechorus: 'var(--text-tertiary)',
+                outro: 'var(--status-error)',
+                solo: '#9b59b6',
+                breakdown: '#1abc9c',
+                interlude: '#e67e22',
+              };
+              const color = typeColor[clip.type] || 'var(--bg-surface-3)';
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    width: `${pct}%`,
+                    height: '100%',
+                    background: color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '8px',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    borderRight: idx < minimapClips.length - 1 ? '1px solid rgba(0,0,0,0.15)' : 'none',
+                  }}
+                  title={`${clip.name || clip.type} · ${formatTime(dur)} (${Math.round(pct)}%)`}
+                >
+                  {pct > 5 && (clip.name || clip.type)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Grid of section metadata statistics */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '10px',
+          }}
+        >
+          {(() => {
+            const groups = {};
+            minimapClips.forEach(clip => {
+              const type = clip.type || 'custom';
+              const dur = clip.duration ?? 30;
+              if (!groups[type]) {
+                groups[type] = { count: 0, totalDuration: 0 };
+              }
+              groups[type].count += 1;
+              groups[type].totalDuration += dur;
+            });
+
+            return Object.entries(groups).map(([type, stats]) => {
+              const pct = totalSec > 0 ? (stats.totalDuration / totalSec) * 100 : 0;
+              const typeColor = {
+                intro: 'var(--status-info)',
+                verse: 'var(--accent-primary)',
+                chorus: 'var(--status-success)',
+                bridge: 'var(--status-warning)',
+                prechorus: 'var(--text-tertiary)',
+                outro: 'var(--status-error)',
+                solo: '#9b59b6',
+                breakdown: '#1abc9c',
+                interlude: '#e67e22',
+              };
+              const color = typeColor[type] || 'var(--bg-surface-3)';
+
+              return (
+                <div
+                  key={type}
+                  style={{
+                    background: 'var(--bg-surface-2)',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    borderLeft: `3px solid ${color}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                    {type}
+                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                      {formatTime(stats.totalDuration)}
+                    </span>
+                    <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>
+                      {Math.round(pct)}%
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '8px', color: 'var(--text-tertiary)' }}>
+                    {stats.count} occurrences
+                  </span>
+                </div>
+              );
+            });
+          })()}
+        </div>
       </div>
 
       {/* Clip Edit Modal */}

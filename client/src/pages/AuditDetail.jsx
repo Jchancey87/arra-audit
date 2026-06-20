@@ -14,6 +14,7 @@ import { useTechniques } from '../hooks/useTechniques.js';
 import { recordLinkOpen } from '../utils/shareAnalytics';
 import { normalizeResponse, isTaggedResponse, formatTimestampLabel } from '../utils/responseShape';
 import { useScrollytellingSeek, useMostVisible } from '../utils/scrollytelling';
+import AuditTimeline from '../components/audit/AuditTimeline';
 
 
 const AuditDetail = () => {
@@ -174,6 +175,16 @@ const AuditDetail = () => {
 
   const { activeId: activeAnswerId } = useMostVisible(scrollytellingItems);
 
+  const arrangementSections = useMemo(() => {
+    const raw = audit?.responses?.['arrangement-timeline'];
+    if (!raw) return [];
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+    } catch (e) {
+      return [];
+    }
+  }, [audit?.responses]);
+
   if (loading) return <div className="loading">Loading audit schematic...</div>;
   if (error || !audit) return <div className="error">{error || 'Audit not found'}</div>;
 
@@ -264,14 +275,14 @@ const AuditDetail = () => {
 
         {error && <div className="error">{error}</div>}
 
-        {/* 🧬 SIGNAL AUDIO ANALYSIS MATRIX (READ-ONLY) */}
+        {/* 🧬 SIGNAL AUDIO ANALYSIS TIMELINE (READ-ONLY) */}
         {song && song.audioAnalysisStatus === 'success' && song.audioAnalysis && (
           <div className="panel" style={{ background: 'var(--bg-panel)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '2px', padding: '20px', marginBottom: '25px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowAnalysis(!showAnalysis)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: '12px' }} onClick={() => setShowAnalysis(!showAnalysis)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ff6600' }}><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
                 <h3 style={{ margin: 0, fontFamily: 'Roboto Mono', fontSize: '13px', color: '#ff6600' }}>
-                  ANALYSIS MATRIX // KEY TRACK PROPERTIES
+                  SONG STRUCTURAL TIMELINE // SCHEMA VISUALIZER
                 </h3>
               </div>
               <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: '10px', fontFamily: 'Roboto Mono' }}>
@@ -280,308 +291,18 @@ const AuditDetail = () => {
             </div>
 
             {showAnalysis && (
-              <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '15px' }}>
-                {/* Active Values Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                  background: '#2a2a2a',
-                  gap: '1px',
-                  border: '1px solid #2a2a2a',
-                  borderRadius: '2px',
-                  overflow: 'hidden',
-                  marginBottom: '20px'
-                }}>
-                  {[
-                    {
-                      label: 'TEMPO / BPM',
-                      value: song.audioOverrides?.tempo_bpm || song.audioAnalysis.tempo_bpm,
-                      conf: song.audioAnalysis.tempo_confidence,
-                      isOverridden: !!song.audioOverrides?.tempo_bpm
-                    },
-                    {
-                      label: 'TONAL KEY',
-                      value: `${song.audioOverrides?.key || song.audioAnalysis.key} ${song.audioOverrides?.scale || song.audioAnalysis.scale || ''}`,
-                      conf: song.audioAnalysis.key_confidence,
-                      isOverridden: !!song.audioOverrides?.key
-                    },
-                    {
-                      label: 'METER / TIME',
-                      value: song.audioOverrides?.estimated_meter || song.audioAnalysis.estimated_meter,
-                      conf: song.audioAnalysis.meter_confidence,
-                      isOverridden: !!song.audioOverrides?.estimated_meter
-                    },
-                    {
-                      label: 'LOUDNESS (INTEG)',
-                      value: `${song.audioAnalysis.loudness_integrated} LUFS`,
-                      conf: 0.99,
-                      isReadOnly: true
-                    }
-                  ].map((item, idx) => {
-                    const valNum = parseFloat(item.conf);
-                    const isHigh = valNum > 0.8;
-                    const isMed = valNum >= 0.5 && valNum <= 0.8;
-                    const badgeColor = isHigh ? '#4ade80' : isMed ? '#fbbf24' : '#f87171';
-                    const badgeText = isHigh ? 'CONFIDENT' : isMed ? 'PROBABLE' : 'REVIEW';
-
-                    // Extract parameters for visualizers
-                    const bpm = parseFloat(song.audioOverrides?.tempo_bpm || song.audioAnalysis?.tempo_bpm || 120);
-                    const detectedKey = (song.audioOverrides?.key || song.audioAnalysis?.key || '').trim();
-                    const meter = song.audioOverrides?.estimated_meter || song.audioAnalysis?.estimated_meter || '4/4';
-                    const beatsPerMeasure = parseInt(meter.split('/')[0]) || 4;
-                    const currentBeat = Math.floor(currentTime * (bpm / 60)) % beatsPerMeasure;
-                    const lufsVal = parseFloat(song.audioAnalysis?.loudness_integrated) || -14;
-                    const lufsPercent = Math.max(5, Math.min(100, ((lufsVal - (-24)) / (-4 - (-24))) * 100));
-
-                    return (
-                      <div key={idx} style={{ background: '#18181c', display: 'flex', flexDirection: 'column', padding: '12px', border: '1px solid rgba(255,255,255,0.02)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '9px', fontFamily: 'Inter', fontWeight: '700', color: '#8a8a8a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                            {item.label}
-                          </span>
-                          {!item.isReadOnly && (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                              <span style={{ fontSize: '8px', fontFamily: 'Roboto Mono', color: badgeColor, display: 'flex', alignItems: 'center', gap: '3px', lineHeight: 1 }}>
-                                <span style={{ 
-                                  width: '4.5px', 
-                                  height: '4.5px', 
-                                  borderRadius: '50%', 
-                                  background: badgeColor,
-                                  boxShadow: `0 0 4px ${badgeColor}`,
-                                  display: 'inline-block'
-                                }} />
-                                {badgeText} ({Math.round(valNum * 100)}%)
-                              </span>
-                              <div style={{ width: '45px', height: '2px', background: '#282828', borderRadius: '1px', overflow: 'hidden' }}>
-                                <div style={{ width: `${Math.round(valNum * 100)}%`, height: '100%', background: badgeColor }} />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                          <div style={{ fontSize: '20px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#ffffff', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                            {item.value}
-                            {item.isOverridden && (
-                              <span style={{ fontSize: '8px', color: '#ff6600', fontWeight: 'normal' }}>(override)</span>
-                            )}
-                          </div>
-
-                          {/* Micro Visualizers */}
-                          {item.label.includes('TEMPO') && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                              <span className={isPlaying ? 'tempo-pulse' : ''} style={{
-                                width: '8px',
-                                height: '8px',
-                                borderRadius: '50%',
-                                background: '#ff6600',
-                                boxShadow: '0 0 6px #ff6600',
-                                display: 'inline-block',
-                                animation: isPlaying ? `pulse-led ${60 / bpm}s ease-in-out infinite` : 'none',
-                                opacity: isPlaying ? 1 : 0.4
-                              }} />
-                              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.35)', fontFamily: 'Inter' }}>
-                                {isPlaying ? 'pulsing grid sync' : 'play to pulse'}
-                              </span>
-                            </div>
-                          )}
-
-                          {item.label.includes('TONAL KEY') && (
-                            <div style={{ display: 'flex', gap: '2px', marginTop: '8px', flexWrap: 'wrap' }}>
-                              {['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'].map(k => {
-                                const isActive = detectedKey.toLowerCase() === k.toLowerCase() || detectedKey.toLowerCase().startsWith(k.toLowerCase());
-                                return (
-                                  <span
-                                    key={k}
-                                    style={{
-                                      fontSize: '7px',
-                                      fontFamily: 'Roboto Mono',
-                                      padding: '1px 3px',
-                                      borderRadius: '1px',
-                                      background: isActive ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255,255,255,0.02)',
-                                      color: isActive ? '#00e5ff' : 'rgba(255,255,255,0.25)',
-                                      border: isActive ? '1px solid rgba(0, 229, 255, 0.3)' : '1px solid transparent',
-                                      fontWeight: isActive ? 'bold' : 'normal'
-                                    }}
-                                  >
-                                    {k}
-                                  </span>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {item.label.includes('METER') && (
-                            <div style={{ display: 'flex', gap: '3px', marginTop: '10px', alignItems: 'center' }}>
-                              {Array.from({ length: beatsPerMeasure }).map((_, bIdx) => {
-                                const isCurrent = isPlaying && currentBeat === bIdx;
-                                return (
-                                  <div
-                                    key={bIdx}
-                                    style={{
-                                      width: '10px',
-                                      height: '6px',
-                                      borderRadius: '1px',
-                                      background: isCurrent ? '#4ade80' : 'rgba(255,255,255,0.06)',
-                                      border: `1px solid ${isCurrent ? '#4ade80' : 'rgba(255,255,255,0.08)'}`,
-                                      boxShadow: isCurrent ? '0 0 6px #4ade80' : 'none',
-                                      transition: 'all 0.08s ease'
-                                    }}
-                                  />
-                                );
-                              })}
-                              <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.3)', marginLeft: '3px', fontFamily: 'Roboto Mono' }}>
-                                {isPlaying ? `B${currentBeat + 1}` : 'stop'}
-                              </span>
-                            </div>
-                          )}
-
-                          {item.label.includes('LOUDNESS') && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '10px', width: '100%' }}>
-                              <div style={{ height: '4px', background: 'rgba(255,255,255,0.04)', borderRadius: '1px', position: 'relative', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div
-                                  style={{
-                                    height: '100%',
-                                    width: `${lufsPercent}%`,
-                                    background: 'linear-gradient(90deg, #22c55e 60%, #fbbf24 85%, #f87171 100%)',
-                                    boxShadow: isPlaying ? '0 0 4px rgba(34,197,94,0.4)' : 'none',
-                                    transition: 'width 0.3s ease',
-                                    animation: isPlaying ? 'vu-level-bounce 0.15s ease infinite alternate' : 'none'
-                                  }}
-                                />
-                              </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', color: 'rgba(255,255,255,0.25)', fontFamily: 'Roboto Mono' }}>
-                                <span>-24 LUFS</span>
-                                <span>-4 LUFS</span>
-                                </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Timeline lanes */}
-                {duration > 0 && (
-                  <div style={{ background: 'var(--bg-workspace)', padding: '15px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '10px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.45)', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        REAL-TIME TEMPORAL LANES
-                      </span>
-                      <span>{formatTimestamp(currentTime)} / {formatTimestamp(duration)}</span>
-                    </div>
-                    
-                    {/* Interactive Playhead Lane (Step Sequencer Grid) */}
-                    <div 
-                      style={{ 
-                        position: 'relative', 
-                        height: '34px', 
-                        background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 1px, transparent 1px, transparent 20px), #0e0e11', 
-                        borderBottom: '1px solid rgba(255,255,255,0.06)', 
-                        borderTop: '1px solid rgba(255,255,255,0.06)', 
-                        cursor: 'pointer',
-                        borderRadius: '2px',
-                        overflow: 'hidden'
-                      }}
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pct = (e.clientX - rect.left) / rect.width;
-                        seekTo(pct * duration);
-                      }}
-                    >
-                      {/* Modulated Step Sequencer Ticks */}
-                      {(song.audioAnalysis.beat_times || []).map((t, i) => {
-                        const isDownbeat = (song.audioAnalysis.downbeat_times || []).some(db => Math.abs(db - t) < 0.08);
-                        const isMidBeat = !isDownbeat && (i % 2 === 0);
-                        const height = isDownbeat ? '24px' : isMidBeat ? '15px' : '9px';
-                        const top = isDownbeat ? '5px' : isMidBeat ? '9px' : '12px';
-                        const background = isDownbeat 
-                          ? '#ff6600' 
-                          : isMidBeat 
-                            ? '#00e5ff' 
-                            : 'rgba(255, 255, 255, 0.15)';
-                        const glow = isDownbeat 
-                          ? '0 0 6px rgba(255, 102, 0, 0.6)' 
-                          : isMidBeat 
-                            ? '0 0 4px rgba(0, 229, 255, 0.4)' 
-                            : 'none';
-
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              position: 'absolute',
-                              left: `${(t / duration) * 100}%`,
-                              top,
-                              width: isDownbeat ? '2px' : '1px',
-                              height,
-                              background,
-                              boxShadow: glow,
-                              borderRadius: '1px'
-                            }}
-                          />
-                        );
-                      })}
-
-                      {/* Playhead */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: `${(currentTime / duration) * 100}%`,
-                          top: 0,
-                          width: '1.5px',
-                          height: '100%',
-                          background: '#00e5ff',
-                          boxShadow: '0 0 6px #00e5ff',
-                          zIndex: 10
-                        }}
-                      >
-                        <div style={{ 
-                          position: 'absolute', 
-                          top: 0, 
-                          left: '-5px', 
-                          width: '11px', 
-                          height: '8px', 
-                          background: '#00e5ff',
-                          clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)'
-                        }} />
-                      </div>
-                    </div>
-
-                    {/* Tonal lane (Sections) */}
-                    <div style={{ position: 'relative', height: '24px', background: 'var(--bg-workspace)', marginTop: '4px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-                      {(song.audioAnalysis.sectional_key_candidates || []).map((sect, i, arr) => {
-                        const pctWidth = 100 / arr.length;
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              width: `${pctWidth}%`,
-                              height: '100%',
-                              borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                              padding: '4px',
-                              boxSizing: 'border-box',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'center',
-                              background: Math.abs(currentTime - (duration / arr.length) * (i + 0.5)) < (duration / arr.length / 2) && isPlaying ? 'rgba(255,102,0,0.05)' : 'transparent'
-                            }}
-                          >
-                            <span style={{ fontSize: '8px', color: 'rgba(255,255,255,0.4)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {sect.section}
-                            </span>
-                            <span style={{ fontSize: '9px', fontWeight: 'bold', fontFamily: 'Roboto Mono', color: '#ff6600' }}>
-                              {sect.key} {sect.scale === 'minor' ? 'm' : ''}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <AuditTimeline
+                song={song}
+                currentTime={currentTime}
+                duration={duration || song.durationSeconds || 0}
+                onSeek={seekTo}
+                markers={audit.bookmarks || []}
+                arrangementSections={arrangementSections}
+                readOnly={true}
+                defaultShowEnergy={true}
+                defaultShowBeatGrid={true}
+                defaultShowKeyRegions={true}
+              />
             )}
           </div>
         )}

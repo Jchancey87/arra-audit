@@ -167,7 +167,7 @@ describe('AuditTimeline', () => {
     it('renders analytical sections from key regions when no arrangement sections', () => {
       render(<AuditTimeline {...baseProps()} />);
       // Should show section labels from key regions
-      expect(screen.getByText('Intro')).toBeDefined();
+      expect(screen.getAllByText('Intro')[0]).toBeDefined();
     });
 
     it('renders user-created arrangement sections when provided', () => {
@@ -176,8 +176,8 @@ describe('AuditTimeline', () => {
         { id: 's2', name: 'Verse', type: 'verse', startTime: 30, duration: 60 },
       ];
       render(<AuditTimeline {...baseProps({ arrangementSections: sections })} />);
-      expect(screen.getByText('Intro')).toBeDefined();
-      expect(screen.getByText('Verse')).toBeDefined();
+      expect(screen.getAllByText('Intro')[0]).toBeDefined();
+      expect(screen.getAllByText('Verse')[0]).toBeDefined();
     });
 
     it('shows + Section button when onAddSection provided', () => {
@@ -370,7 +370,7 @@ describe('AuditTimeline', () => {
         { id: 'u1', name: 'My Intro', type: 'intro', startTime: 0, duration: 20 },
       ];
       render(<AuditTimeline {...baseProps({ song, arrangementSections })} />);
-      expect(screen.getByText('My Intro')).toBeDefined();
+      expect(screen.getAllByText('My Intro')[0]).toBeDefined();
       // Should NOT show analytical sections
       expect(screen.queryByText('Verse 1')).toBeNull();
     });
@@ -436,7 +436,7 @@ describe('AuditTimeline', () => {
       });
       render(<AuditTimeline {...baseProps({ song, duration: 16 })} />);
       // With no beat_times, sections are proportionally spaced as analytical sections
-      expect(screen.getByText('Intro')).toBeDefined();
+      expect(screen.getAllByText('Intro')[0]).toBeDefined();
     });
   });
 

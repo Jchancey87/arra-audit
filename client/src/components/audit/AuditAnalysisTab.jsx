@@ -3,8 +3,6 @@ import AnalysisPipelineStates from './AnalysisPipelineStates';
 import GuidedStepBar from './GuidedStepBar';
 import GuidedListenEmpty from './GuidedListenEmpty';
 import FallbackTemplateNotice from './FallbackTemplateNotice';
-
-const TrackAnalysisModules = lazy(() => import('./TrackAnalysisModules'));
 const AuditTimeline = lazy(() => import('./AuditTimeline'));
 
 const TabLoadingPanel = ({ label = 'Loading…' }) => (
@@ -56,9 +54,6 @@ const AuditAnalysisTab = ({
 
     {song?.audioAnalysisStatus === 'success' && song.audioAnalysis && (
       <>
-        <Suspense fallback={<TabLoadingPanel label="Loading analysis modules…" />}>
-          <TrackAnalysisModules song={song} onChangeOverride={onChangeOverride} onVerifyAnalysis={onVerifyAnalysis} />
-        </Suspense>
         <Suspense fallback={<TabLoadingPanel label="Loading timeline…" />}>
           <AuditTimeline
             song={song}
