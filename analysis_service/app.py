@@ -3,6 +3,7 @@ import sys
 import asyncio
 import subprocess
 import tempfile
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -11,12 +12,34 @@ from typing import Optional
 # Add current folder to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from analyzer import download_and_analyze, analyze_sketch_file, analyze_segment
+from analyzer import (
+    download_and_analyze,
+    analyze_sketch_file,
+    analyze_segment,
+    purge_stale_temp_files,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Phase 2.3 v2: run temp-file TTL purge at startup. Configurable via
+    `TEMP_CACHE_TTL_SECONDS` env (default 24h). Any purge failures are
+    logged but never abort startup — a stuck file is a maintenance issue,
+    not a startup blocker."""
+    ttl = int(os.environ.get("TEMP_CACHE_TTL_SECONDS", str(24 * 3600)))
+    try:
+        purged = purge_stale_temp_files(max_age_seconds=ttl)
+        print(f"[Startup] Temp cache TTL={ttl}s, purged {purged} stale file(s)")
+    except Exception as e:
+        print(f"[Startup] Temp cache purge failed: {e}", file=sys.stderr)
+    yield
+
 
 app = FastAPI(
     title="Arra Audio Analysis Service",
     description="Microservice for extracting BPM, key, scale, and meters from audio files.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Enable CORS for configured origins only (credentials require explicit origins)

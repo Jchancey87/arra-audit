@@ -8,6 +8,7 @@ import subprocess
 import threading
 import time
 import gc
+import glob
 import requests
 
 
@@ -770,6 +771,47 @@ def analyze_audio_file(file_path, yt_id):
     }
 
 
+TEMP_FILE_PREFIX = "arra_temp_"
+"""Filename prefix for the analyzer's temp-cache. Every audio download
+writes `arra_temp_{yt_id}.{ext}` (and any `.part`/`.ytdl` siblings) into
+the OS temp dir. The TTL purge scans this prefix only — never arbitrary
+/tmp contents — so we never trash a file another tool owns."""
+
+
+def purge_stale_temp_files(max_age_seconds=86400):
+    """Phase 2.3 v2: TTL cleanup for the /tmp audio cache.
+
+    Scans `tempfile.gettempdir()/arra_temp_*` and removes any file whose
+    mtime is older than `max_age_seconds` (default 24h). Returns the count
+    of files removed. Errors per-file are logged but never raised — a
+    single unlink failure must not break the purge loop or block app
+    startup.
+
+    Called at app startup (see app.py lifespan) and exposed for ad-hoc
+    invocation from a route if needed. Safe to run while another analysis
+    is in flight: the active download writes to a unique filename under
+    the same prefix, and mtime-based deletion only affects files that
+    haven't been touched in a full TTL window.
+    """
+    temp_dir = tempfile.gettempdir()
+    cutoff = time.time() - max_age_seconds
+    purged = 0
+    for path in glob.glob(os.path.join(temp_dir, f"{TEMP_FILE_PREFIX}*")):
+        try:
+            if not os.path.isfile(path):
+                continue
+            mtime = os.path.getmtime(path)
+            if mtime < cutoff:
+                os.remove(path)
+                purged += 1
+                print(f"[Analyzer] Purged stale temp file: {path} (age={int(time.time() - mtime)}s)")
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            print(f"[Analyzer] Failed to purge {path}: {e}", file=sys.stderr)
+    return purged
+
+
 def download_and_analyze(youtube_url, yt_id, callback_url=None):
     """
     Downloads audio via yt-dlp to a temporary directory, analyzes it,
@@ -825,23 +867,28 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
             if filename.startswith(f"arra_temp_{yt_id}"):
                 downloaded_file = os.path.join(temp_dir, filename)
                 break
-                
+
         if not downloaded_file or not os.path.exists(downloaded_file):
             raise Exception("Could not locate downloaded audio file.")
-            
+
         print(f"[Analyzer] Download complete: {downloaded_file}")
-        
-        # Analyze
-        analysis_data = analyze_audio_file(downloaded_file, yt_id)
-        
-        # Clean up audio file
+
         try:
-            os.remove(downloaded_file)
-            print(f"[Analyzer] Removed temp file: {downloaded_file}")
-        except Exception as cleanup_err:
-            print(f"[Analyzer] Cleanup warning: {cleanup_err}", file=sys.stderr)
-            
-        # Post callback if specified
+            # Analyze
+            analysis_data = analyze_audio_file(downloaded_file, yt_id)
+        finally:
+            # Clean up audio file even if analysis raises (so a crash
+            # mid-analysis doesn't leak the file until the next TTL pass).
+            try:
+                os.remove(downloaded_file)
+                print(f"[Analyzer] Removed temp file: {downloaded_file}")
+            except FileNotFoundError:
+                pass
+            except Exception as cleanup_err:
+                print(f"[Analyzer] Cleanup warning: {cleanup_err}", file=sys.stderr)
+
+        # Post success callback if specified (only on successful analysis;
+        # the `raise` in the except below fires the failure callback).
         if callback_url:
             print(f"[Analyzer] Posting results to callback: {callback_url}")
             resp = requests.post(callback_url, json={
