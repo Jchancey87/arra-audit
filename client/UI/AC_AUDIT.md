@@ -63,9 +63,7 @@
 
 | Status | Evidence | Notes |
 |---|---|---|
-| ✅ Implemented | `AuditTimeline.jsx:554-555` — visible time readout. `AuditPanelHeader.jsx:91-92` — `role="status" aria-label="Synchronized"`. |
-
-**Fix notes:** For full live-region support, the playhead time would need `aria-live="polite"`. Currently updated by React render on rAF — added as a future enhancement in `HANDOFF_P0_P4.md`.
+| ✅ Implemented | `AuditTimeline.jsx:565-575` and `ArrangementTimelineWidget.jsx:431-450` — visible time readouts. `client/src/utils/playheadAnnouncer.js` — `usePlayheadAnnouncer(currentTime, duration, { intervalMs=5000 })` returns a throttled verbose string ("Playhead at 1 minute 23 seconds of 3 minutes 45 seconds") via `aria-live="polite"` + `aria-atomic="true"` + sr-only style. Throttled to 5s to avoid screen-reader flood. | `role="status"` + `aria-atomic="true"` ensures the whole phrase is re-announced when it changes. 11 vitest tests in `playheadAnnouncer.test.js`. |
 
 ---
 
@@ -108,13 +106,12 @@
 | AC-03 Icon-only button labels | ✅ |
 | AC-04 No color-only meaning | ✅ |
 | AC-05 Focus visible | ✅ |
-| AC-06 Playhead accessibility | ✅ (partial — see notes) |
+| AC-06 Playhead accessibility | ✅ |
 | AC-07 Error/success announcements | ✅ |
 | AC-08 High contrast | ✅ (added Phase 4.1) |
 | AC-09 Zoom + small viewport | 🟡 (depends on 4.2) |
 
 **Outstanding (deferred):**
-- AC-06 — live-region for playhead time updates (low priority; track in `HANDOFF_P0_P4.md`).
 - AC-09 — Lighthouse run after Phase 4.2 lands.
 
 ---

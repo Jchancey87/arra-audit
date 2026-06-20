@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
+import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../utils/playheadAnnouncer.js';
 
 // ── Section type colors ──────────────────────────────────────────────────────
 const TYPE_COLORS = {
@@ -131,6 +132,9 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const totalDuration  = song?.durationSeconds
     || sortedBlocks.reduce((acc, b) => acc + (parseInt(b.duration) || 0), 0)
     || 120;
+
+  // AC-06: throttled sr-only live-region announcement for the playhead
+  const playheadAnnouncement = usePlayheadAnnouncer(currentTime, totalDuration);
   const contentWidth   = Math.max(600, totalDuration * pxPerSec);
   const selectedBlock  = sortedBlocks.find(b => b.id === selectedBlockId);
 
@@ -429,6 +433,29 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
               </span>
             )}
           </h3>
+
+          {/* AC-06: playhead readout for sighted users + sr-only live region for AT */}
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: '11px',
+              color: 'rgba(255,255,255,0.45)',
+              fontFamily: '"Roboto Mono", monospace',
+              padding: '2px 8px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '3px',
+            }}
+          >
+            {formatTime(currentTime)} / {formatTime(totalDuration)}
+          </span>
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={playheadSrOnlyStyle}
+          >
+            {playheadAnnouncement}
+          </div>
 
           {/* BPM input */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>

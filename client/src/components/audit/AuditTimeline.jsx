@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../../utils/playheadAnnouncer.js';
 
 const LANE_HEIGHT = 40;
 
@@ -495,6 +496,7 @@ const AuditTimeline = ({
   const { scrubX, startScrub } = useScrubState(waveformRef, duration, onSeek);
   const [showScrubTooltip, setShowScrubTooltip] = useState(false);
   const [tooltipMounted, setTooltipMounted] = useState(false);
+  const playheadAnnouncement = usePlayheadAnnouncer(currentTime, duration);
 
   useEffect(() => {
     setShowScrubTooltip(scrubX != null);
@@ -564,6 +566,16 @@ const AuditTimeline = ({
           >
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
+          {/* AC-06: sr-only live region so assistive tech can hear the playhead
+              position. Throttled to every 5s to avoid screen-reader flood. */}
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={playheadSrOnlyStyle}
+          >
+            {playheadAnnouncement}
+          </div>
         </div>
       </div>
 
