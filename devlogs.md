@@ -8,6 +8,21 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Migrate Timeline to Layered Canvas Architecture & Repair Unit Tests
+
+- **Context**: Transitioned the DAW arrangement timeline from a DOM-based rendering system (slow React updates on zoom, scroll, and playback) to a high-performance Layered Canvas Architecture, resolved interaction issues, and fixed the unit test suite under JSDOM.
+- **Completed Refactoring**:
+  - Replaced the timeline SVG waveform, playhead, sections, and track blocks with a high-DPI scaled HTML5 `<canvas>` rendering pipeline.
+  - Added click and contextMenu event handlers to map viewport clicks to corresponding timeline models.
+- **Fixed Bugs and Missing Interactive Actions**:
+  - Resolved compile syntax errors caused by obsolete ticker/ruler remnants in `ArrangementTimelineWidget.jsx`.
+  - Fixed track block click selection logic inside `handleDragUp` for `track-block-move` when the block was clicked rather than dragged.
+- **Refactored Unit Tests**:
+  - Rewrote the ArrangementTimelineWidget test suite to mock the Canvas 2D context APIs (`fillRect`, `scale`, `measureText`, `roundRect`, etc.) and `getBoundingClientRect` for JSDOM.
+  - Updated tests to trigger `mouseDown` with coordinates mapping back to specific blocks or lanes.
+  - Simulated right-clicks using `{ button: 2 }` in `mouseDown` to verify context menu rendering and behavior.
+  - All 288 client tests now compile and pass cleanly.
+
 ### 2026-06-20: Fix Section Resizing Stale Closures, Add Drag-to-Copy Sections to Tracks, and Build Custom Context Menus
 
 - **Context**: Solved interaction issues in the DAW timeline editor where section blocks could not be resized after creation, implemented an intuitive drag-to-copy cloning interaction to copy sections onto instrument lanes, and built rich right-click context menus for faster editing.
