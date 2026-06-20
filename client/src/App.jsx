@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import StyleProvider from './styles/global';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import ImportSong from './pages/ImportSong';
-import AuditCreate from './pages/AuditCreate';
-import AuditForm from './pages/AuditForm';
-import AuditDetail from './pages/AuditDetail';
-import TechniqueNotebook from './pages/TechniqueNotebook';
-import Trash from './pages/Trash';
-import Settings from './pages/Settings';
-import StudyPlannerDashboard from './pages/StudyPlannerDashboard';
-import StudySessionWorkspace from './pages/StudySessionWorkspace';
-import SketchCompare from './pages/SketchCompare';
 import ResearchSummaryRenderer from './components/ResearchSummaryRenderer';
 import ErrorBoundary from './components/ErrorBoundary';
+import PageFallback from './components/PageFallback';
 import { useTechniques } from './hooks/useTechniques.js';
+
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const ImportSong = lazy(() => import('./pages/ImportSong.jsx'));
+const AuditCreate = lazy(() => import('./pages/AuditCreate.jsx'));
+const AuditForm = lazy(() => import('./pages/AuditForm.jsx'));
+const AuditDetail = lazy(() => import('./pages/AuditDetail.jsx'));
+const TechniqueNotebook = lazy(() => import('./pages/TechniqueNotebook.jsx'));
+const Trash = lazy(() => import('./pages/Trash.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const StudyPlannerDashboard = lazy(() => import('./pages/StudyPlannerDashboard.jsx'));
+const StudySessionWorkspace = lazy(() => import('./pages/StudySessionWorkspace.jsx'));
+const SketchCompare = lazy(() => import('./pages/SketchCompare.jsx'));
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -413,19 +415,138 @@ const AppContent = () => {
             <ErrorBoundary>
               <Routes>
                 <Route path="/login" element={<Login />} />
-                <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
-                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                <Route path="/import" element={<PrivateRoute><ImportSong /></PrivateRoute>} />
-                <Route path="/audit/create/:songId" element={<PrivateRoute><AuditCreate /></PrivateRoute>} />
-                <Route path="/audit/form/:auditId" element={<PrivateRoute><AuditForm /></PrivateRoute>} />
-                <Route path="/audit/:id" element={<PrivateRoute><AuditDetail /></PrivateRoute>} />
-                <Route path="/compare/:songId" element={<PrivateRoute><SketchCompare /></PrivateRoute>} />
-                <Route path="/compare/:songId/:sketchId" element={<PrivateRoute><SketchCompare /></PrivateRoute>} />
-                <Route path="/techniques" element={<PrivateRoute><TechniqueNotebook /></PrivateRoute>} />
-                <Route path="/planner" element={<PrivateRoute><StudyPlannerDashboard /></PrivateRoute>} />
-                <Route path="/planner/session/:dayNumber" element={<PrivateRoute><StudySessionWorkspace /></PrivateRoute>} />
-                <Route path="/trash" element={<PrivateRoute><Trash /></PrivateRoute>} />
-                <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+                <Route
+                  path="/"
+                  element={
+                    isAuthenticated ? (
+                      <Suspense fallback={<PageFallback />}>
+                        <Dashboard />
+                      </Suspense>
+                    ) : (
+                      <Navigate to="/login" />
+                    )
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <Dashboard />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/import"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <ImportSong />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/audit/create/:songId"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <AuditCreate />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/audit/form/:auditId"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <AuditForm />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/audit/:id"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <AuditDetail />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/compare/:songId"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <SketchCompare />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/compare/:songId/:sketchId"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <SketchCompare />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/techniques"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <TechniqueNotebook />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/planner"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <StudyPlannerDashboard />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/planner/session/:dayNumber"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <StudySessionWorkspace />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/trash"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <Trash />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <PrivateRoute>
+                      <Suspense fallback={<PageFallback />}>
+                        <Settings />
+                      </Suspense>
+                    </PrivateRoute>
+                  }
+                />
               </Routes>
             </ErrorBoundary>
           </main>
