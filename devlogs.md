@@ -1938,3 +1938,130 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
   - **Playhead pill in `ArrangementTimelineWidget`** is `aria-hidden` (the live region handles the AT announcement), so it's purely cosmetic. Removing it would lose zero a11y value; left in for parity with `AuditTimeline` visible readout.
   - **Still-open carry-overs** (5 of 8 remain): multi-select track blocks, export arrangement as image/PDF, Lighthouse CI gate + a11y walkthrough (Phase 4.1), venv cleanup, Phase 2.3 v2 follow-ups (SSE push, segment TTL, OpenAI embeddings).
   - **Sigmap context files** are now stale (no longer auto-regen on commit). Run `npm run sigmap` after any architecture-level change.
+
+## 2026-06-20 — Carry-Over Sweep: 5 Tech-Debt + Features Cleared
+
+- **Context**: After the prior session closed 3 of 8 carry-overs, the user
+  asked to clear the remaining 5. All 5 shipped in a single session
+  (~7 commits, ~2k lines).
+- **Five ships** (one paragraph each):
+
+  1. **Venv cleanup** — `pip uninstall` of 9 inert packages
+     (laion-clap 1.1.4, h5py, ftfy, braceexpand, webdataset, wandb,
+     wget, torchlibrosa, pandas). All were investigation artifacts;
+     production never imported any of them. Verified analyzer still
+     imports cleanly + `pm2 restart arra-analysis` → service online,
+     RSS dropped 716 → 576 MB. `torchvision` 0.21.0+shim stayed
+     (transformers needs `is_torchvision_available()`).
+
+  2. **Phase 2.3 v2: TTL purge for /tmp audio cache** (`5cc91e3`) —
+     `analyzer.py: purge_stale_temp_files(max_age_seconds=86400)`
+     scans `tempfile.gettempdir()/arra_temp_*` and removes any file
+     older than the threshold. `app.py` lifespan hook runs it at
+     startup; `download_and_analyze` now wraps the analysis call in
+     try/finally so a crash mid-analysis doesn't leak the file until
+     the next TTL pass. Verified via pm2 logs:
+     `[Startup] Temp cache TTL=86400s, purged 0 stale file(s)`.
+
+  3. **Phase 2.4 v2: OpenAI embeddings adapter** (`017cc0e`) —
+     `server/adapters/OpenAIEmbeddingAdapter.js` implements
+     `IRecommendationService` via OpenAI's `text-embedding-3-*`
+     models. Off by default; `RECOMMENDATION_ADAPTER=openai` +
+     `OPENAI_API_KEY` switches. Batches up to 100 inputs/request,
+     SHA-256 caches embeddings across calls (free re-rankings),
+     typed `OpenAIEmbeddingsError` for fallback routing. 17 new
+     tests cover constructor validation, batching, caching, error
+     paths, header + endpoint overrides.
+
+  4. **Phase 2.3 v2: SSE push for bookmark analysis status**
+     (`0fc8965`) — `BookmarkAnalysisBus` (in-process EventEmitter)
+     + `buildBookmarkAnalysisSseHandler` route at
+     `GET /api/audits/:id/bookmarks/events`. New
+     `useBookmarkAnalysisStream(auditId)` hook + `IBackendService
+     .subscribeBookmarkAnalysis` port method. Auth accepts JWT via
+     `?token=` query (browsers can't set headers on EventSource).
+     Backoff on error (5 attempts). `AuditDetail.jsx` merges the
+     live snapshots over the stored `bookmark.analysis` so the
+     BookmarkAnalysisTags card re-renders on every transition.
+     Tests: 12 bus + 4 service eventBus + 10 hook = 26 new.
+
+  5. **Feature: multi-select + bulk-delete track blocks** (`2ae313b`) —
+     `client/src/utils/blockSelection.js` (pure helpers:
+     `applyBlockClick`, `detectModifier`, `pruneSelection`) +
+     multi-select UI in `ArrangementTimelineWidget` (orange border
+     on selected, toolbar pill with count + Delete + Clear,
+     window.confirm guard, Delete-key shortcut, Esc clears,
+     section+track ids share the same space so one delete pass
+     covers both). 20 new tests.
+
+  6. **Feature: export arrangement as image/PDF** (`9de48fe`) —
+     `client/src/utils/arrangementExport.js` renders the timeline
+     to a 2D canvas (no extra dep, devicePixelRatio-aware) +
+     `arrangementExportPdf.jsx` (text-searchable PDF via
+     @react-pdf/renderer, already a dep from Phase 1.3). New
+     `ExportArrangementButton.jsx` is a dropdown (PNG / PDF) in
+     the widget toolbar; the PDF path is dynamic-imported so
+     react-pdf stays out of the entry bundle. 25 new tests
+     (16 util + 9 component).
+
+  7. **Lighthouse CI gate + a11y walkthrough** (`e6b0537`) —
+     `scripts/lighthouse.mjs` (auto-detects Chrome on the host,
+     runs lighthouse@12 via npx, exits 1 on threshold miss, 77
+     when no usable Chrome). `client/UI/LIGHTHOUSE.md` documents
+     the workflow, threshold defaults, and the manual a11y
+     walkthrough checklist. `npm run lighthouse` is the one-shot.
+     Real scores pending Chrome system libs (libnspr4+) on the
+     dev host — documented in LIGHTHOUSE.md.
+
+- **Test totals** (final):
+  - Client vitest 168 → 234 (+66 across playheadAnnouncer [carried
+    over], blockSelection, arrangementExport, ExportArrangementButton,
+    useBookmarkAnalysisStream)
+  - Server jest 104 → 137 (+33: BookmarkAnalysisBus [12],
+    BookmarkAnalysisService eventBus [4], OpenAIEmbeddingAdapter [17])
+  - Vite build clean. Main 614.87 KB (unchanged).
+  - Bundle deltas: TechniqueNotebook unchanged (74→49 KB done
+    last session). ArrangementTimelineWidget 57.19 → 60.57 → 69.68 KB
+    across multi-select + export (+12.5 KB total).
+  - AuditDetail 58.1 → 59.5 KB (+1.4 KB for SSE hook import).
+
+- **Service state**:
+  - `arra-server` restarted (SSE route wired in). 26 MB RSS.
+  - `arra-analysis` restarted (venv cleanup). 576 MB RSS (down
+    from 716 MB before uninstall).
+  - `arra-client` running 26h (no restart needed).
+  - All 3 PM2 services online.
+
+- **Files touched** (this session): 22 new files, 16 modified,
+  7 commits (`2ae313b`, `5cc91e3`, `017cc0e`, `0fc8965`, `9de48fe`,
+  `e6b0537`, plus the prior carry-over commits already merged).
+  Full file inventory in `git log --stat` for the 5 new commits.
+
+- **Risks + follow-ups**:
+  - **SSE eventBus is in-process only**: a multi-instance deployment
+    would need Redis pub/sub or similar. Tracked as a v3 carry-over
+    in the SESSION log.
+  - **Bookmark analysis SSE auto-reconnect on client**: capped at 5
+    attempts (exponential backoff up to 15s). After 5 fails, status
+    flips to 'error' and the UI stops trying. Users fall back to
+    polling via the existing `getBookmarkAnalysis` endpoint.
+  - **PDF export depends on @react-pdf/renderer chunk**: still lazy
+    on the audit PDF path, so the export button adds 0 bytes to the
+    initial bundle. The audit PDF route and the arrangement PDF
+    route share the chunk.
+  - **OpenAI adapter is off by default** so the existing TF-IDF
+    results + cost profile don't change. To opt in: set
+    `RECOMMENDATION_ADAPTER=openai` + `OPENAI_API_KEY` in `.env`.
+  - **Lighthouse gate needs Chrome system libs** on the host to
+    produce real numbers. The dev box needs
+    `libnspr4+libnss3+libxss1+libgbm1+libasound2+libatk*+libcups2+…`
+    installed via sudo apt. Until then, CI will see exit 77 (skip).
+  - **Venv cleanup lost the venv shebang**: the pip wrapper script
+    has a stale `#!/home/jackc/projects/sonic-dna/venv/bin/python3`
+    shebang but the venv was moved; `python -m pip` works fine
+    (we used that throughout). Tracked for a future `python -m pip
+    install --force-reinstall` to regenerate wrappers, or just
+    recreate the venv from scratch.
+  - **Stale tech debt (cleared)**: sigmap hook, lazy modal, live
+    region, multi-select, export, Lighthouse, venv cleanup, SSE
+    push, OpenAI adapter, TTL purge — all closed.

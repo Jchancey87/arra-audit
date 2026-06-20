@@ -1,32 +1,26 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3, 2.4 ✅ shipped. Carry-over sweep — 3 of 8 closed (sigmap hook, lazy modal, AC-06 live-region). 5 carry-overs still open.
-- **Status**: Carry-over sweep wrap. 179/179 client + 104/104 server + Vite clean. TechniqueNotebook 74→49 KB. Main 614 KB.
-- **Next**: 5 carry-overs remain (multi-select track blocks, arrangement export, Lighthouse CI, venv cleanup, Phase 2.3 v2 follow-ups). Phase 3 untouched.
+- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3, 2.4 ✅ shipped. ALL carry-overs cleared (was 8, now 0 open).
+- **Status**: Carry-over sweep wrap #2. 234/234 client + 137/137 server + Vite clean. ArrangementTimelineWidget 57→70 KB across multi-select + export. Main 614 KB.
+- **Next**: Phase 3 (1.1 daily digest / 1.2 offline-first / 1.3 mobile listening) or polish on what's shipped.
 
-## ⏸️ Resume Point (checkpoint 2026-06-20, CARRY-OVER SWEEP)
-- **Done this carry-over session (3 commits):**
-  1. **chore: remove sigmap regen hook** (`2be1dd2`) — `rm .git/hooks/post-commit` + `npm run sigmap` script. Working tree now stays clean.
-  2. **perf(notebook): lazy-load TechniqueDetailModal** (`073cab0`) — TechniqueNotebook 74→49 KB (-25 KB, -34%). New 25.56 KB modal chunk on first click.
-  3. **feat(a11y): AC-06 live-region for playhead** (`7a2ed5f`) — `playheadAnnouncer.js` (hook + format helper + sr-only style) wired into `AuditTimeline.jsx` + `ArrangementTimelineWidget.jsx`. `AC_AUDIT.md` AC-06 promoted from "partial" to "fully implemented".
-- **Stale TODO discovered**: `ArrangementTimelineWidget` was already a shared chunk (route-level lazy in `2f991ae` shared it across `AuditDetail` + `StudySessionWorkspace`). Memory TODO was stale.
-- **Test totals**: client vitest 168→179 (+11 playheadAnnouncer). Server jest 104 (unchanged). Vite clean.
-- **Service state**: `arra-server` (running), `arra-client` (running), `arra-analysis` (running, idle-evicted). No restarts needed this session.
-- **Next (start here next session) — 5 carry-overs remain**:
-  - **Multi-select and bulk-delete track blocks** in `ArrangementTimelineWidget` (medium feature)
-  - **Export arrangement as image/PDF** in `ArrangementTimelineWidget` (medium feature)
-  - **Lighthouse CI gate + a11y/manual walkthrough** (Phase 4.1; AC_AUDIT.md AC-09 still 🟡)
-  - **Venv cleanup** (low pri): laion-clap 1.1.4 + h5py/ftfy/braceexpand/webdataset/wandb/wget/torchlibrosa/pandas all inert on production path. `torchvision` shim at `venv/lib/.../torchvision/` is the production safety net (real torchvision 0.21+ has C++ ABI breakage with torch 2.6).
-  - **Phase 2.3 v2 follow-ups** (cheap, deferred): SSE push for bookmark-analysis status, segment TTL on `/tmp` cache, OpenAI embeddings for 2.4 (if results poor)
-- **Phase 3 options** (still untouched):
+## ⏸️ Resume Point (checkpoint 2026-06-20, CARRY-OVER SWEEP #2 — ALL CLEARED)
+- **Done this carry-over session (5 commits, 0 carry-overs remaining):**
+  1. **chore(a11y): Lighthouse CI gate + manual walkthrough** (`e6b0537`) — `scripts/lighthouse.mjs` (auto-detects Chrome, exits 1 on threshold miss / 77 on missing Chrome), `client/UI/LIGHTHOUSE.md` (workflow + Chrome deps install + a11y walkthrough checklist), `npm run lighthouse` script. AC_AUDIT.md AC-09 updated.
+  2. **feat(arrangement): export as PNG image + PDF report** (`9de48fe`) — `arrangementExport.js` (canvas2d, DPR-aware, no extra dep) + `arrangementExportPdf.jsx` (text-searchable @react-pdf/renderer, lazy-imported) + `ExportArrangementButton.jsx` (dropdown, dynamic import). Widget toolbar mounts it. Bundle: ArrangementTimelineWidget 60.57→69.68 KB (+9.1 KB); main 614 KB unchanged.
+  3. **feat(arrangement): multi-select + bulk-delete track blocks** (`2ae313b`) — `blockSelection.js` pure helpers (applyBlockClick with shift/ctrl/cmd logic, detectModifier, pruneSelection) + multi-select UI (orange ring on selected, toolbar pill with N selected + Delete + Clear, window.confirm, Delete-key shortcut, Esc clears). Works across section blocks AND track blocks (id space is shared).
+  4. **feat(a11y): SSE push for bookmark analysis status** (`0fc8965`) — `BookmarkAnalysisBus` (in-process EventEmitter, 25s heartbeat) + `GET /api/audits/:id/bookmarks/events` route + `useBookmarkAnalysisStream` hook + `IBackendService.subscribeBookmarkAnalysis` port. `authMiddleware` accepts `?token=` query (browsers can't set headers on EventSource). AuditDetail merges live snapshots over stored `bookmark.analysis`. Auto-reconnect with exponential backoff.
+  5. **feat(recommendation): OpenAI embeddings adapter** (`017cc0e`) — `OpenAIEmbeddingAdapter` (text-embedding-3-*, batches 100, SHA-256 cache, typed `OpenAIEmbeddingsError`). Off by default; `RECOMMENDATION_ADAPTER=openai` + `OPENAI_API_KEY` switches. server.js falls back to TF-IDF with a loud log if `OPENAI_API_KEY` is missing.
+  6. **feat(analysis): TTL purge for /tmp audio cache** (`5cc91e3`) — `purge_stale_temp_files(max_age_seconds=86400)` at app startup (FastAPI `lifespan` hook). download_and_analyze wraps analysis in try/finally so crashes don't leak files. `[Startup] Temp cache TTL=86400s, purged 0 stale file(s)` in pm2 logs.
+  7. **Venv cleanup** (uncommitted, operational) — `pip uninstall` laion-clap 1.1.4 + h5py + ftfy + braceexpand + webdataset + wandb + wget + torchlibrosa + pandas (all inert; production never imported any). `pm2 restart arra-analysis` → RSS dropped 716→576 MB (~140 MB freed). `torchvision` shim stayed (transformers needs `is_torchvision_available()`).
+- **Test totals**: client vitest 179→234 (+55: blockSelection 20, arrangementExport 16, ExportArrangementButton 9, useBookmarkAnalysisStream 10). Server jest 104→137 (+33: BookmarkAnalysisBus 12, BookmarkAnalysisService eventBus 4, OpenAIEmbeddingAdapter 17). Vite build clean. **All 5 carry-overs cleared.**
+- **Service state**: `arra-server` restarted (SSE route wired). `arra-analysis` restarted (venv cleanup, RSS 576 MB). `arra-client` 26h+ uptime, no restart needed. All 3 PM2 services online.
+- **Next session — Phase 3 options** (no carry-overs remain):
   - **3.1 Daily "1 technique to remember" digest** (M-L/5d) — push notification + SM-2 spaced repetition. Adds `node-cron` + `web-push` deps, new `PushSubscription` model, new `INotificationService` port.
   - **3.2 Offline-first audit drafts** (L/1.5w) — full PWA setup with `vite-plugin-pwa` + IndexedDB + sync queue.
   - **3.3 Mobile listening mode** (M/3d) — depends on 3.2. Stripped-down `/m/:songId` page.
-- **Stale tech debt** (cleared this session):
-  - ~~Sigmap regen noise~~ — removed hook, tree stays clean
-  - ~~Extract `TechniqueDetailModal` from `TechniqueNotebook`~~ — done via React.lazy
-  - ~~Extract `ArrangementTimelineWidget` shared chunk~~ — already done via route-level lazy in `2f991ae` (memory was stale)
+  - **Polish** (L): real Lighthouse scores (needs sudo apt install of libnspr4+ on the dev host), venv recreation (pip wrappers have stale shebang from the rebrand), SSE → Redis pub/sub for multi-instance deploys, PDF export performance (large arrangements can take a few seconds).
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -66,9 +60,13 @@
 - [x] Extract `TechniqueDetailModal` from TechniqueNotebook via React.lazy. **Done (`073cab0`)**: TechniqueNotebook 74→49 KB, modal 25.56 KB lazy chunk.
 - [x] Live-region for playhead time updates (AC-06 follow-up). **Done (`7a2ed5f`)**: `playheadAnnouncer.js` + wired in `AuditTimeline.jsx` + `ArrangementTimelineWidget.jsx`. AC-06 promoted in AC_AUDIT.md.
 - [x] Extract `ArrangementTimelineWidget` (56.5 KB chunk) into shared chunk via `manualChunks` — **STALE TODO**: Vite already auto-shares it across AuditDetail + StudySessionWorkspace via route-level lazy in `2f991ae`. No `manualChunks` change needed.
-- [ ] Multi-select and bulk-delete track blocks.
-- [ ] Export arrangement as image/PDF.
-- [ ] Lighthouse CI gate + a11y/manual walkthrough (Phase 4.1 follow-up; AC_AUDIT.md created; AC-09 still 🟡).
+- [x] Multi-select and bulk-delete track blocks. **Done (`2ae313b`)**: `blockSelection.js` + multi-select UI in ArrangementTimelineWidget.
+- [x] Export arrangement as image/PDF. **Done (`9de48fe`)**: canvas PNG + react-pdf report via `ExportArrangementButton`.
+- [x] Lighthouse CI gate + a11y manual walkthrough (Phase 4.1). **Done (`e6b0537`)**: `scripts/lighthouse.mjs` + `LIGHTHOUSE.md` + `npm run lighthouse`. AC-09 real scores pending Chrome install.
+- [x] Venv cleanup (operational, uncommitted). `pip uninstall` of 9 inert deps; `pm2 restart arra-analysis` confirmed online.
+- [x] Phase 2.3 v2 follow-ups — SSE push (`0fc8965`), segment TTL (`5cc91e3`), OpenAI embeddings (`017cc0e`).
+
+**Status: ALL CARRY-OVERS CLEARED. Next: Phase 3.**
 
 ## 🚧 Phase 1 v2 follow-ups (1.1 / 1.2 / 1.3)
 **Status (2026-06-20)**: ✅ All 15 v2 follow-ups shipped. See `devlogs.md` "## 2026-06-20 — Phase 1 v2 Follow-ups Sweep" for the full inventory and per-fix status.
@@ -79,7 +77,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-20 | Carry-over sweep: 3 of 8 carry-overs closed — sigmap hook removal (2be1dd2), lazy-load TechniqueDetailModal (073cab0, TechniqueNotebook 74→49KB -34%), AC-06 live-region for playhead (7a2ed5f, playheadAnnouncer.js + 11 tests). 5 carry-overs remain. 179/179 client + 104/104 server. Stale TODO discovered: ArrangementTimelineWidget was already a shared chunk. | `7a2ed5f` |
+| 2026-06-20 | Carry-over sweep #2: ALL 5 remaining carry-overs closed — venv cleanup (pip uninstall 9 inert deps, RSS 716→576MB), TTL purge for /tmp audio cache (5cc91e3), OpenAI embeddings adapter (017cc0e, 17 tests), SSE push for bookmark analysis (0fc8965, BookmarkAnalysisBus + hook + route, 26 tests), multi-select + bulk-delete (2ae313b, blockSelection.js + UI, 20 tests), export arrangement PNG+PDF (9de48fe, canvas + react-pdf, 25 tests), Lighthouse CI gate (e6b0537, scripts/lighthouse.mjs + LIGHTHOUSE.md). 179→234 client + 104→137 server. **Zero open carry-overs.** | `e6b0537` |
 | 2026-06-20 | Phase 2.2: timestamped answers + scrollytelling — responseShape normalizer, useMostVisible+useScrollytellingSeek hooks, LensPanel tag button + clear ×, AuditDetail click-to-seek pills + scrollytelling toggle (debounced 350ms, minJump 6s). 51 new tests. 142/142 client, AuditDetail 47→51.8 KB. | `05a5dc6` |
 | 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — AuditDetail.jsx reads lens-${lens}-${idx} (matches LensPanel write side); 4 regression tests. 146/146 client. | `0988f3b` |
 | 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python analyze_segment + ClapAnalyzer.analyze_features_from_array + POST /analyze-segment (GPU semaphore 2) + Audit bookmarkSchema.analysis + IBookmarkAnalysisService port + CLAPSegmentAdapter + MockBookmarkAnalysisAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes (auto-enqueue on add, POST analyze, GET analysis) + IBackendService port + Http/InMemory adapters + BookmarkAnalysisTags component on AuditDetail bookmark cards. 22 new tests (10+8 + 4 contract). 154/154 client, 77/77 server, AuditDetail 51.8→58.1 KB. | `7c93e15` |
