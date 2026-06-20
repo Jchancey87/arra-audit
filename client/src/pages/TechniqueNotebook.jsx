@@ -1033,6 +1033,10 @@ const TechniqueNotebook = () => {
         songs={songs}
         onUpdate={handleUpdateTechnique}
         onDelete={deleteTechnique}
+        onOpenTechnique={(t) => {
+          // Phase 2.4: open a similar technique without closing the modal chain
+          setSelectedTech(t);
+        }}
       />
     </div>
   );

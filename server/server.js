@@ -14,6 +14,7 @@ import { OpenAIAdapter } from './adapters/OpenAIAdapter.js';
 import { TavilyAdapter } from './adapters/TavilyAdapter.js';
 import { MongooseRepository, UserRepository } from './adapters/MongooseRepository.js';
 import { CLAPSegmentAdapter } from './adapters/CLAPSegmentAdapter.js';
+import { TFIDFAdapter } from './adapters/TFIDFAdapter.js';
 
 // Models
 import User from './models/User.js';
@@ -36,6 +37,7 @@ import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
 import { YtDlpMockAdapter, YtDlpSubprocessAdapter } from './services/ytDlpService.js';
 import { BookmarkAnalysisService } from './services/BookmarkAnalysisService.js';
+import { RecommendationService } from './services/RecommendationService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
@@ -135,6 +137,13 @@ const bookmarkAnalysisService = new BookmarkAnalysisService({
   songRepository,
 });
 
+// ── Phase 2.4: liked-by-artist discovery (TF-IDF cosine sim) ─────────────────
+const tfidfAdapter = new TFIDFAdapter();
+const recommendationService = new RecommendationService({
+  adapter: tfidfAdapter,
+  techniqueRepository,
+});
+
 // yt-dlp adapter: prefer the real subprocess when YT_DLP_ENABLED is set;
 // otherwise use the deterministic mock so dev/CI always have a fallback path.
 const ytDlpService = process.env.YT_DLP_ENABLED === '1'
@@ -181,7 +190,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService));
-app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
+app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService, recommendationService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));
 app.use('/api/study-progress', authMiddleware, createStudyProgressRoutes(curriculumService));

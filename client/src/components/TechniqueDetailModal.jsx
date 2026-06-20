@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
+import SimilarTechniquesSection from './SimilarTechniquesSection';
 
-const TechniqueDetailModal = ({ isOpen, onClose, tech, songs, onUpdate, onDelete }) => {
+const TechniqueDetailModal = ({ isOpen, onClose, tech, songs, onUpdate, onDelete, onOpenTechnique }) => {
   const { loadSong, activeSong, play, seekTo } = useAudio();
 
   const [name, setName] = useState('');
@@ -382,6 +383,13 @@ const TechniqueDetailModal = ({ isOpen, onClose, tech, songs, onUpdate, onDelete
               </Link>
             </div>
           )}
+
+          {/* Phase 2.4: similar techniques from the user's notebook */}
+          <SimilarTechniquesSection
+            technique={tech}
+            limit={5}
+            onOpenSimilar={onOpenTechnique}
+          />
 
           {/* Buttons Row */}
           <div

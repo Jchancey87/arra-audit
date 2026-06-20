@@ -1,6 +1,6 @@
 import express from 'express';
 
-export default function createTechniqueRoutes(techniqueService) {
+export default function createTechniqueRoutes(techniqueService, recommendationService = null) {
   const router = express.Router();
 
   // ── Get techniques with full filter support ────────────────────────────────
@@ -12,6 +12,27 @@ export default function createTechniqueRoutes(techniqueService) {
       res.json(result);
     } catch (error) {
       console.error('Get techniques error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Find similar techniques (Phase 2.4) ──────────────────────────────────
+  // MUST be registered before `/:id` to avoid route collision.
+  router.get('/:id/similar', async (req, res) => {
+    if (!recommendationService) {
+      return res.status(503).json({ error: 'Recommendation service is not configured' });
+    }
+    try {
+      const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
+      const result = await recommendationService.findSimilarTechniques({
+        userId: req.userId,
+        techniqueId: req.params.id,
+        limit,
+      });
+      res.json(result);
+    } catch (error) {
+      if (error.code === 'TECHNIQUE_NOT_FOUND') return res.status(404).json({ error: error.message });
+      console.error('Find similar techniques error:', error);
       res.status(500).json({ error: error.message });
     }
   });

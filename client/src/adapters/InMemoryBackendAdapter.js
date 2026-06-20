@@ -440,6 +440,58 @@ export class InMemoryBackendAdapter extends IBackendService {
     return true;
   }
 
+  async findSimilarTechniques(techniqueId, { limit = 10 } = {}) {
+    const target = this.techniques.find((t) => t._id === techniqueId && !t.deletedAt);
+    if (!target) throw new Error('Technique not found');
+    const targetText = [
+      target.description || '',
+      target.techniqueName || '',
+      target.lens || '',
+      (target.tags || []).join(' '),
+      target.notes || '',
+    ].filter(Boolean).join(' ');
+    const corpus = this.techniques
+      .filter((t) => !t.deletedAt)
+      .map((t) => ({
+        id: t._id,
+        text: [t.description || '', t.techniqueName || '', t.lens || '', (t.tags || []).join(' '), t.notes || '']
+          .filter(Boolean).join(' '),
+      }));
+    // Simple "shares a tag" scoring with deterministic jitter so test
+    // assertions can pin a known ranking.
+    const extractTags = (text) => {
+      if (typeof text !== 'string') return [];
+      const out = [];
+      for (const part of text.split(/\s+/)) {
+        if (part.startsWith('#') && part.length > 1) out.push(part.slice(1).toLowerCase());
+        if (part.length > 1 && /^[a-z]+$/.test(part)) out.push(part.toLowerCase());
+      }
+      return [...new Set(out)];
+    };
+    const tTags = new Set(extractTags(targetText));
+    const results = [];
+    for (const c of corpus) {
+      if (c.id === techniqueId) continue;
+      const cTags = new Set(extractTags(c.text));
+      let overlap = 0;
+      for (const t of tTags) if (cTags.has(t)) overlap += 1;
+      const denom = tTags.size + cTags.size - overlap || 1;
+      const score = overlap / denom;
+      // deterministic jitter from char codes
+      let s = 0;
+      for (let i = 0; i < c.id.length; i++) s = (s + c.id.charCodeAt(i)) & 0xffff;
+      const jitter = (s % 100) / 10000;
+      results.push({ id: c.id, score: Math.min(1, score + jitter + 0.01) });
+    }
+    results.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : 1));
+    const top = results.slice(0, Math.max(1, Math.min(50, limit)));
+    const byId = new Map(this.techniques.map((t) => [t._id, t]));
+    return {
+      target: { _id: target._id, techniqueName: target.techniqueName, lens: target.lens },
+      similar: top.map((r) => ({ technique: byId.get(r.id), score: r.score })).filter((r) => r.technique),
+    };
+  }
+
   // ── Trash / Archives (Mock) ──────────────────────────────────────────────
   async getDeletedSongs() {
     return this.songs

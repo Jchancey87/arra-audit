@@ -49,6 +49,9 @@ export class IBackendService {
   async updateTechnique(id, updates) { throw new Error('Not implemented'); }
   async deleteTechnique(id) { throw new Error('Not implemented'); }
 
+  // Recommendations (Phase 2.4) — find similar techniques in the user's notebook
+  async findSimilarTechniques(techniqueId, { limit } = {}) { throw new Error('Not implemented'); }
+
   // Tastes
   async getTasteProfiles() { throw new Error('Not implemented'); }
   async researchTasteProfile(lens, name) { throw new Error('Not implemented'); }

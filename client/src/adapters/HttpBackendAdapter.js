@@ -240,6 +240,11 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async findSimilarTechniques(techniqueId, { limit = 10 } = {}) {
+    const res = await this.api.get(`/techniques/${techniqueId}/similar`, { params: { limit } });
+    return res.data; // { target, similar: [{ technique, score }] }
+  }
+
   // ── Tastes ────────────────────────────────────────────────────────────────
   async getTasteProfiles() {
     const res = await this.api.get('/tastes');
