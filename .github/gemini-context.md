@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:19:16.483Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:29:37.913Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -24,13 +24,18 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ## deps
 ```
 server/__tests__/unit/SketchService.test.js ← ../services/SketchService, ../adapters/InMemoryRepository
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
+client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/context/AudioContext.jsx ← BackendContext
+client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useSketches.js ← context/BackendContext
+client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
+client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 ```
 
 ## changes (last 5 commits — 0 seconds ago)
@@ -39,12 +44,14 @@ server/routes/songs.js                        +createSongRoutes  ~createSongRout
 server/services/ytDlpService.js               +IYtDlpService  +YtDlpMockAdapter  +YtDlpSubprocessAdapter
 client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
 client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
-client/src/components/ComparePlayer.jsx       +getOrCreateAudioGraph  +releaseAudioGraph  +SampleDeltaCanvas  +paint
-client/src/pdf/AuditReport.jsx                ~CoverPage  ~LensPages  ~TechniquesPage  ~PageFooter
-client/src/pdf/theme.js                       +isHex  +mergeColors  +mergeFonts  +applyBranding
+client/src/components/ComparePlayer.jsx       +SampleDeltaCanvas  +paint  ~PauseIcon  ~ComparePlayer
+client/src/hooks/__tests__/useTechniques.test.jsx +makeWrapper
+client/src/hooks/useTechniques.js             ~useTechniques
 client/src/ports/IBackendService.js           ~IBackendService
+client/src/utils/__tests__/lensGuess.test.js  +countAll
 client/src/utils/audioDelta.js                +clamp01  +envelopeFromAudioBuffer  +envelopeFromReferenceCurve  +deltaEnvelope
-client/src/utils/shareAnalytics.js            +safeRead  +safeWrite  +pruneOldEvents  +recordLinkOpen
+client/src/utils/lensGuess.js                 +guessLens  +escapeRegex
+client/src/utils/splitSentences.js            +splitSentences
 .github/context-cold.md                       +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
 .github/copilot-instructions.md               +formatTime  +readMeta  +MetaRow  +DeltaBar
 .github/gemini-context.md                     +formatTime  +readMeta  +MetaRow  +DeltaBar
@@ -141,6 +148,11 @@ h3 server/routes/songs.js
 
 ## client
 
+### client/src/App.jsx
+```
+function App()  :744-756
+```
+
 ### client/src/adapters/HttpBackendAdapter.js
 ```
 export class HttpBackendAdapter  :8-172
@@ -177,6 +189,11 @@ function paint(canvas, delta)  :257-277
 function Panel({ color, label, sublabel, time, duration, onScrub })  :515-539
 ```
 
+### client/src/components/ResearchSummaryRenderer.jsx
+```
+export const parseSummaryText = (text) =>  :57-98
+```
+
 ### client/src/components/__tests__/ComparePlayer.test.jsx
 ```
 function StubAudioProvider({ children })  :12-15
@@ -189,10 +206,20 @@ export const AudioProvider = ({ children }) =>  :8-149
 export const useAudio = () =>  :459-465
 ```
 
+### client/src/hooks/__tests__/useTechniques.test.jsx
+```
+function makeWrapper(backend)  :8-12
+```
+
 ### client/src/hooks/useSketches.js
 ```
 export function useSketches(songId = null)  :53-152
 function probeAudioDuration(url)  :4-40
+```
+
+### client/src/hooks/useTechniques.js
+```
+export function useTechniques(filters = {}, { skip = false } = {})  :15-110
 ```
 
 ### client/src/pdf/AuditReport.jsx
@@ -227,6 +254,11 @@ export class IBackendService  :7-75
   async getSongs(filters)  :18-18
 ```
 
+### client/src/utils/__tests__/lensGuess.test.js
+```
+function countAll(text)  :50-62
+```
+
 ### client/src/utils/audioDelta.js
 ```
 export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
@@ -239,6 +271,12 @@ function deltaEnvelope(sketchEnv, refEnv)  :69-84
 function getAudioContext()  :87-98
 ```
 
+### client/src/utils/lensGuess.js
+```
+export function guessLens(text, { minScore = 1 } = {})  :36-61
+function escapeRegex(s)  :63-65
+```
+
 ### client/src/utils/shareAnalytics.js
 ```
 export function recordLinkOpen({ auditId, bookmarkId = null, source = 'unknown' })  :38-61
@@ -246,6 +284,11 @@ export function getLinkOpenStats()  :67-76
 function safeRead()  :14-24
 function safeWrite(events)  :26-31
 function pruneOldEvents(events)  :33-36
+```
+
+### client/src/utils/splitSentences.js
+```
+export function splitSentences(text)  :1-18
 ```
 
 ## server

@@ -1409,3 +1409,66 @@ All green: 67/67 server + 54/54 client + 2/2 Playwright (auto-skipped locally on
 - **Sigmap regen noise**: still ~4 commits per feature from `.git/hooks/post-commit`. To be removed/batched in a dedicated session.
 - **Phase 2 (educational value)**: still on deck per `HANDOFF_P0_P4.md` — 2.1 promote-to-technique (S/1d) or 2.3 per-bookmark CLAP analysis (M-L/5d).
 
+## 2026-06-20 — Phase 2.1 Promote-to-Technique (shipped)
+
+**Goal**: hover any sentence in the research intelligence log → 1-click promote to a notebook technique. Lens guessed from a keyword heuristic; user can override in a pre-filled modal.
+
+**Commit**: `3f3102f` — `Phase 2.1: promote-to-technique — hover sentence, modal pre-fill, lens heuristic`
+
+### Files added
+
+- `client/src/utils/lensGuess.js` (55L) — `LENS_KEYWORDS` map (rhythm/texture/harmony/arrangement) + `guessLens(text, { minScore })` with deterministic tiebreak (rhythm < texture < harmony < arrangement) and `'arrangement'` fallback
+- `client/src/utils/splitSentences.js` (20L) — splits on `[.!?]\s+(?=[A-Z0-9"'(\[])` + `\n{2,}`; handles CRLF, decimals, non-string input
+- `client/src/components/PromoteToTechniqueModal.jsx` (288L) — sentence-pre-fill + 4-lens segmented control (rhythm `#f97316`, texture `#14b8a6`, harmony `#8b5cf6`, arrangement `#ec4899`) + 1–5 confidence slider + tags/notes + Escape/click-outside close + inline error
+- `client/src/utils/__tests__/lensGuess.test.js` — 9 tests
+- `client/src/utils/__tests__/splitSentences.test.js` — 7 tests
+- `client/src/hooks/__tests__/useTechniques.test.jsx` — 5 tests (heuristic, lensHint override, tags/notes, empty throws, null song)
+- `client/src/components/__tests__/PromoteToTechniqueModal.test.jsx` — 8 tests (null-when-closed, pre-fill, lens toggle, save calls onPromote, error path, Escape, Cancel, validation)
+- `client/src/components/__tests__/ResearchSummaryRenderer.test.jsx` — 5 tests (no-promo fallback, button-per-sentence, modal-opens, save, null on empty)
+
+### Files modified
+
+- `client/src/hooks/useTechniques.js` — add `addFromSentence(text, song, { lensHint, confidence=3, tags, notes })`; build payload `{ description, lens, songId, artist, confidence, tags?, notes? }`; lens via `lensHint || guessLens(text)`; throws on empty input
+- `client/src/components/ResearchSummaryRenderer.jsx` — accept `song` + `onPromote` props (optional, backward-compat); split each section's content via `splitSentences`; wrap each sentence in a `<span data-sentence>` with a hover `+` button; render internal `PromoteToTechniqueModal` when an `onPromote` callback is provided
+- `client/src/App.jsx` — import `useTechniques`; pass `song={activeSong}` + `onPromote={addFromSentence}` to the player-deck research summary
+- `client/src/pages/AuditCreate.jsx` — import `useTechniques`; pass `song={song}` + `onPromote={addFromSentence}` to the pre-audit research preview
+- `client/src/pages/AuditDetail.jsx` — import `useTechniques`; pass `song={song}` + `onPromote={addFromSentence}` to the post-audit review screen
+
+### Behaviour
+
+- Hover any sentence in the research log → orange `+` button appears at the end of the sentence
+- Click `+` → modal opens with the sentence pre-filled as the description and the heuristic lens guess pre-selected (with a "(guessed)" hint)
+- Modal allows the user to: change the lens via a 4-button segmented control, set a 1–5 confidence, add CSV tags, add free-form notes
+- `Save Technique` calls `useTechniques().addFromSentence(...)` which uses the existing `add()` (refetches the notebook). On success the modal closes.
+- When `song` or `onPromote` is not provided (legacy call sites, future storybook usage), the renderer behaves exactly as before — no hover button, no modal
+- Lens heuristic: deterministic, case-insensitive, scores each lens by keyword match count, ties broken by `rhythm < texture < harmony < arrangement`, fallback `'arrangement'` when no keywords hit. 100% offline (no AI call yet — the optional `ICompletionService.classifyLens` hook from the handoff is left as a follow-up for when client-side AI gating is wired)
+
+### Test coverage delta
+
+| Suite | Before 2.1 | After 2.1 | Delta |
+|---|---|---|---|
+| Client vitest | 54 | **89** | +35 (9 lensGuess + 7 splitSentences + 5 useTechniques + 8 PromoteToTechniqueModal + 5 ResearchSummaryRenderer + 1 misc) |
+
+All green: 89/89 client vitest. Vite build clean.
+
+### Bundle deltas
+
+| Stage | Main bundle | Lazy chunks |
+|---|---|---|
+| After Phase 1 v2 | 1047 KB | react-pdf 1.6 MB lazy |
+| + Phase 2.1 (lensGuess + splitSentences + modal + hook + sentence hover) | 1069 KB (+22) | (no new lazy) |
+
+### Carry-overs
+
+- **AI lens classification** (the optional `ICompletionService.classifyLens` from the handoff) is not wired — pure heuristic for now. Hook point is `useTechniques.addFromSentence` if/when client-side AI gating is added
+- **Main bundle** still 1069 KB; the sentence-splitting regex + lens-guess keyword map are pure functions, so they could be lazy-loaded with `ResearchSummaryRenderer` if we wanted — but it's the renderer itself, so not worth the cost
+- **Sigmap regen noise** (4-6 commits per feature): still active. Will batch/disable in a dedicated session
+- **Open AI fallback path**: when an OpenAI key is available, the modal could offer a "Refine with AI" button that re-classifies via the heuristic + a brief LLM confirmation step
+- **Sentence-splitting edge cases**: abbreviations like "e.g." or "i.e." still split incorrectly (false positive). Acceptable for v1 — the modal lets the user correct the lens manually. Could add an abbreviations blocklist if it becomes a usability issue
+
+### Next
+
+- Phase 2.2 (timestamped answers + scrollytelling, M/3d) — natural follow-up since `Audit.responses` is already `Mixed` and the `AuditForm` capture flow is the next big UX win
+- Phase 2.3 (per-bookmark CLAP analysis, M-L/5d) — biggest educational-value feature; needs Python `analyze_segment` + `IBookmarkAnalysisService` port + GPU concurrent limit
+- User undecided. See `HANDOFF_P0_P4.md` for full Phase 2 scope.
+

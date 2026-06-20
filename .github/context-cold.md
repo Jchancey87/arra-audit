@@ -29,7 +29,6 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
@@ -41,7 +40,6 @@ client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
 client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
-client/src/hooks/useTechniques.js ← context/BackendContext
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/utils/pdfData.js ← pdf/theme
 analysis_service/analyzer.py ← requests
@@ -108,11 +106,6 @@ title: Arra Audit
 div#root
 ```
 
-### client/src/App.jsx
-```
-function App()  :736-748
-```
-
 ### client/src/components/ErrorBoundary.jsx
 ```
 class ErrorBoundary  :3-106
@@ -123,11 +116,6 @@ class ErrorBoundary  :3-106
   if(typeof window !== 'undefined')  :21-23
   render()  :26-105
   if(this.state.error)  :27-103
-```
-
-### client/src/components/ResearchSummaryRenderer.jsx
-```
-export const parseSummaryText = (text) =>  :49-90
 ```
 
 ### client/src/context/AuthContext.jsx
@@ -198,11 +186,6 @@ export function useStudyProgress()  :14-131
 ### client/src/hooks/useTasteProfiles.js
 ```
 export function useTasteProfiles()  :12-58
-```
-
-### client/src/hooks/useTechniques.js
-```
-export function useTechniques(filters = {}, { skip = false } = {})  :14-87
 ```
 
 ### client/src/pages/SketchCompare.jsx
