@@ -8,6 +8,25 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Fix Section Resizing Stale Closures, Add Drag-to-Copy Sections to Tracks, and Build Custom Context Menus
+
+- **Context**: Solved interaction issues in the DAW timeline editor where section blocks could not be resized after creation, implemented an intuitive drag-to-copy cloning interaction to copy sections onto instrument lanes, and built rich right-click context menus for faster editing.
+- **Fixed Stale Closure Bugs**:
+  - Replaced stale scope references to the `blocks` and `tracks` state inside the mouse drag event handlers (`handleSectionResize`, `handleTrackBlockResize`, and `handleTrackBlockMove`) with mutable React refs (`blocksRef.current` and `tracksRef.current`).
+  - Added synchronous ref updates during the render pass to guarantee mouse move and mouse up handlers have absolute real-time access to the timeline arrangement.
+- **Implemented Drag-and-Drop Copy & Paste**:
+  - Attached custom mouse event listener triggers (`handleSectionDragStart`) to arrangement sections.
+  - While dragging, a premium semi-transparent ghost of the block showing `📄 Copy [Section Name]` tracks the mouse pointer using `position: 'fixed'`.
+  - Added `data-track-id` selectors to track rows and used the browser's `document.elementFromPoint` API at drag termination to resolve which track lane was targeted.
+  - Automatically clones the section block's boundaries (startTime and duration) as a new block in the targeted track's blocks.
+- **Built Right-Click Context Menus**:
+  - Attached custom `onContextMenu` overrides to section blocks, the sections lane, track blocks, and track lanes.
+  - Displays a high-fidelity glassmorphism dropdown with a deep-blur backdrop, custom hover highlights, and comprehensive options ("Inspect Section", "Play Section/Block", "Sync to Playhead", "Change Sound Type", "Clear Track", "Delete Track/Block").
+  - Dismisses the custom context menu automatically when scrolling or clicking anywhere else on the screen.
+- **Validation & Test Coverage**:
+  - Created a comprehensive test suite `/client/src/components/__tests__/ArrangementTimelineWidget.test.jsx` verifying rendering, right-click triggers, and menu item callbacks.
+  - Executed tests using Vitest; all 288 tests in the client pass successfully.
+
 ### 2026-06-20: Remove Loudness, BPM, and Key boxes & Enhance Timeline with Zoom, Bird's-Eye Minimap, Density Graph, and Structural breakdown
 
 - **Context**: Addressed user feedback to streamline the analysis dashboard by removing distracting metric boxes (loudness, BPM, Key, Meter) and focused on making "time" a central feature for structural visualization.

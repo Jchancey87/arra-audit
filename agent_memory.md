@@ -1,13 +1,13 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Refactored track analysis page to hide unconfident metrics (<95%), implemented Tavily cross-verification with AI metadata extraction, and made timeline lanes toggleable.
-- **Status**: 283/283 client + 139/139 server + Vite clean. Build clean.
+- **Goal**: Fixed section and track resizing/moving closure bugs, implemented drag-and-drop section duplication onto track lanes, and built rich right-click context menus.
+- **Status**: 288/288 client + 139/139 server + Vite clean. Build clean.
 - **Next**: Phase 3 (3.1 daily digest / 3.2 offline-first PWA / 3.3 mobile listening) or polish (Lighthouse real scores, venv recreation, SSE→Redis pub/sub, PDF export perf).
 
-## Resume Point (checkpoint 2026-06-20 — TRACK ANALYSIS REFACTOR SHIPPED)
-- Commits closed all track analysis refactor needs: conditional modules display, verify API + hook, toggleable timeline lanes, and vertical grid beat overlay.
-- Test totals: client 283/283, server 139/139. Vite clean.
+## Resume Point (checkpoint 2026-06-20 — TIMELINE INTERACTIONS SHIPPED)
+- Commits closed all timeline interactive needs: resizing/moving drag bugs, section drag-to-copy, and context menus for blocks & lanes.
+- Test totals: client 288/288, server 139/139. Vite clean.
 - Service state: `arra-server` (verify-analysis endpoint active), `arra-analysis`, `arra-client`. All online.
 
 ## Critical Architectural Constraints (Red Lines)
@@ -43,6 +43,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-20 | Resolved stale closures for timeline drags/resizes, added drag-to-copy sections to tracks, and built left/right-click context menus for sections, blocks, and lanes. | `b1c2168` |
 | 2026-06-20 | Removed loudness, BPM, and key boxes from Audit Form & Detail, and enhanced timeline with zoom, bird's-eye minimap, arrangement density graph, and structural composition breakdown. | `ade0ec9` |
 | 2026-06-20 | Fixed PDF export crash on empty answers/questions/notes and resolved Vite build warning for duplicate boxShadow key. | `ee4f7c3` |
 | 2026-06-20 | Rebuilt timeline as multi-track DAW arranger, interactive drag-to-move/resize clips, custom lane overlays, settings modal inspector, and smooth 60fps playhead polling via requestAnimationFrame. 283/283 client tests pass. | `b178b5e` |
