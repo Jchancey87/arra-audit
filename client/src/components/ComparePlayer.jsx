@@ -1,6 +1,6 @@
 // ComparePlayer — dual transport for A/B compare mode.
 // Reference = YouTube (driven by AudioContext); Sketch = local <audio> element.
-// Master play/pause drives both. Sketch drifts back to reference every ~500ms
+// Master play/pause drives both. Sketch drifts back to reference every ~100ms
 // while playing. A side-by-side metadata panel shows BPM/key/meter from
 // each source's analysis when available; a "delta" canvas shows a heatmap
 // derived from the sketch's playback energy via Web Audio API.
@@ -8,9 +8,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '../context/AudioContext.jsx';
 
-const DRIFT_SYNC_MS = 500;
+const DRIFT_SYNC_MS = 100;
 const DRIFT_THRESHOLD_SEC = 0.4;
 const CANVAS_BARS = 96;
+const MIN_PLAYBACK_RATE = 0.5;
+const MAX_PLAYBACK_RATE = 1.5;
+const DEFAULT_PLAYBACK_RATE = 1.0;
 
 function formatTime(seconds) {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -90,61 +93,91 @@ function DeltaPanel({ refMeta, skMeta }) {
   );
 }
 
+// Per-audio-element Web Audio context cache. Each <audio> element gets exactly
+// one AudioContext + MediaElementSource for its lifetime, regardless of how
+// many components mount/unmount an analyser on top. This avoids the
+// "MediaElementSource already connected" error and the context-per-mount leak.
+const audioGraphCache = new WeakMap();
+
+function getOrCreateAudioGraph(audio) {
+  if (!audio) return null;
+  const existing = audioGraphCache.get(audio);
+  if (existing) return existing;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  let ctx;
+  try {
+    ctx = new Ctx();
+    const source = ctx.createMediaElementSource(audio);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    analyser.connect(ctx.destination);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const graph = { ctx, source, analyser, data, refCount: 0 };
+    audioGraphCache.set(audio, graph);
+    return graph;
+  } catch (e) {
+    return null;
+  }
+}
+
+function releaseAudioGraph(audio) {
+  if (!audio) return;
+  const graph = audioGraphCache.get(audio);
+  if (!graph) return;
+  graph.refCount -= 1;
+  if (graph.refCount <= 0) {
+    try { graph.source.disconnect(); } catch (_) { /* swallow */ }
+    try { graph.analyser.disconnect(); } catch (_) { /* swallow */ }
+    try { graph.ctx.close(); } catch (_) { /* swallow */ }
+    audioGraphCache.delete(audio);
+  }
+}
+
 function SketchEnergyCanvas({ audioRef }) {
-  // Render a 96-bar heatmap of the sketch's current playback energy. Uses
-  // a single AnalyserNode tied to the sketch <audio> element. Falls back to
-  // an empty grid if Web Audio is unavailable.
+  // Render a 96-bar heatmap of the sketch's current playback energy. Uses a
+  // shared AnalyserNode from a per-audio-element Web Audio cache. Falls back
+  // to an empty grid if Web Audio is unavailable.
   const canvasRef = useRef(null);
-  const analyserRef = useRef(null);
   const rafRef = useRef(null);
-  const dataRef = useRef(null);
 
   useEffect(() => {
     const audio = audioRef.current;
     const canvas = canvasRef.current;
     if (!audio || !canvas) return undefined;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return undefined;
-    let ctx;
-    try {
-      ctx = new Ctx();
-      const src = ctx.createMediaElementSource(audio);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      src.connect(analyser);
-      analyser.connect(ctx.destination);
-      analyserRef.current = analyser;
-      dataRef.current = new Uint8Array(analyser.frequencyBinCount);
-    } catch (e) {
-      return undefined;
-    }
+    const graph = getOrCreateAudioGraph(audio);
+    if (!graph) return undefined;
+    graph.refCount += 1;
     const ctx2d = canvas.getContext('2d');
     const draw = () => {
       const w = canvas.width;
       const h = canvas.height;
       ctx2d.fillStyle = '#0c0c0e';
       ctx2d.fillRect(0, 0, w, h);
-      const data = dataRef.current;
-      if (data && analyserRef.current) {
-        analyserRef.current.getByteFrequencyData(data);
+      try {
+        graph.analyser.getByteFrequencyData(graph.data);
         const barW = w / CANVAS_BARS;
         for (let i = 0; i < CANVAS_BARS; i += 1) {
           // Sample low/mid bins for a perceptual energy curve
-          const idx = Math.floor((i / CANVAS_BARS) ** 1.4 * (data.length * 0.5));
-          const v = data[idx] / 255;
+          const idx = Math.floor((i / CANVAS_BARS) ** 1.4 * (graph.data.length * 0.5));
+          const v = graph.data[idx] / 255;
           const barH = v * h;
           const x = i * barW;
           const y = h - barH;
           ctx2d.fillStyle = `rgba(0, 229, 255, ${0.4 + v * 0.6})`;
           ctx2d.fillRect(x + 1, y, barW - 2, barH);
         }
+      } catch (_) {
+        // analyser was disposed; bail out of the rAF loop
+        return;
       }
       rafRef.current = requestAnimationFrame(draw);
     };
     draw();
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      try { ctx?.close(); } catch (_) { /* swallow */ }
+      releaseAudioGraph(audio);
     };
   }, [audioRef]);
 
@@ -174,6 +207,7 @@ export default function ComparePlayer({ sketch, song }) {
     pause: refPause,
     seekTo: refSeekTo,
     loadSong,
+    playerRef: audioPlayerRef,
   } = useAudio();
 
   const sketchAudioRef = useRef(null);
@@ -181,6 +215,7 @@ export default function ComparePlayer({ sketch, song }) {
   const [skDuration, setSkDuration] = useState(sketch?.durationSeconds || 0);
   const [skIsPlaying, setSkIsPlaying] = useState(false);
   const [drift, setDrift] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(DEFAULT_PLAYBACK_RATE);
 
   const sketchUrl = useMemo(() => sketch?.publicUrl || '', [sketch]);
 
@@ -190,6 +225,18 @@ export default function ComparePlayer({ sketch, song }) {
     setSkTime(0);
     setSkDuration(sketch?.durationSeconds || 0);
   }, [sketch?._id, sketch?.durationSeconds]);
+
+  // Apply playback rate to both sources whenever the slider changes.
+  useEffect(() => {
+    const audio = sketchAudioRef.current;
+    if (audio) {
+      try { audio.playbackRate = playbackRate; } catch (_) { /* swallow */ }
+    }
+    const player = audioPlayerRef?.current;
+    if (player && typeof player.setPlaybackRate === 'function') {
+      try { player.setPlaybackRate(playbackRate); } catch (_) { /* swallow */ }
+    }
+  }, [playbackRate, audioPlayerRef, sketch?._id]);
 
   // Drift correction: every DRIFT_SYNC_MS, push the sketch audio to the
   // reference (YouTube) time if playing. Capture drift for the UI.
@@ -252,6 +299,13 @@ export default function ComparePlayer({ sketch, song }) {
     }
   }, []);
 
+  const handleRateChange = useCallback((e) => {
+    const v = Number(e.target.value);
+    if (Number.isFinite(v)) setPlaybackRate(v);
+  }, []);
+
+  const resetRate = useCallback(() => setPlaybackRate(DEFAULT_PLAYBACK_RATE), []);
+
   const refMeta = readMeta(song?.audioOverrides) || readMeta(song?.audioAnalysis);
   const skMeta = readMeta(sketch?.analysis);
 
@@ -269,7 +323,7 @@ export default function ComparePlayer({ sketch, song }) {
       />
 
       {/* Master transport */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: '#18181c', border: '1px solid #2a2a30', borderRadius: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 14, background: '#18181c', border: '1px solid #2a2a30', borderRadius: 2, flexWrap: 'wrap' }}>
         <button
           type="button"
           onClick={handleMasterPlay}
@@ -290,6 +344,43 @@ export default function ComparePlayer({ sketch, song }) {
           <span style={{ color: Math.abs(drift) < DRIFT_THRESHOLD_SEC ? '#35d777' : '#ff6a00' }}>
             {drift >= 0 ? '+' : ''}{drift.toFixed(2)}s
           </span>
+        </div>
+        <div style={{ flex: 1, minWidth: 220, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontFamily: 'Roboto Mono, monospace', fontSize: 10, color: '#5a5d65', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+            Rate
+          </div>
+          <input
+            type="range"
+            min={MIN_PLAYBACK_RATE}
+            max={MAX_PLAYBACK_RATE}
+            step={0.05}
+            value={playbackRate}
+            onChange={handleRateChange}
+            aria-label="Playback rate (both sources)"
+            style={{ flex: 1, accentColor: '#ff6a00' }}
+          />
+          <button
+            type="button"
+            onClick={resetRate}
+            disabled={playbackRate === DEFAULT_PLAYBACK_RATE}
+            style={{
+              padding: '4px 8px',
+              background: 'transparent',
+              color: playbackRate === DEFAULT_PLAYBACK_RATE ? '#3a3a44' : '#ff6a00',
+              border: `1px solid ${playbackRate === DEFAULT_PLAYBACK_RATE ? '#2a2a30' : '#ff6a00'}`,
+              borderRadius: 2,
+              fontFamily: 'Roboto Mono, monospace',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: playbackRate === DEFAULT_PLAYBACK_RATE ? 'default' : 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+              minWidth: 48,
+            }}
+            title="Reset to 1.0x"
+          >
+            {playbackRate.toFixed(2)}x
+          </button>
         </div>
       </div>
 

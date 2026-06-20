@@ -252,6 +252,8 @@ export const AudioProvider = ({ children }) => {
     highlightBookmark,
     highlightBookmarkId,
     isAudioLoading,
+    isPlayerReady: Boolean(playerRef.current),
+    playerRef,
   };
 
 

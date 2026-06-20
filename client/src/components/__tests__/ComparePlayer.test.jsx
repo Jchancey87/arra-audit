@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import ComparePlayer from '../ComparePlayer.jsx';
@@ -68,5 +68,31 @@ describe('ComparePlayer', () => {
     expect(screen.queryByText(/Delta/i)).toBeNull();
     // But master + panels still render
     expect(screen.getByText(/master clock: YouTube reference/i)).toBeInTheDocument();
+  });
+
+  it('renders the playback rate slider at 1.00x and applies the chosen rate', () => {
+    const sketch = {
+      _id: 'sk-3',
+      title: 'Take 3',
+      originalName: 't3.wav',
+      publicUrl: '',
+      analysis: { tempo_bpm: 120, key: 'C', scale: 'major', estimated_meter: '4/4' },
+      analysisStatus: 'success',
+    };
+    render(<ComparePlayer sketch={sketch} song={song} />, { wrapper: makeWrapper(backend) });
+
+    const rateBtn = screen.getByTitle('Reset to 1.0x');
+    expect(rateBtn.textContent).toBe('1.00x');
+    expect(rateBtn).toBeDisabled();
+
+    const slider = screen.getByLabelText(/Playback rate \(both sources\)/i);
+    fireEvent.change(slider, { target: { value: '0.75' } });
+    const updatedBtn = screen.getByTitle('Reset to 1.0x');
+    expect(updatedBtn.textContent).toBe('0.75x');
+    expect(updatedBtn).not.toBeDisabled();
+
+    // Reset back
+    fireEvent.click(updatedBtn);
+    expect(screen.getByTitle('Reset to 1.0x').textContent).toBe('1.00x');
   });
 });
