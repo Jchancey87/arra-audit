@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T11:57:21.595Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:08:50.397Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -23,18 +23,28 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
+client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants, utils/responseShape
 client/src/utils/__tests__/scrollytelling.test.js ← scrollytelling
+analysis_service/analyzer.py ← requests
+analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## changes (last 5 commits — 1 second ago)
 ```
-client/src/hooks/useCompletionCheck.js        ~useCompletionCheck
-client/src/utils/__tests__/scrollytelling.test.js +MockIntersectionObserver
+server/adapters/CLAPSegmentAdapter.js         +CLAPSegmentAdapter
+server/adapters/MockBookmarkAnalysisAdapter.js +MockBookmarkAnalysisAdapter
+server/ports/IBookmarkAnalysisService.js      +IBookmarkAnalysisService
+server/services/BookmarkAnalysisService.js    +BookmarkAnalysisService
+client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
+client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
+client/src/ports/IBackendService.js           ~IBackendService
+analysis_service/analyzer.py                  +analyze_features_from_array  +_deterministic_seed  +_load_segment_audio  +_fallback_segment_analysis
+analysis_service/app.py                       +SegmentAnalysisRequest  +_ensure_cached_audio  +trigger_segment_analysis  ~SketchAnalysisRequest
 .github/context-cold.md                       +makeWrapper  +useTechniques  +countAll  +guessLens
-.github/copilot-instructions.md               +useCompletionCheck  +MockIntersectionObserver  ~makeWrapper  ~useTechniques
-.github/gemini-context.md                     +useCompletionCheck  +MockIntersectionObserver  ~makeWrapper  ~useTechniques
+.github/copilot-instructions.md               ~makeWrapper  ~useTechniques  ~countAll  ~guessLens
+.github/gemini-context.md                     ~makeWrapper  ~useTechniques  ~countAll  ~guessLens
 ```
 
 ## .github
@@ -44,15 +54,11 @@ client/src/utils/__tests__/scrollytelling.test.js +MockIntersectionObserver
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 analysis_service
-h3 analysis_service/analyzer.py
-h3 analysis_service/app.py
 h2 client
 h3 client/UI/AC_AUDIT.md
 h3 client/index.html
 h3 client/public/index.html
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/App.jsx
 h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
@@ -66,6 +72,10 @@ h3 client/src/hooks/useAudit.js
 h3 client/src/hooks/useAuditAutosave.js
 h3 client/src/hooks/useAuditShortcuts.js
 h3 client/src/hooks/useAudits.js
+h3 client/src/hooks/useCurricula.js
+h3 client/src/hooks/useDeepLinkParams.js
+h3 client/src/hooks/useSketches.js
+h3 client/src/hooks/useSong.js
 ```
 
 ### .github/copilot-instructions.md
@@ -79,13 +89,22 @@ h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
+h2 analysis_service
+h3 analysis_service/analyzer.py
+h3 analysis_service/app.py
 h2 client
-h3 client/src/App.jsx
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/hooks/useCompletionCheck.js
+h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/scrollytelling.test.js
 h3 client/src/utils/responseShape.js
 h3 client/src/utils/scrollytelling.js
-code-fence plain
+h2 server
+h3 server/adapters/CLAPSegmentAdapter.js
+h3 server/adapters/MockBookmarkAnalysisAdapter.js
+h3 server/ports/IBookmarkAnalysisService.js
+h3 server/services/BookmarkAnalysisService.js
 ```
 
 ### .github/gemini-context.md
@@ -99,25 +118,91 @@ h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
+h2 analysis_service
+h3 analysis_service/analyzer.py
+h3 analysis_service/app.py
 h2 client
-h3 client/src/App.jsx
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/hooks/useCompletionCheck.js
+h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/scrollytelling.test.js
 h3 client/src/utils/responseShape.js
 h3 client/src/utils/scrollytelling.js
-code-fence plain
+h2 server
+h3 server/adapters/CLAPSegmentAdapter.js
+h3 server/adapters/MockBookmarkAnalysisAdapter.js
+h3 server/ports/IBookmarkAnalysisService.js
+h3 server/services/BookmarkAnalysisService.js
+```
+
+## analysis_service
+
+### analysis_service/analyzer.py
+```
+class ClapAnalyzer  :44-149
+  def __init__(model_name)
+  def analyze_features(file_path, tags)
+  def analyze_features_from_array(audio_array, sample_rate, tags)
+def get_clap_analyzer()  :154-160
+def analyze_segment(file_path, start_s, end_s, audio_id, pad_seconds)  :332-365  # Phase 2
+def analyze_audio_file(file_path, yt_id)  :368-578  # Runs the audio analysis on the downloaded file
+def download_and_analyze(youtube_url, yt_id, callback_url)  :581-673  # Downloads audio via yt-dlp to a temporary directory, analyze
+def analyze_sketch_file(file_path, sketch_id, callback_url)  :676-710  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
+```
+
+### analysis_service/app.py
+```
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :44-48
+class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :50-53
+class SegmentAnalysisRequest(BaseModel) {audio_id?, file_path?, youtube_url?, yt_id?, start_seconds*, end_seconds*}  :55-64
+def health()  :107-108
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :111-132  # Triggers an asynchronous audio analysis job
+def trigger_sketch_analysis(request: SketchAnalysisRequest)  :135-162  # Synchronously analyze an uploaded DAW sketch from a local fi
+async def trigger_segment_analysis(request: SegmentAnalysisRequest)  :165-213  # Phase 2
+GET /health  →  health()  :107-108
+POST /analyze  →  trigger_analysis()  :111-132
+POST /analyze-sketch  →  trigger_sketch_analysis()  :135-162
+POST /analyze-segment  →  trigger_segment_analysis()  :165-213
 ```
 
 ## client
 
-### client/src/App.jsx
+### client/src/adapters/HttpBackendAdapter.js
 ```
-function App()  :865-877
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
+```
+
+### client/src/adapters/InMemoryBackendAdapter.js
+```
+export class InMemoryBackendAdapter  :7-32
+  constructor()  :8-32
 ```
 
 ### client/src/hooks/useCompletionCheck.js
 ```
 export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :15-52
+```
+
+### client/src/ports/IBackendService.js
+```
+export class IBackendService  :7-74
+  async login(email, password)  :9-9
+  async register(email, password, name)  :10-10
+  async getUserProfile()  :11-11
+  async updatePreferences(preferences)  :12-12
+  async updateProfile(profileData)  :13-13
+  async changePassword(oldPassword, newPassword)  :14-14
+  async deleteAccount()  :15-15
+  async getSongs(filters)  :18-18
 ```
 
 ### client/src/utils/__tests__/scrollytelling.test.js
@@ -146,4 +231,42 @@ export const formatTimestampLabel = (seconds) =>  :66-72
 ```
 export const useMostVisible = (items, options = {}) =>  :31-106
 export const useScrollytellingSeek = (items, { seek, currentTime = 0, enabled = true, debounceMs = DEFAULTS.debounceMs, minJumpSeconds = DEFAULTS.minJumpSeconds } = {}) =>  :108-147
+```
+
+## server
+
+### server/adapters/CLAPSegmentAdapter.js
+```
+export class CLAPSegmentAdapter  :69-118
+  async analyzeSegment({ audioId, filePath, youtubeUrl, ytId, startSeconds, endSeconds, padSeconds = 5, })  :78-117
+  if(endSeconds <= startSeconds)  :90-92
+  if(!result || !result.analysis)  :113-115
+```
+
+### server/adapters/MockBookmarkAnalysisAdapter.js
+```
+export class MockBookmarkAnalysisAdapter  :65-98
+  constructor({ model = 'deterministic-v1', version = '2.3.0', latencyMs = 0, failureRate = 0 } = {})  :66-71
+  async analyzeSegment({ audioId, startSeconds, endSeconds })  :73-97
+  if(this.latencyMs > 0)  :74-76
+  if(endSeconds <= startSeconds)  :83-85
+```
+
+### server/ports/IBookmarkAnalysisService.js
+```
+export class IBookmarkAnalysisService  :44-54
+  async analyzeSegment(req) → Promise<SegmentAnalysis>  :51-53
+```
+
+### server/services/BookmarkAnalysisService.js
+```
+export class BookmarkAnalysisService  :48-185
+  constructor({ adapter, auditRepository, songRepository, padSeconds = DEFAULT_PAD_SECONDS, queueLimit = DEFAULT_QUEUE_LIMIT, } = {})  :49-66
+  size()  :70-72
+  isFull()  :74-76
+  inFlightCount()  :78-80
+  enqueue({ auditId, bookmarkId, startSeconds, endSeconds, audioId, filePath, youtubeUrl, ytId, padSeconds })  :82-103
+  while(this.queue.length > 0 && this.inFlight < MAX_BACKGROUND_JOBS)  :109-120
+  if(this.queue.length > 0)  :116-118
+  if(!resolved.audioId && !resolved.filePath)  :131-134
 ```

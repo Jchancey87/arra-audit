@@ -30,8 +30,7 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
-client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
-client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
 client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
 client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
@@ -53,33 +52,6 @@ client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioCont
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 client/src/utils/pdfData.js ← pdf/theme
-analysis_service/analyzer.py ← requests
-analysis_service/app.py ← fastapi, pydantic, analyzer
-```
-
-## analysis_service
-
-### analysis_service/analyzer.py
-```
-class ClapAnalyzer  :44-112
-  def __init__(model_name)
-  def analyze_features(file_path, tags)
-def get_clap_analyzer()  :117-124
-def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
-def analyze_sketch_file(file_path, sketch_id, callback_url)  :435-469  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
-```
-
-### analysis_service/app.py
-```
-class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
-class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :39-42
-def health()  :45-46
-def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :49-70  # Triggers an asynchronous audio analysis job
-def trigger_sketch_analysis(request: SketchAnalysisRequest)  :73-100  # Synchronously analyze an uploaded DAW sketch from a local fi
-GET /health  →  health()  :45-46
-POST /analyze  →  trigger_analysis()  :49-70
-POST /analyze-sketch  →  trigger_sketch_analysis()  :73-100
 ```
 
 ## client
@@ -117,23 +89,9 @@ title: Arra Audit
 div#root
 ```
 
-### client/src/adapters/HttpBackendAdapter.js
+### client/src/App.jsx
 ```
-export class HttpBackendAdapter  :8-172
-  constructor(baseURL)  :9-22
-  async login(email, password)  :25-28
-  async register(email, password, name)  :30-33
-  async getUserProfile()  :35-38
-  async updatePreferences(preferences)  :40-43
-  async updateProfile(profileData)  :45-48
-  async changePassword(oldPassword, newPassword)  :50-53
-  async deleteAccount()  :55-58
-```
-
-### client/src/adapters/InMemoryBackendAdapter.js
-```
-export class InMemoryBackendAdapter  :7-32
-  constructor()  :8-32
+function App()  :865-877
 ```
 
 ### client/src/components/ComparePlayer.jsx
@@ -285,19 +243,6 @@ export function getActiveBrand()  :139-141
 function isHex(s)  :80-82
 function mergeColors(overrides)  :84-91
 function mergeFonts(overrides)  :93-102
-```
-
-### client/src/ports/IBackendService.js
-```
-export class IBackendService  :7-75
-  async login(email, password)  :9-9
-  async register(email, password, name)  :10-10
-  async getUserProfile()  :11-11
-  async updatePreferences(preferences)  :12-12
-  async updateProfile(profileData)  :13-13
-  async changePassword(oldPassword, newPassword)  :14-14
-  async deleteAccount()  :15-15
-  async getSongs(filters)  :18-18
 ```
 
 ### client/src/utils/__tests__/lensGuess.test.js
