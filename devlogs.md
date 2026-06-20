@@ -1283,3 +1283,21 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
   scrubbing, arrangement sections priority, edge cases (missing data,
   fallbacks). All 282 client tests pass. Vite build clean (main 614 KB
   unchanged).
+
+### 2026-06-20: DAW multi-track timeline refactor
+
+- **Context**: The user requested that the playhead indicator progress smoothly with the song (it was previously choppy/lagging due to a 500ms `setInterval` polling interval in `AudioContext.jsx`). Additionally, they needed a way to add, move, resize, and edit "midi clips" (Intro, Verse, Chorus, etc.) across multiple instrument and vocal track lanes (Vocals, Synths, Guitars, Bass, Drums) behaving like a mini DAW.
+
+- **Changes**:
+  - **Playhead smooth movement**: Replaced the conditional 500ms `setInterval` polling in `AudioContext.jsx` with a continuous `requestAnimationFrame` loop that checks the active player's time and updates the context `currentTime` state at 60fps, resulting in perfectly smooth playhead sliding.
+  - **Multi-track arrangement**: Rebuilt the layout in `AuditTimeline.jsx` to render 6 horizontal DAW tracks: Sections (Arrangement), Vocals, Synths/Keys, Guitars, Bass, Drums.
+  - **Draggable and resizable clips**: Implemented custom mouse event listeners on clips in `AuditTimeline.jsx` to support:
+    - Drag-to-move (updates `startTime`).
+    - Hover handle detection with `col-resize` mouse cursor to drag-to-resize duration (both left-edge resize and right-edge resize are fully clamped and supported).
+  - **Synchronous form state**: Fixed race conditions in test environments by setting the clip edit form state synchronously inside the click and creation callbacks.
+  - **Settings Modal Inspector**: Replaced the inline addition form with a beautiful edit modal popup allowing the user to name the clip, change its type/color, change its track lane (moves clips between tracks), set start time and duration manually, write chords/notes, and delete the clip.
+  - **Backwards compatibility**: Preserved flat-array support for legacy templates (automatically maps them to the arrangement lane) and fallback key center estimates.
+  - **Props flow update**: Added `handleUpdateSections` in `AuditForm.jsx` and piped it through `AuditAnalysisTab` to `AuditTimeline` as `onUpdateSections` to persist clip changes to `responses['arrangement-timeline']` in MongoDB.
+
+- **Tests**: Re-verified the test suite and updated `AuditTimeline` to pass all 49 timeline tests. All 283 client tests pass. Vite build clean.
+
