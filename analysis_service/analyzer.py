@@ -5,7 +5,54 @@ import hashlib
 import json
 import random
 import subprocess
+import threading
+import time
+import gc
 import requests
+
+
+def _load_repo_dotenv():
+    """Load KEY=VALUE pairs from the repo-root `.env` into os.environ.
+    Tiny stdlib parser (no python-dotenv dep). Only sets vars that are
+    not already in the environment, so PM2's env block still wins.
+    Looks at: <repo>/.env (script is in analysis_service/, so ../.env).
+    """
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"),
+        os.path.join(os.getcwd(), "..", ".env"),
+    ]
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, _, v = line.partition("=")
+                    k = k.strip()
+                    v = v.strip().strip('"').strip("'")
+                    if k and k not in os.environ:
+                        os.environ[k] = v
+        except OSError:
+            pass
+        return
+
+
+_load_repo_dotenv()
+
+
+def _callback_headers():
+    """Build headers for the analysis-completed webhook. If
+    ANALYSIS_WEBHOOK_SECRET is set, attach it as a Bearer token so the
+    Express server's auth check (server.js:156) accepts the callback.
+    """
+    headers = {"Content-Type": "application/json"}
+    secret = os.environ.get("ANALYSIS_WEBHOOK_SECRET")
+    if secret:
+        headers["Authorization"] = f"Bearer {secret}"
+    return headers
 
 try:
     import numpy as np
@@ -36,13 +83,17 @@ except ImportError:
 try:
     import torch
     from transformers import AutoProcessor, ClapModel
+    import ctypes
     HAS_CLAP = True
 except ImportError:
     HAS_CLAP = False
 
 
 class ClapAnalyzer:
-    def __init__(self, model_name="laion/clap-htsat-fused"):
+    def __init__(self, model_name=None):
+        if model_name is None:
+            model_name = _CLAP_MODEL
+        self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"[CLAP] Initializing {model_name} on {self.device}...")
         self.processor = AutoProcessor.from_pretrained(model_name)
@@ -149,15 +200,130 @@ class ClapAnalyzer:
         return {tags[i]: round(float(probs[i]), 4) for i in range(len(tags))}
 
 
+# ── CLAP runtime config ───────────────────────────────────────────────────────
+# Default model is `laion/clap-htsat-fused` (~600MB, weights in `transformers`).
+#
+# BIGGER-MODEL PATH: laion hosts `laion/larger_clap_music` and
+# `laion/larger_clap_music_and_speech` (~1.2GB each, better zero-shot accuracy
+# for music production tags) but they live in the `laion-clap` package, not in
+# `transformers`. laion-clap 1.1.7 pins torch >= 2.12, which DROPPED sm_61
+# support (GTX 1050 Ti compute capability 6.1). Tried 2026-06-20: torch 2.12.1
+# install nvidia-smi warning "no longer supported", laion-clap import fails.
+# To unlock the larger models: upgrade the GPU to sm_70+ (Turing or newer)
+# OR pin laion-clap to an older release that supports sm_61.
+_CLAP_MODEL = os.environ.get("CLAP_MODEL", "laion/clap-htsat-fused")
+
+# Idle-evict timeout in seconds. After this many seconds with no use the model
+# is unloaded and ~1.2 GB of RAM is freed. Set to 0 to disable eviction
+# (always-resident; the legacy behavior). Default 60s is friendly to the
+# "a couple songs per day" workflow: stays warm across bursts, frees RAM
+# after each session.
+_CLAP_IDLE_EVICT_SECONDS = int(os.environ.get("CLAP_IDLE_EVICT_SECONDS", "60"))
+
+
 _clap_analyzer = None
+_clap_last_used_at = 0.0  # monotonic-clock seconds; 0.0 means "never loaded"
+_clap_lock = threading.Lock()
+
+
+def _evict_clap():
+    """Unload the CLAP model and free its memory.
+
+    Holds _clap_lock so concurrent `get_clap_analyzer()` calls wait. Drops the
+    model + processor references, runs `gc.collect()`, and empties the CUDA
+    allocator cache if a GPU is present.
+    """
+    global _clap_analyzer, _clap_last_used_at
+    with _clap_lock:
+        if _clap_analyzer is None:
+            return
+        name = getattr(_clap_analyzer, "model_name", "clap")
+        try:
+            model = getattr(_clap_analyzer, "model", None)
+            proc = getattr(_clap_analyzer, "processor", None)
+            if model is not None:
+                del model
+            if proc is not None:
+                del proc
+            del _clap_analyzer
+            _clap_analyzer = None
+            _clap_last_used_at = 0.0
+            gc.collect()
+            if HAS_CLAP and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            # Force glibc to release freed heap pages back to the OS. Without
+            # this, large pinned-host tensors (the CLAP weights) stay in the
+            # process's heap arena and RSS doesn't drop even after `del`.
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except OSError:
+                pass
+            print(f"[CLAP] Evicted {name} after idle timeout; model unloaded")
+        except Exception as e:
+            print(f"[CLAP] Eviction error: {e}", file=sys.stderr)
+            _clap_analyzer = None
+            _clap_last_used_at = 0.0
+
 
 def get_clap_analyzer():
-    global _clap_analyzer
-    if _clap_analyzer is None and HAS_CLAP and HAS_LIBROSA:
+    """Lazy-load and return the CLAP analyzer singleton.
+
+    Side effects:
+      - If the cached analyzer has been idle longer than
+        `_CLAP_IDLE_EVICT_SECONDS`, evicts it first (so a long-idle process
+        doesn't sit at 1.2 GB).
+      - Touches `_clap_last_used_at` on every call so an in-progress
+        analysis (which calls this once and then uses the model for minutes)
+        does not get reaped mid-flight.
+    """
+    global _clap_analyzer, _clap_last_used_at
+    if not HAS_CLAP or not HAS_LIBROSA:
+        return None
+
+    now = time.monotonic()
+    if (
+        _clap_analyzer is not None
+        and _CLAP_IDLE_EVICT_SECONDS > 0
+        and (now - _clap_last_used_at) > _CLAP_IDLE_EVICT_SECONDS
+    ):
+        _evict_clap()
+
+    if _clap_analyzer is None:
+        with _clap_lock:
+            if _clap_analyzer is None:
+                try:
+                    _clap_analyzer = ClapAnalyzer(model_name=_CLAP_MODEL)
+                except Exception as e:
+                    print(f"[CLAP] Failed to initialize ClapAnalyzer: {e}", file=sys.stderr)
+                    _clap_analyzer = None
+                    return None
+
+    _clap_last_used_at = time.monotonic()
+    return _clap_analyzer
+
+
+def _clap_reaper_loop():
+    """Background daemon thread: evict CLAP after idle even when no requests
+    come in. Polling cadence = max(15s, timeout/4) so we react promptly after
+    a quiet period without burning CPU."""
+    if _CLAP_IDLE_EVICT_SECONDS <= 0:
+        return  # eviction disabled; nothing to do
+    interval = max(15, _CLAP_IDLE_EVICT_SECONDS // 4)
+    while True:
         try:
-            _clap_analyzer = ClapAnalyzer()
+            time.sleep(interval)
+            if _clap_analyzer is None:
+                continue
+            idle_for = time.monotonic() - _clap_last_used_at
+            if idle_for > _CLAP_IDLE_EVICT_SECONDS:
+                _evict_clap()
         except Exception as e:
-            print(f"[CLAP] Failed to initialize ClapAnalyzer: {e}", file=sys.stderr)
+            print(f"[CLAP] Reaper error: {e}", file=sys.stderr)
+
+
+if HAS_CLAP and HAS_LIBROSA:
+    threading.Thread(target=_clap_reaper_loop, name="clap-reaper", daemon=True).start()
+    print(f"[CLAP] Idle-evict reaper armed (timeout={_CLAP_IDLE_EVICT_SECONDS}s, model={_CLAP_MODEL})")
 
 
 # ── Phase 2.3: per-bookmark segment analysis ─────────────────────────────────
@@ -362,7 +528,6 @@ def analyze_segment(file_path, start_s, end_s, audio_id=None, pad_seconds=5.0):
     except Exception as e:
         print(f"[Analyzer] analyze_segment failed: {e}", file=sys.stderr)
         return _fallback_segment_analysis(audio_id, start_s, end_s)
-    return _clap_analyzer
 
 
 def analyze_audio_file(file_path, yt_id):
@@ -655,11 +820,11 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
             resp = requests.post(callback_url, json={
                 "status": "success",
                 "analysis": analysis_data
-            }, headers={"Content-Type": "application/json"}, timeout=15)
+            }, headers=_callback_headers(), timeout=15)
             print(f"[Analyzer] Callback response: {resp.status_code}")
-            
+
         return analysis_data
-        
+
     except Exception as e:
         print(f"[Analyzer] Analysis failed: {e}", file=sys.stderr)
         if callback_url:
@@ -667,7 +832,7 @@ def download_and_analyze(youtube_url, yt_id, callback_url=None):
                 requests.post(callback_url, json={
                     "status": "failed",
                     "error": str(e)
-                }, headers={"Content-Type": "application/json"}, timeout=15)
+                }, headers=_callback_headers(), timeout=15)
             except Exception as cb_err:
                 print(f"[Analyzer] Callback notification failed: {cb_err}", file=sys.stderr)
         raise e
@@ -690,7 +855,7 @@ def analyze_sketch_file(file_path, sketch_id, callback_url=None):
                 requests.post(
                     callback_url,
                     json={"status": "success", "analysis": analysis},
-                    headers={"Content-Type": "application/json"},
+                    headers=_callback_headers(),
                     timeout=15,
                 )
             except Exception as cb_err:
@@ -702,7 +867,7 @@ def analyze_sketch_file(file_path, sketch_id, callback_url=None):
                 requests.post(
                     callback_url,
                     json={"status": "failed", "error": str(e)},
-                    headers={"Content-Type": "application/json"},
+                    headers=_callback_headers(),
                     timeout=15,
                 )
             except Exception as cb_err:

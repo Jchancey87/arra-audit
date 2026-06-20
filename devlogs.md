@@ -1806,4 +1806,55 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
 - **No streaming**: corpus is loaded synchronously into memory. For >5k techniques, paginate the source query. Cap is currently 5000.
 
 
+### 2026-06-20: HOTFIX — Analysis webhook 401 (song stuck at 99%)
+
+- **Symptom (user report)**: "stuck on importing a song and doing the analysis: Extracting Harmonic & Rhythmic Codes (99%)". Song `6a3683c1a5b03c11405b4b09` ("Everything In Its Right Place").
+- **Root cause**:
+  - `server/server.js:154-162` enforces `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` on `POST /api/public/songs/:id/analysis-completed` when the env var is set. `.env` has `ANALYSIS_WEBHOOK_SECRET=change-me-in-production` (truthy).
+  - `analysis_service/analyzer.py` sent the callback with **no `Authorization` header** (only `Content-Type: application/json`). Server returned **401**; analysis payload was discarded.
+  - PM2's `arra-analysis` `env` block in `ecosystem.config.cjs:29-31` has only `PORT: 8080` — `ANALYSIS_WEBHOOK_SECRET` is never propagated to the Python process. PM2 also does not source `.env` for Python, and Python has no `python-dotenv` dep.
+  - Net result: every analysis that ran since the secret was added in `.env` (Jun 14) silently failed at the callback step, leaving songs in `pending` forever. The 99% bar is the **client-side simulated progress** in `client/src/hooks/useAuditAutosave.js:79-109` — it caps at 99% on purpose and only resolves when the polling sees `audioAnalysisStatus: 'success'`.
+  - The earlier successful callbacks (`i1gVxKhdGPs`, `apBWI6xrbLY`, `Q8P_xTBpAcY` → 200) suggest the env was loaded into the analysis process during a window when something else propagated it; the regression is that the patch never landed in `analyzer.py`. Either way, fix is identical.
+- **Fix** (3 small edits in `analysis_service/analyzer.py`, no new deps):
+  1. Added `_load_repo_dotenv()` at top of file: stdlib parser (no `python-dotenv`) reads `../.env` and `setdefault`s vars into `os.environ`. PM2's `env` block still wins if present.
+  2. Added `_callback_headers()` helper that returns `{Content-Type, Authorization: Bearer <secret>}` when `ANALYSIS_WEBHOOK_SECRET` is set, else just `Content-Type`.
+  3. Updated all 4 `requests.post` callback call sites: 2 in `download_and_analyze` (success + failure), 2 in `analyze_sketch_file` (success + failure). Each was using `headers={"Content-Type": "application/json"}` — now `headers=_callback_headers()`.
+- **Service**: `pm2 restart arra-analysis` (PID 50844, online). New process has no `ANALYSIS_WEBHOOK_SECRET` in its environ, so it relies on the in-process `_load_repo_dotenv()` to pick up the value from `../.env` at import time.
+- **Unstuck song**: Direct Mongo write set `audioAnalysisStatus: 'failed'` and pushed an explanatory string into `importErrors` so the UI's "Re-run Pipeline" button appears. Analysis data was lost (401 → server never saved it); user re-imports or re-runs from UI.
+- **Files**:
+  - `analysis_service/analyzer.py` — MOD (+48 / -4)
+  - `agent_memory.md` — Red Line + Session Log row
+  - `devlogs.md` — this entry
+- **Commit**: uncommitted at log time. Suggested message: `fix(analysis): send Bearer webhook token from Python analyzer — analyzer.py was posting callbacks without Authorization header, server rejected with 401, songs stuck in pending. Stdlib .env parser + _callback_headers() helper; all 4 callback call sites updated.`
+- **Follow-ups** (low priority):
+  - Add an integration smoke test that triggers an analysis on a stubbed yt_id, asserts the callback returns 200 (would have caught this before user impact).
+  - `ecosystem.config.cjs` could echo `ANALYSIS_WEBHOOK_SECRET` into the `env` block as a defense-in-depth, but the in-process .env loader already handles it.
+  - Consider downgrading the simulated progress bar cap from 99% to something more honest (e.g. "finalizing" stage without a number) so the 99% pin isn't so alarming.
+
+### 2026-06-20: CLAP idle-evict + bigger-model investigation
+
+- **Context**: User noticed `arra-analysis` holding 1 GB RAM constantly. Asked about idle-eviction and "since we can go to idle, we could even find a bigger weight model to improve accuracy."
+- **CLAP idle-evict (the main feature)**:
+  - Refactored the `_clap_analyzer` module-level singleton into an idle-evicting lazy load.
+  - `analyzer.py:202-316` — added `_CLAP_MODEL` + `_CLAP_IDLE_EVICT_SECONDS` (env: `CLAP_MODEL`, `CLAP_IDLE_EVICT_SECONDS`, defaults `laion/clap-htsat-fused` + `60s`); `_evict_clap()` does `del` + `gc.collect()` + `torch.cuda.empty_cache()` + `ctypes.CDLL("libc.so.6").malloc_trim(0)`; daemon `_clap_reaper_loop()` polls every `max(15, timeout/4)` seconds and evicts when idle > timeout; `get_clap_analyzer()` does the idle check + last-used timestamp touch on every call (so an in-flight analysis doesn't get reaped mid-pass); `_clap_lock = threading.Lock()` serializes init/evict.
+  - Bug fix: removed orphan `return _clap_analyzer` at the end of `analyze_segment()` (was unreachable AND would have shadowed the function name — pre-existing dead code from earlier session).
+  - End-to-end test: triggered analysis on `jNQXAC9IVRw` ("Me at the zoo", 19s) → model loaded → RSS 670 MB → 1.33 GB → 60s idle → reaper logged "Evicted laion/clap-htsat-fused after idle timeout" → RSS 1.33 GB → 1.30 GB (−26 MB via `malloc_trim`); GPU memory fully released (0 MiB). Verified the eviction cycle works reliably across multiple restarts.
+- **Bigger-model investigation (the dead end)**:
+  - Looked up LAION CLAP model names on HuggingFace: `laion/clap-htsat-fused` (600MB, transformers), `laion/clap-htsat-unfused` (600MB, transformers, separate encoders — not actually bigger), and the "larger" family: `laion/larger_clap_music` / `larger_clap_music_and_speech` / `larger_clap_general` (1.2GB, laion-clap package only — NOT in transformers).
+  - Installed `laion-clap 1.1.7` — pulled `torch==2.12.1` + CUDA 13.x + `torchvision` + `numpy 1.26.4` (downgraded from 2.4.6).
+  - **BLOCKER**: `torch 2.12.1` does NOT support `sm_61` (compute capability 6.1) — the GTX 1050 Ti. PyTorch warning: "Found GPU0 NVIDIA GeForce GTX 1050 Ti with Max-Q Design which is of compute capability (CC) 6.1. The following list shows the CCs this version of PyTorch was built for and the hardware CCs it supports: 7.5, 8.0, 8.6, 9.0, 10.0, 12.0". The CC 6.1 was supported through torch 2.6 (cu126) — laion-clap's minimum dropped it.
+  - Reverted: uninstalled laion-clap + torchvision + h5py + webdataset + ftfy + braceexpand + sentry-sdk + progressbar + wget + wandb + pandas; reinstalled `torch==2.6.0+cu126` (sm_61 OK), confirmed GPU still works.
+  - Decision: keep `laion/clap-htsat-fused` as the default. Documented the laion-clap upgrade path in the code comment (`analyzer.py:202-219`) — needs sm_70+ GPU or pin to an older laion-clap release.
+- **Files**:
+  - `analysis_service/analyzer.py` — MOD (+~110 / -10): added `time`/`gc`/`threading`/`ctypes` imports; rewrote singleton block (lines 196-316); fixed orphan `return _clap_analyzer` bug in `analyze_segment`.
+  - `agent_memory.md` — new Red Line "CLAP idle-evict (2026-06-20)" + Session Log row.
+  - `devlogs.md` — this entry.
+- **Commit**: uncommitted. Suggested: `feat(analysis): idle-evict CLAP model + bigger-model path documented` (or split into `feat(analysis): idle-evict CLAP model to free ~600MB RAM between sessions` + `docs(analysis): document laion-clap bigger-model path blocked by sm_61`).
+- **Caveats**:
+  - RSS only drops ~26 MB on eviction (mmap'd safetensors pages stay in the glibc heap arena and are re-used on the next cold start, so the model actually re-loads in <1s after the timer fires — fast warm restart). For a true 700 MB idle baseline, `pm2 restart arra-analysis` (1s downtime) is the only in-process solution; the alternative is a subprocess pool (significant refactor).
+  - `CLAP_IDLE_EVICT_SECONDS=0` disables eviction (always-resident; legacy behavior) — set this in `../.env` if you want to compare or if you start running many analyses in a session.
+  - The reaper is a daemon thread — it dies with the process. PM2's `kill -9` could in theory skip graceful eviction, but in practice the reaper runs at most ~15s after a request completes.
+
+
+
 
