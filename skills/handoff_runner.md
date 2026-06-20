@@ -7,7 +7,7 @@ Use this skill to take a handoff file, align on details, implement features, ver
 ## 📋 Execution Phases
 
 ### Phase 1: Ingestion & Analysis
-1. Locate and view the designated handoff file (defaulting to [HANDOFF.md](file:///home/jackc/projects/sonic-dna/HANDOFF.md) unless specified otherwise).
+1. Locate and view the designated handoff file (defaulting to [HANDOFF.md](file:///home/jackc/projects/arra/HANDOFF.md) unless specified otherwise).
 2. Scan the "Next Steps", dependencies, and target architectural goals.
 3. Identify existing files to analyze and gather necessary context from the codebase.
 
@@ -16,7 +16,7 @@ Use this skill to take a handoff file, align on details, implement features, ver
 2. Formulate 2-4 key clarifying questions. If appropriate, use the `ask_question` tool for structured feedback, or ask directly to align on design decisions.
 
 ### Phase 3: Architectural Planning
-1. Design the technical solution adhering to the Ports & Adapters architecture described in [ARCHITECTURE_COMPLETE.md](file:///home/jackc/projects/sonic-dna/ARCHITECTURE_COMPLETE.md) and [REPOSITORY_PATTERN.md](file:///home/jackc/projects/sonic-dna/REPOSITORY_PATTERN.md).
+1. Design the technical solution adhering to the Ports & Adapters architecture described in [ARCHITECTURE_COMPLETE.md](file:///home/jackc/projects/arra/ARCHITECTURE_COMPLETE.md) and [REPOSITORY_PATTERN.md](file:///home/jackc/projects/arra/REPOSITORY_PATTERN.md).
 2. Create or update the `implementation_plan.md` artifact detailing exactly what changes are planned and why.
 
 ### Phase 4: Implementation & Clean Coding

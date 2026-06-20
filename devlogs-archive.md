@@ -1,0 +1,840 @@
+# Development Logs — Archive (pre-2026-06-19)
+
+Historical entries moved from `devlogs.md` to keep the active log tight. Full git history remains the canonical source.
+
+---
+
+### 2026-06-18: Start Services via PM2
+
+- **Context**: Start Arra backend, client, analysis services.
+- **Actions**:
+  - Check PM2 status. Empty.
+  - Run `pm2 start ecosystem.config.cjs`.
+  - Backend, client (Vite), analysis services online.
+- **Verification**:
+  - Run `pm2 list` — all online, zero restarts.
+  - Run `npm test` inside server — all 44 tests passed successfully.
+
+### 2026-06-14: Architecture Audit — Implementation & Deployment Summary
+
+- **Context**: Used SigMap + direct file reads to audit the Arra codebase for glaring architecture/security/runtime issues.
+- **Commits**:
+  - `2cc8bf1` — `fix: architecture audit — runtime, security, and cleanup`
+  - `ed9c8c6` — `docs: sync auto-generated SigMap context files`
+- **Runtime fixes**:
+  - Pass `techniqueRepository` into `createAuditRoutes` so `DELETE /trash/purge-all` no longer throws `ReferenceError`.
+  - Initialize `this.curricula = []` in `InMemoryBackendAdapter` constructor before seed push.
+- **Security hardening**:
+  - Require `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` on `POST /api/public/songs/:id/analysis-completed`.
+  - Restrict backend CORS to `CLIENT_ORIGIN` (default `http://localhost:5173`).
+  - Restrict analysis-service CORS to `ALLOWED_ORIGINS` (no wildcard with credentials).
+  - Remove JWT fallback secret; app now fails closed if `JWT_SECRET` is missing.
+  - Add global rate limit (100 req / 15 min / IP) and auth rate limit (5 req / 15 min / IP).
+  - Add `express-validator` input validation on `/register`, `/login`, `/api/songs/import`, and `POST /api/audits`.
+- **Architecture cleanup**:
+  - Move password `verifyPassword` / `setPassword` behind `IRepository` port; implement in both adapters.
+  - Move `studyProgress` Mongoose `.populate().lean()` behind `curriculumService.getPopulatedStudyProgress` / repository `findByIdWithRelations`.
+  - Remove Mongoose model leakage from `authService.changePassword`.
+- **Data/schema cleanup**:
+  - Remove `'form'` lens from `Curriculum` enum, seed data, route data, and AI prompt; map days 4/12 to `arrangement`.
+  - Standardize soft-delete queries: active `{ deletedAt: null }`, deleted `{ deletedAt: { $ne: null } }`.
+- **Tooling/config cleanup**:
+  - Disable SigMap `autoMaxTokens` so the `maxTokens: 10000` budget is honored.
+  - Make Vite `/api` and `/uploads` proxy targets env-driven (`VITE_API_PROXY_TARGET`).
+  - Add `.context/`, `server/uploads/`, `.venv/`, `__pycache__/` to `.gitignore`; remove tracked pycache file.
+  - Replace `analysis_service/analyzer.py` `sonic_dna_temp_` prefix with `arra_temp_` and `md5` with `sha256`.
+- **Test hygiene**:
+  - Delete stale root `/tests` directory and `server/tests` symlink.
+  - Update `agent_memory.md` to point to `server/__tests__/`.
+  - Update audit/song route tests for new signatures.
+- **Verification**:
+  - `npm test` in `server/` — **8 suites, 44/44 passed**.
+  - `npm run build` in `client/` — **succeeded** (pre-existing chunk-size warning).
+  - `python3 -m py_compile analysis_service/analyzer.py` — **passed**.
+  - Smoke test on port 5051 against real MongoDB: `/health` OK, validation errors return `400`, rate limiting returns `429`.
+- **Deployment**:
+  - Restarted `arra-server` via PM2 on port 5050.
+  - Verified `/health` on port 5050 returns `{"status":"ok"}`.
+
+### 2026-06-14: Add Rate Limiting and Input Validation
+
+- **Problem**: Sensitive endpoints (auth, song import, audit creation) lacked rate limiting and input validation, increasing abuse/bug risk.
+- **Solution**:
+  - Installed `express-rate-limit` (`^8.5.2`).
+  - `server/server.js`: Added global rate limiter — 100 requests per 15 minutes per IP.
+  - `server/routes/auth.js`: Added stricter auth rate limiter (5 attempts per 15 minutes per IP) to `/register` and `/login`. Added `express-validator` chains: `/register` validates email and password length (≥8); `/login` validates presence.
+  - `server/routes/songs.js`: Validated `youtubeUrl` as non-empty string on `/import`.
+  - `server/routes/audits.js`: Validated `songId` as non-empty string on `POST /`.
+  - Validation failures return `400` with `{ errors: [...] }`.
+  - Updated `server/__tests__/integration/songRoutes.test.js` import-missing-URL assertion to check `errors` array.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed. `JWT_SECRET=test node --check server.js` passed.
+
+### 2026-06-14: Remove 'form' Lens from Curriculum Domain
+
+- **Problem**: The curriculum model allowed a `form` lens, but the valid music-analysis lenses are only harmony, rhythm, texture, and arrangement.
+- **Solution**:
+  - `server/models/Curriculum.js`: Removed `'form'` from the `lens` enum.
+  - `server/bin/seedCurriculum.js` and `server/routes/curricula.js`: Changed days 4 and 12 from `lens: 'form'` to `lens: 'arrangement'`; replaced natural-language "form" references with "structure" or "arrangement"; updated description and focusAreas.
+  - `server/services/curriculumService.js`: Updated AI prompt allowed lenses to exclude `'form'`.
+  - Preserved log field keys like `form_notes` to avoid migration issues.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed. `rg "lens:\s*'form'"` returned no matches in server code.
+
+### 2026-06-14: Build-Mode Fix Phase 4 — Remove Mongoose Leakage from authService.changePassword
+
+- **Problem**: `authService.changePassword()` branched on `this.userRepository.model`, leaking Mongoose-specific logic into service layer.
+- **Solution**: Added password methods to repository port and both adapters.
+  - `server/ports/IRepository.js`: added `verifyPassword(entityId, candidatePassword)` and `setPassword(entityId, newPassword)` stubs.
+  - `server/adapters/MongooseRepository.js`: `verifyPassword` uses model `comparePassword` method when present, otherwise bcrypt; `setPassword` assigns plaintext password and saves (Mongoose pre-save hook hashes).
+  - `server/adapters/InMemoryRepository.js`: `verifyPassword` compares bcrypt hash; `setPassword` hashes with bcrypt salt rounds 10 and persists.
+  - `server/services/authService.js`: `changePassword` now delegates to `userRepository.verifyPassword` then `userRepository.setPassword`, no model branch.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed.
+
+### 2026-06-14: Build-Mode Crash Fixes Phase 1
+
+- **Audit purge route**: Pass `techniqueRepository` into `createAuditRoutes(auditService, templateComposer, techniqueRepository)` from `server.js`. Updated signature in `server/routes/audits.js` and integration test caller.
+- **InMemoryBackendAdapter**: Initialize `this.curricula = []` in constructor before seed curriculum push.
+- **Verification**: `npm test` in `server/` — 44/44 passed.
+
+### 2026-06-14: Remove Stale `/tests` Directory and Update Docs
+
+- **Deleted**: root `/tests/` (stale tests with outdated field names) and `server/tests -> ../tests` symlink.
+- **Updated**: `agent_memory.md` "Jest test paths" line now points to `server/__tests__/`.
+- **Verification**: `npm test` in `server/` — 8 suites, 44/44 passed.
+
+### 2026-06-13: Implement DAW SVG Icon Rebrand
+
+- **Icon Rebrand**: Swap emoji/AI icons to clean inline SVGs (`currentColor`, `strokeWidth="2.5"`) inside Dashboard.jsx, StudySessionWorkspace.jsx, Settings.jsx, TechniqueNotebook.jsx, StudyPlannerDashboard.jsx, Trash.jsx.
+- **Verify**: Client built with zero warnings.
+
+### 2026-06-13: Create rebrand handoff mapping
+
+- **Handoff**: Created `handoff.md` mapping all remaining cheesy emojis (`🎛️`, `🎧`, `🗑️`, `⚡`, `✓`, `🔎`, `🎹`, `📝`, `🔗`, `📤`, `📊`, `⚠️`, `⏱️`, `📅`, `🔒`, `📋`, `📚`, `🏋️`, `🚀`, `🔄`, `🎓`, `🧠`) to their respective line numbers and inline vector SVGs aligned with left sidebar DAW theme styling.
+
+### 2026-06-13: Fix study session completion 500 error
+
+- **Mongoose Type Fix**: Changed `confidence` string `'medium'` to number `3` in `CurriculumService.completeDayProgress` to match `TechniqueEntry` Mongoose schema (Number 1-5). Fixed backend 500 error on completing day.
+- **Verification**: Ran Jest integrations, verified scratch completion simulation, restarted `arra-server` in PM2.
+
+### 2026-06-13: Study Session Workspace & Build Verification (Phase 4)
+
+- **Backend Route Populates**: Added `populateProgress` helper in `studyProgress.js`. Resolves nested `curriculumId` & `dayProgress.songId` for active planner sessions. Standardized response format across Mongoose and InMemory repository mocks. Fixed integration tests.
+- **Vite Proxy Config**: Added `/uploads` proxy route in `vite.config.js`. Correctly forwards static file audio sketch requests to Express server.
+- **Pages**: Built `StudySessionWorkspace.jsx` at `/planner/session/:dayNumber`. Implements:
+  - Search recommendation selector: links existing song library tracks or imports via YouTube URLs, fallback matching logic.
+  - Video monitor: collapsible YouTube inline player, disables global background overlay.
+  - Custom Log Fields: dynamic Noto Sans textareas mapped to curriculum schema.
+  - Audio Sketch Uploader: accept `.wav`/`.mp3` uploads, show status, render inline HTML5 audio review player.
+  - Sync Checkbox: syncs takeaways to Technique Notebook.
+- **Routing**: Registered route `/planner/session/:dayNumber` in `App.jsx`.
+- **Verification**: Client build compiled successfully with no ESLint/bundling errors. Backend Jest tests verified passing (44/44).
+
+### 2026-06-13: Study Planner Phase 3 — Client Adapters, Study Planner Dashboard, and Router Hooks
+
+- **Client Ports & Adapters**: Added curriculum/study progress declarations in `IBackendService.js`. Implemented `HttpBackendAdapter.js` calling `/api/curricula/*` and `/api/study-progress/*` endpoints. Added mock implementations in `InMemoryBackendAdapter.js`.
+- **Pages**: Created `StudyPlannerDashboard.jsx` accessible at `/planner`. Designed a premium dark studio dashboard UI featuring progress bars, weekly reflections, seeded course activation, custom AI generated curricula, and inline plan editor.
+- **Routing & Nav**: Registered `/planner` in `App.jsx` with active navigation highlights and calendar icon.
+- **Dashboard Widget**: Added a premium dashboard widget card at the top of the main song library crate in `Dashboard.jsx`, showing active plan status, progress percentage, target song recommendations, and quick-action resume link.
+
+### 2026-06-13: Study Planner Phase 2 — Services, Uploads, Routes & Tests
+
+- **Service**: Built `CurriculumService` with constructor injection. Added `generateAICurriculum` (OpenAI prompt compose + JSON parse), `startCurriculum` (init `StudyProgress` days/reviews), `linkSongToDay`, `logDayProgress`, `completeDayProgress` (trigger `auditService.createAudit` & notebook technique sync), `submitWeeklyReview`.
+- **Routes**: Created `server/routes/curricula.js` and `server/routes/studyProgress.js`. Configured `multer` for `.wav`/`.mp3` uploads.
+- **Server**: Registered routes and `uploads` static serving in `server.js`.
+- **Tests**: Created `server/__tests__/integration/curriculumApi.test.js` testing starts, upload, complete, audits/technique sync, weekly review, AI generation. All 44 Jest tests pass.
+
+### 2026-06-13: Curriculum Models & Seeding (Phase 1)
+
+#### 1. Models & Repositories
+- Created `Curriculum.js` schema with daily prompts, focus lenses, custom logs. Compound index on `{ userId, creatorType }`.
+- Created `StudyProgress.js` tracking responses, audio upload paths, weekly reviews. Compound unique index `{ userId, curriculumId }`.
+- Mapped both models in `MongooseRepository.js` using `CurriculumRepository` & `StudyProgressRepository` subclasses.
+
+#### 2. Directories & Seeds
+- Scaffolded `server/uploads/` with `.gitkeep`.
+- Coded `seedCurriculum.js` populating 14-day Song Audit Planner default curriculum.
+
+#### 3. Verification
+- Created `curriculumModel.test.js` verifying schema validation and DB operations. All tests pass.
+
+### 2026-05-22: DAW-Style Layout & Persistent Playback Redesign
+
+#### 1. Global Audio Context & Persistent YouTube Player
+- **Goal**: Implement a persistent audio player shell so that route navigation does not interrupt playback.
+- **Implementation**:
+  - Built `AudioContext.jsx` using `react-youtube` in a single global provider wrapper at the root layout (`App.jsx`).
+  - Implemented persistent player variables (`activeSong`, `activeAudit`, `isPlaying`, `currentTime`, `duration`, `volume`, `isMuted`, `bookmarks`) with global callback controllers (`loadSong`, `play`, `pause`, `seekTo`, `addGlobalBookmark`).
+  - Added a toggleable mini video monitor for YouTube playback positioned outside the routing views.
+
+#### 2. Dark DAW Theme & Monospace Typography
+- **Styling Overhaul**: Replaced the consumer light theme with a dark, industrial "analog hardware" aesthetic.
+- **Design Tokens**:
+  - Backgrounds: `#0a0a0c` (main canvas), `#141418` (control chrome/sidebars), `#151518` (panels).
+  - Accents: Muted amber/orange (`#d08f60`) for active signals/markers, soft red (`#f87171`) for destructive warnings.
+  - Typography: Google Fonts Inter (interface labels) paired with Roboto Mono (metrics, logs, timecodes).
+- **Hard-Edged Layouts**: Replaced rounded card containers and shadows with flat, border-only panels (`1px solid rgba(255,255,255,0.08)`).
+- **Responsive Panels**: Configured a triple-pane layout (left collapsible Navigator, center viewport, right collapsible Inspector).
+
+#### 3. Frontend Route View Alignment
+- Refactored all page views to integrate with the global player state:
+  - `Dashboard.jsx`: Replaced cards with panels; added `▲ LOAD` button to load song data to transport.
+  - `AuditForm.jsx`: Removed local inline player; converted step indicators to hardware LED sequencers; synced responses, techniques, and global bookmarks.
+  - `AuditDetail.jsx`: Synced session audit reference to update inspector details; converted list timestamps to click-to-seek playback actions.
+  - `TechniqueNotebook.jsx`: Applied grid panel styles; enabled seeking on notebook timestamps if matching song is loaded.
+  - `ImportSong.jsx` / `Trash.jsx` / `AuditCreate.jsx` / `Login.jsx`: Refactored inputs, buttons, warning modals, and list structures.
+
+### 2026-05-22: Archives/Trash UI & Network Exposure Configuration
+
+#### 1. Archives & Trash Feature Implementation
+- **Goal**: Implement soft-delete and purge/restore functionality for Songs and Audits with cascade operations.
+- **Backend Service Changes**:
+  - `SongService`: Implemented `getDeletedSongs`, `restoreSong`, and `purgeSong` with cascade deletion and restoration of associated audits and techniques.
+  - `AuditService`: Implemented `getDeletedAudits`, `restoreAudit`, and `purgeAudit` with rules preventing audit restoration if the parent song is deleted.
+- **Endpoints**:
+  - `GET /api/songs/trash`, `POST /api/songs/:id/restore`, `DELETE /api/songs/:id/purge`
+  - `GET /api/audits/trash`, `POST /api/audits/:id/restore`, `DELETE /api/audits/:id/purge`
+
+#### 2. InMemoryRepository Query & Operator Matching Behavior
+- **Problem**: In-memory unit and integration tests failed when querying `{ deletedAt: null }` because the mock repository did strict matching. Furthermore, mock repositories did not support MongoDB operators like `$ne` (e.g. `{ deletedAt: { $ne: null } }`).
+- **Learning**:
+  - By default, MongoDB/Mongoose treats `{ field: null }` as matching documents where `field` is `null`, `undefined`, or missing.
+  - In-memory mock repositories need to explicitly emulate this behavior for tests to align with production DB queries.
+- **Solution**:
+  - Enhanced `_matches` inside [InMemoryRepository.js](file:///home/jackc/projects/sonic-dna/server/adapters/InMemoryRepository.js) to:
+    1. Match query value `null` against both `null` and `undefined`/missing values in mock documents.
+    2. Support `$ne` and `$eq` operators (specifically for handling soft-delete checks like `deletedAt: { $ne: null }`).
+
+#### 3. Exposing Development Server to Local Network
+- **Problem**: Testing the UI on local network devices (e.g., using `192.168.0.x`) resulted in `ERR_EMPTY_RESPONSE` because Vite was only listening on `localhost` (loopback interface). Additionally, `VITE_API_URL` was hardcoded to `http://localhost:5050/api` in `.env`, causing external client devices to try (and fail) to reach `localhost:5050` on their own local loopback.
+- **Workflows Learned**:
+  - **Exposing Vite Host**: Add `host: true` to `server` in [vite.config.js](file:///home/jackc/projects/sonic-dna/client/vite.config.js):
+    ```javascript
+    server: {
+      port: 3050,
+      host: true, // Listens on 0.0.0.0
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5050',
+          changeOrigin: true,
+        },
+      },
+    }
+    ```
+  - **Relative API URL Proxying**: Configure `VITE_API_URL=/api` in `.env` instead of hardcoding `localhost`. This allows client Axios requests to hit relative `/api` paths (e.g. `http://192.168.0.203:3050/api`), which Vite then proxies locally to `http://localhost:5050`. This is the bulletproof setup for local network testing.
+
+---
+
+### 2026-05-22: Five Critical Bug Fixes — Audit Review, YouTube, Techniques, Research, Audio
+
+#### 1. Audit Review Flow (Issue 1)
+- **Problem**: `AuditDetail` page existed at `/audit/:id` but was never linked from the Dashboard. Audits showed only as a count badge with no navigation path into a completed audit.
+- **Fix**: Rewrote `Dashboard.jsx`. Each song card now has a collapsible **AUDIT HISTORY** section listing every audit with lens badges, status, date, workflow type, and a **Review →** button linking directly to `AuditDetail`.
+
+#### 2. YouTube Embedding Unavailable (Issue 2)
+- **Problem**: `AudioContext.jsx` used `playerVars: { controls: 0 }`. YouTube blocks many videos in this mode to protect attribution. The `origin` param was also missing, which YouTube requires for trusted embedding.
+- **Learning**: `controls: 0` triggers YouTube's anti-embedding restrictions. Always use `controls: 1` for reliable embeds. YouTube error codes `101` and `150` specifically mean "embedding not permitted by video owner."
+- **Fix**: Changed to `controls: 1`, added `origin: window.location.origin`. Added `onError` handler — on error 101/150 renders a friendly fallback with "Open in YouTube →" link instead of a broken player. Custom tape deck scrubber/controls still work via the player API alongside native controls.
+
+#### 3. Techniques Not Persisted to Notebook (Issue 3 — Critical)
+- **Problem**: "Add to Notebook" in `AuditForm` only updated local React state. Techniques were embedded in `audit.techniques[]` at save time. `TechniqueNotebook` reads the separate `TechniqueEntry` collection via `GET /api/techniques` — these two data paths never connected. `backend.addTechnique()` existed but was never called during the audit flow.
+- **Learning**: Data living in two separate collection paths (`audit.techniques[]` vs. `TechniqueEntry`) requires explicit wiring on both sides. The service layer (`AuditService.logTechnique`, `TechniqueService.addTechnique`) was correct — the gap was purely at the frontend call site.
+- **Fix**: Made `addTechnique()` async. On each "Save to Notebook" click it immediately calls `backend.addTechnique({ auditId, songId, artist, ... })` → `POST /api/techniques` → `TechniqueEntry` collection. Techniques appear in the Notebook without waiting for audit completion. The returned server document (with `_id`) populates the in-form display list so delete buttons work immediately.
+
+#### 4. Research Intelligence Quality (Issue 4)
+- **Problem (Tavily)**: Ran 3 separate queries per import and stored only a 500-char `snippet` string from the first result. Full source content, titles, and URLs were discarded after each call.
+- **Problem (AI context)**: `audits.js` passed `researchSummary.summary` (the weak 500-char snippet) to `templateComposer.generateTemplate()`. Full source content was sitting in MongoDB inside `researchSummary.results[]` but was never pulled for the AI prompt.
+- **Problem (UI)**: Research was only visible in the collapsible Inspector sidebar — not on the audit form where users actually need it while answering questions.
+- **Fix**:
+  - `TavilyAdapter`: Single query, `max_results: 6`. Returns structured `{ title, url, content, score }` objects capped at 600 chars of content each. Builds a 1500-char combined summary from the top 3 sources by score.
+  - `audits.js` route: Reads `researchSummary.results[]` from MongoDB and concatenates up to 1500 chars of real source content for the AI prompt — replacing the weak pre-computed snippet.
+  - `AuditForm.jsx`: Added a collapsible **📡 RESEARCH INTELLIGENCE** panel showing all stored sources with titles, text previews, and "Open ↗" links, directly on the audit form.
+
+#### 5. No Audio / YouTube Sound (Issue 5)
+- **Problem**: YouTube monitor container had `pointerEvents: none`. Browser autoplay policy requires a direct user gesture on the media element (the iframe) itself — clicking Play/Pause buttons elsewhere in the DOM does not satisfy this requirement for cross-origin iframes.
+- **Learning**: `pointerEvents: none` on an iframe's parent completely blocks all user interaction with the embedded content, including the initial gesture needed to unlock browser audio context. Media iframes must always remain interactive.
+- **Fix**: Removed `pointerEvents: none` from the monitor container — the player is now fully clickable. Monitor repositioned above the tape deck (`bottom: 155px`). Enlarged to `240×160px`. Added an animated "▶ Press Play in the Tape Deck or click the video monitor" instruction to the guided "Listen" step.
+
+### 2026-05-22: Interactive Technique Notebook Overhaul
+
+#### 1. 3-Tab Control Center Layout
+- **Goal**: Overhaul the layout to make it a central, highly actionable study workspace.
+- **Implementation**:
+  - Tab 1: **Library** - Grid showing all discovered techniques with search, lens filters, sorting, and inline edit controls.
+  - Tab 2: **Practice Room** - 6 Kanban-style lanes grouping techniques by `nextAction` status (`Backlog`, `Study`, `Practice`, `Transcribe`, `Apply`, `Revisit`). Cards automatically transition between lanes when status changes.
+  - Tab 3: **Quick Log** - Manual logger form to log discoveries on-the-fly, supporting automatic artist extraction from selected library songs, custom tags, and MM:SS or raw second timestamps.
+
+#### 2. Fully Interactive Console Cards
+- **Confidence Rating**: Clickable rating stars (1-5) that trigger instant optimistic local updates and backend patches.
+- **Action Selection**: Select nextAction inline with immediate lane reorganization.
+- **Auto-Saving Practice Notes**: Inline textarea updates local state and saves to database on blur (`onBlur` event) for low latency.
+- **Database Status Badges**: Inline `● SAVING...` and `✔ SAVED` labels notify the user of background database sync status.
+- **Color Accent borders**: Thick left borders color-coded according to the musical lens (Rhythm = orange, Harmony = violet, Texture = teal, Arrangement = rose).
+
+#### 3. Load & Seek Audio Player Integration
+- **Interaction**: Clicking `LOAD & SEEK` on a card loads the song in the global tape deck player (fetching full details from backend if inactive) and seeks directly to the precise timestamp, starting playback immediately.
+
+---
+
+### 2026-05-24: UI/UX Refinements, Branding Alignment, Dynamic Footer Sync, and Profile Mutations
+
+#### 1. Branding & Case Cleanup
+- **Banner Sync**: Aligned login page branding with top bar title to read `SONIC DNA // AUDIT SYSTEM` (previously `ACCESS PORT`).
+- **Forced ALL CAPS Overhaul**: Removed `text-transform: uppercase;` on headings, card titles, buttons, and form labels in `global.js` styles. Converted all in-page elements, placeholders, buttons, and labels to natural Title/Sentence Case.
+- **Active Sidebar Highlights**: Configured App.jsx navigation highlighting to retain active highlight on the Library menu item when visiting any subpath of `/audit/...`. Styled with a hard-edged left border (`borderLeft: '3px solid #d08f60'`) and removed emojis.
+
+#### 2. Dynamic Audio Footer & YouTube Sync
+- **Responsive Workspace**: Hidden the tape deck footer completely when no active song is loaded. Center workspace height dynamically adapts.
+- **YouTube Coordinate Shift**: Synced minimized (30px) and expanded (140px) states of the tape deck via global `AudioContext` to automatically shift the floating YouTube monitor bottom alignment (`155px` vs `45px`), ensuring it stays locked above the panel.
+- **Guidance Tooltips**: Added disabled hover tooltips to deck bookmark inputs explaining that a song audit must be active.
+
+#### 3. Simulated Signal Extraction (Import)
+- **Live Progress Sequence**: Replaced static loading state in `ImportSong.jsx` with an interactive simulated progress tracker that updates through five steps step-by-step (`✓`, `●`) during the backend import.
+
+#### 4. Practice Room Compact Cards
+- **Clutter Reduction**: Added `compact={true}` prop support on `TechniqueCard` components inside the Kanban lanes to hide tag lists and notes text areas.
+- **Workflow Header**: Added a descriptive instructions banner explaining actions and categories at the top.
+
+#### 5. Collapsible Archives & Bulk Purge
+- **Collapsible Accordions**: Replaced the tab layout in `Trash.jsx` with two collapsible sections ("Deleted Songs" and "Deleted Audits"), defaulting to open.
+- **Bulk Empty Action**: Added an "Empty Trash" button to execute simultaneous bulk song and audit purge requests from the database.
+- **Fallback Formats**: Configured song duration strings to fall back to `"--:--"` if values are invalid or zero.
+
+#### 6. Settings, Profile Mutations, & Backend Sync
+- **Profile Updates**: Replaced static user name with an editable text input syncing to `/api/auth/profile`.
+- **Modals & Filter Search**: Added Change Password and Delete Account modals in Settings, along with a timezone filter search input.
+- **Backend Endpoints**: Added PUT `/me/profile`, PUT `/me/change-password`, DELETE `/me/delete-account`, DELETE `/songs/trash/purge-all`, and DELETE `/audits/trash/purge-all` routes. Integrated document-saving middleware on Mongoose to trigger password hashing during password edits.
+
+---
+
+### 2026-05-25: Interactive Song Arrangement Timeline & Text-Only Research Filtering
+
+#### 1. Interactive Song Arrangement Timeline Sketchpad
+- **Goal**: Implement a visual song structure sketching widget that functions like a DAW arrangement timeline.
+- **Implementation**:
+  - Created [ArrangementTimelineWidget.jsx](file:///home/jackc/projects/sonic-dna/client/src/components/ArrangementTimelineWidget.jsx) with a contiguous colored block layout mapping sections (Intro, Verse, Chorus, Bridge, Outro, Solo, Pre-Chorus, Custom) proportional to duration.
+  - Features include: Click-to-seek, drag-free reordering, inline editing drawer/form, auto-saving responses integration, and real-time red playhead sync.
+  - Integrated into `AuditForm.jsx` for active editing and `AuditDetail.jsx` for read-only history review.
+
+#### 2. Text-Only Tavily Search Domain Exclusion
+- **Goal**: Filter out non-textual streaming media and video URLs (e.g. Spotify, YouTube) from Tavily web search results, so the OpenRouter LLM gets rich articles to analyze.
+- **Implementation**:
+  - Updated [TavilyAdapter.js](file:///home/jackc/projects/sonic-dna/server/adapters/TavilyAdapter.js) and [tavilySearch.js](file:///home/jackc/projects/sonic-dna/server/services/tavilySearch.js) to pass `exclude_domains` array:
+    - Excludes video/audio streaming: `spotify.com`, `open.spotify.com`, `youtube.com`, `youtu.be`, `music.youtube.com`, `soundcloud.com`, `music.apple.com`, `deezer.com`, `tidal.com`, `bandcamp.com`, `vimeo.com`, `dailymotion.com`.
+    - Excludes social/storefront: `amazon.com`, `instagram.com`, `facebook.com`, `tiktok.com`, `pinterest.com`, `twitter.com`, `x.com`.
+  - Removed the invalid `topic: 'music'` configuration in [tavilySearch.js](file:///home/jackc/projects/sonic-dna/server/services/tavilySearch.js) that caused Tavily API 400 errors.
+  - Verified tests pass successfully and ran `deploy.sh` to restart server/client PM2 instances.
+
+---
+
+### 2026-05-31: Hybrid Audio Analysis Pipeline Integration
+
+#### 1. Python FastAPI Microservice & Deterministic Fallback Analyzer
+- **Goal**: Implement a production-grade BPM/key/meter analysis backend with Essentia, madmom, and librosa.
+- **Implementation**:
+  - Created `analysis_service/` module containing `app.py` (FastAPI router with BackgroundTasks) and `analyzer.py` (orchestrates downloads via `yt-dlp` and features extraction).
+  - Designed a high-fidelity deterministic fallback simulation that seeds values from the YouTube ID hash. This guarantees flawless operation, realistic mock data (BPM, key, scale, meter, loudness, temporal curves), and absolute styling consistency in environments without python packages installed.
+  - **Environment Path Resolution**: Dynamically resolved the path of `yt-dlp` relative to `sys.executable` (current running virtual environment venv/bin folder) to ensure it executes correctly under PM2 paths.
+  - **Mix/Playlist Downloader Fix**: Integrated the `--no-playlist` flag to standard `yt-dlp` download command parameters, preventing background task timeouts when importing YouTube URLs containing `&list=RD...` parameters.
+
+#### 2. Node/Express Backend Integration
+- **Endpoints & Webhooks**:
+  - Registered `POST /api/songs/:id/analyze` in `createSongRoutes` to launch the background extraction pipeline.
+  - Added a public webhook callback route `POST /api/public/songs/:id/analysis-completed` to handle FastAPI processing success/failure notifications.
+  - Added `PUT /api/songs/:id/audio-overrides` to persist manual user modifications.
+  - Updated `importSong` inside `SongService` to trigger the analysis asynchronously in the background.
+
+#### 3. React UI Visualization Suite & Tap Tempo
+- **Implementation**:
+  - Built the **Signal Analysis Matrix** panel inside `AuditForm.jsx` (active editing) and `AuditDetail.jsx` (read-only past review).
+  - Displays: Track facts grid, live confidence badges (Confident / Probable / Review Needed), active overrides status.
+  - **Dynamic Lanes**: Overlaid beat ticks and downbeats onto a horizontal track synced to the global player playhead (`currentTime` and `duration`) and arrangement sections.
+  - **Override Controls**: Drawer containing selectors for key, scale, meter, manual BPM inputs, and an interactive **Tap Tempo** button.
+  - Updated frontend backend adapters (`HttpBackendAdapter`, `InMemoryBackendAdapter`) to support analysis triggering and override storage.
+
+---
+
+### 2026-06-06: Arrangement Timeline v2 — Bars Mode + Multi-Track Instrument Lanes
+
+#### 1. BPM Input & Bars/Seconds Ruler Toggle
+- **Goal**: Let users view the arrangement in musical bars rather than wall-clock seconds, since producers think in bars not `mm:ss`.
+- **Implementation**:
+  - Added a compact BPM number input (40–300 range) to the workspace toolbar. Auto-fills from `song.bpm` if available in song metadata, otherwise defaults to 120. Persists to `responses['arrangement-bpm']`.
+  - Added a `BARS | SECS` toggle pill next to BPM. State persists to `responses['arrangement-view-mode']`.
+  - **In Bars mode**: ruler ticks show bar numbers (`Bar 1`, `5`, `9`...) with smart tick intervals based on total bar count. Section block footers show `Bars 1–8` + `8 bars`. Inspector timing inputs switch to bar number / bar count inputs with the alternate format shown as a hint.
+  - **Snapping**: All drag-resize and drag-move operations snap to the nearest bar boundary **only when in Bars mode**. In Secs mode, values snap to the nearest whole second.
+  - **Time signature**: Hardcoded 4/4 (`barDurSecs = (60 / bpm) * 4`). Time sig selector is a known TODO.
+- **Bar math utilities** added at file top: `barDurSecs`, `secToBar`, `barToSec`, `snapDurBars`, `snapStartBars`.
+
+#### 2. Multi-Track Instrument Lane System
+- **Goal**: Add a DAW-style multi-track area below the sections row so users can visualize when specific instruments, vocals, rhythm elements, etc. enter and exit.
+- **Layout**: Switched from flex-based section blocks to absolute positioning (`PX_PER_SEC = 6px/sec`) so sections and track lanes share the same coordinate system. A fixed `140px` left gutter column shows track labels, emoji, and delete buttons. The ruler, sections row, and all track lanes share a single `overflow-x: auto` scroll container so they stay perfectly aligned.
+- **Track categories**: 8 built-in — Vocals 🎤, Rhythm 🥁, Bass 🎸, Synth 🎹, Guitar 🎸, Brass 🎺, Strings 🎻, FX ✨ — each with a preset color from the existing palette.
+- **Track CRUD**:
+  - `+ track` button in gutter → inline form (name input + category pill picker) at bottom of timeline.
+  - `×` button in gutter deletes the whole track and its blocks.
+  - Click on empty space in a track lane → creates a block at that bar/second position.
+  - Drag block body → moves block (with bar snap in bars mode).
+  - Drag block right edge → resizes block (with bar snap in bars mode).
+  - Click block → opens compact track block inspector bar below the timeline (start, duration, ▶ Play, 🎯 Sync to playhead, Delete).
+  - `Delete` key removes the selected track block.
+- **Data persistence**: Tracks array stored as JSON in `responses['arrangement-tracks']`. Schema: `{ id, name, category, color, emoji, blocks: [{ id, startTime, duration }] }`. Sections remain at `responses['arrangement-timeline']`.
+- **Playhead**: Red playhead line extends through the sections row and all track lanes simultaneously.
+- **Commit**: `b6f3e75`
+
+#### 3. agent_memory.md Created
+- Created `/agent_memory.md` at project root as a machine-readable quick-reference for future AI sessions.
+- Contains: file map, full data model shapes, all `responses` key documentation, design tokens, architecture patterns, known gotchas, open TODOs, and session log.
+- Intent: read this at session start to orient in ~30 seconds instead of crawling the codebase.
+
+---
+
+### 2026-06-07: SigMap Integration & Antigravity MCP Server Setup
+
+#### 1. SigMap Integration
+- **Goal**: Integrate SigMap to provide highly compressed codebase signature maps to AI coding assistants, reducing prompt sizes and token usage.
+- **Implementation**:
+  - Initialized SigMap in the target codebase (`/home/jackc/projects/sonic-dna`) using `npx -y sigmap --init`, generating `gen-context.config.json` and `.contextignore`.
+  - Configured `gen-context.config.json` to utilize the `hot-cold` strategy with a `10` commit window, outputting to `.github/copilot-instructions.md`, `.github/gemini-context.md`, and `.github/context-cold.md`.
+  - Defined file exclusions (`node_modules/**`, `venv/**`, `.venv/**`, `dist/**`, `build/**`, `out/**`, `.git/**`, lockfiles, caches) to prevent token waste on compiled files or dependencies.
+  - Ran the initial codebase signature scan (`npx sigmap`) to generate the initial map of active ("hot") signatures (8 files, ~781 tokens) and archived ("cold") signatures (24 files, ~1831 tokens), achieving a 99% token reduction.
+  - Installed a git post-commit hook using `npx sigmap --setup` to automatically regenerate signatures on subsequent commits.
+
+#### 2. Antigravity MCP Server Setup
+- **Goal**: Enable the Antigravity assistant to query the cold signature map on-demand via the Model Context Protocol (MCP).
+- **Implementation**:
+  - Registered SigMap as an MCP server by creating/updating the configuration file at `/home/jackc/.gemini/antigravity-cli/mcp_config.json`.
+  - Configured the server command to execute `npx -y sigmap --mcp`, allowing Antigravity to run queries (`read_context`, `query`, `get_signatures`) over the codebase structures via JSON-RPC stdio.
+- **Commit**: `0f0a791`
+
+---
+
+### 2026-06-07: CLAP GPU Audio Analysis Scaffolding & Fallback Simulation
+
+#### 1. GPU Acceleration & CLAP Proposal
+- **Goal**: Evaluate the feasibility of using a local 4GB Nvidia 1050 Ti GPU (via passthrough) to accelerate audio semantic extraction.
+- **Architectural Proposal**: Drafted a comprehensive integration plan in [clap_analysis_proposal.md](file:///home/jackc/.gemini/antigravity-cli/brain/7e8ab30b-88cf-4042-9d46-e87b0d5cd747/clap_analysis_proposal.md), highlighting lens-by-lens benefits (specifically targeting the Texture and Arrangement lenses) and listing VRAM optimizations (FP16 mixed precision, small batch sizes, segment chunking).
+
+#### 2. CLAP Scaffolding & Simulation Integration
+- **Implementation**:
+  - Created a robust `ClapAnalyzer` class inside [analyzer.py](file:///home/jackc/projects/sonic-dna/analysis_service/analyzer.py) utilizing Hugging Face `transformers` and PyTorch.
+  - Implemented lazy loading for the CLAP model using `get_clap_analyzer()` to minimize memory footprint during server idle.
+  - Configured sliding-window feature extraction: splits audio into 10-second segments, runs CLAP model inference, and aggregates cosine similarities for target lists of vibes, instruments, and production textures.
+  - Designed a high-fidelity simulation fallback when PyTorch/CLAP is missing, ensuring consistent schema output (`clap_semantic_features`) for backend parsing.
+  - Updated [requirements.txt](file:///home/jackc/projects/sonic-dna/analysis_service/requirements.txt) with commented-out machine learning libraries to simplify setup in future containers.
+- **Commit**: `7151075`
+
+### 2026-06-10: Full Rebrand — Sonic DNA → Arra
+
+#### Goal
+Systematically replace all remaining "Sonic DNA" branding with "Arra" across source code, documentation, and deploy scripts.
+
+#### Changes Made
+- **Source code**:
+  - `client/src/pages/AuditForm.jsx`: `"DNA Audit"` → `"Arra Audit"` in audit h1 heading
+  - `client/src/pages/TechniqueNotebook.jsx`: `"musical DNA"` → `"musical vocabulary"` in description text
+  - `analysis_service/app.py`: FastAPI title and startup log updated
+  - `deploy.sh`: Banner text updated
+  - `client/public/favicon.ico`: Placeholder text updated
+  - `.github/context-cold.md`: Titles updated
+- **Docs**: `README.md`, `SETUP.md`, `IMPLEMENTATION.md`, `PROXMOX_DEPLOYMENT.md`, `REDEPLOYMENT.md`, `HANDOFF.md`, `START_HERE.md`, `ADAPTER_IMPLEMENTATION.md`, `ARCHITECTURE_COMPLETE.md`, `DEPENDENCY_ASSESSMENT.md`, `QUICKSTART.md`
+- `IMPLEMENTATION.md`: `"musical DNA"` → `"musical vocabulary"`
+
+#### Verification
+Post-rename `grep -rn DNA` (excluding venv, .git, node_modules, devlogs.md) returned zero matches.
+
+#### Commit
+`66249ec` — rebrand: replace all Sonic DNA references with Arra (36 files changed)
+
+### 2026-06-10: Full Redeployment — Arra Live at arra.homma.casa
+
+#### Goals
+1. Run all tests after rebrand
+2. Redeploy PM2 with correct arra paths
+3. Fix MongoDB (was broken since kernel 6.19 upgrade)
+
+#### Test Results
+- All 29 Jest tests passing across 6 suites (unit + integration)
+- Fixed test runner: symlinked `server/tests -> ../tests` so Jest resolves `../../services/` imports correctly
+- Run with: `cd server && npm test`
+
+#### PM2 Redeployment
+- Deleted old `sonic-dna-server` / `sonic-dna-client` processes (were pointing at deleted `/home/jackc/projects/sonic-dna`)
+- Created `ecosystem.config.cjs` with `arra-server` (port 5050) and `arra-client` (port 3050)
+- `pm2 save` to persist across reboots
+
+#### MongoDB Fix (kernel 6.19 incompatibility)
+- **Root cause**: Proxmox host kernel 6.19+ — MongoDB 8.x crashes on startup (SERVER-121912)
+- **Fix**: Installed MongoDB 7.0.35 (first version with kernel 6.19 backport fix)
+- **Repo**: `https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0`
+- **Gotchas**:
+  - apt install resets `bindIp` to `127.0.0.1` — must re-set to `0.0.0.0` in `/etc/mongod.conf`
+  - Fresh install wipes auth users — recreate `myAdmin` in `admin` db with `readWriteAnyDatabase` + `userAdminAnyDatabase` + `dbAdminAnyDatabase` roles
+  - `ss -tlnp | grep 27017` needs `sudo` in LXC containers to show process names
+
+#### Commit
+`8c35682` — ops: add PM2 ecosystem config and fix test symlink for arra
+
+---
+
+### 2026-06-10: YouTube Title and Artist Metadata Noise Cleaning for Tavily Research
+
+#### Goal
+Prevent Tavily search from returning 0 results due to YouTube video title noise like `(Official Music Video)` or `[Official Video]`.
+
+#### Implementation
+- **Tavily Query Sanitization**:
+  - Added a `cleanQueryTerm` helper function in [TavilyAdapter.js](file:///home/jackc/projects/arra/server/adapters/TavilyAdapter.js) that strips common YouTube video suffixes (e.g., `(Official Music Video)`, `[Official Audio]`, `(Lyrics)`, `[4K Visualizer]`, etc.).
+  - Applied the helper to both `title` and `artist` in `searchSongInfo` before constructing the Tavily search query.
+- **Verification**:
+  - Cleaned up the previously imported song for "Four Tet - Baby (Official Music Video)" from the database to allow fresh verification.
+  - Restarted the PM2 `arra-server` microservice to load the new changes.
+  - All Jest unit and integration tests successfully verified as passing.
+
+#### Commit
+`6ed42a3` — fix(research): clean YouTube metadata noise from search query for song imports
+
+---
+
+### 2026-06-10: Python Audio Analysis Microservice PM2 Integration
+
+#### Goal
+Resolve the audio signal extraction compilation/execution failure on Phase 1 of guided audits caused by the Python FastAPI microservice being offline.
+
+#### Implementation
+- **PM2 Configuration**:
+  - Registered `arra-analysis` service inside [ecosystem.config.cjs](file:///home/jackc/projects/arra/ecosystem.config.cjs).
+  - Configured it to execute the virtual environment python interpreter `/home/jackc/projects/arra/venv/bin/python` to run `app.py` in the `analysis_service` directory on port `8080`.
+- **Deploy Script Sync**:
+  - Integrated `arra-analysis` controls into [deploy.sh](file:///home/jackc/projects/arra/deploy.sh) to automate stopping, launching, and restarting stages of the deployment pipeline.
+- **Verification**:
+  - Ran the revised `./deploy.sh` script to verify that all three PM2 services (`arra-server`, `arra-client`, and `arra-analysis`) start successfully and persist across reboots via `pm2 save`.
+  - Confirmed all Jest backend unit and integration tests continue to pass.
+
+#### Commit
+`67f3148` — fix(ops): run python audio analysis service under PM2
+
+---
+
+### 2026-06-10: Simulated Progress Bar for Audio Signal Extraction
+
+#### Goal
+Improve the user experience during Phase 1 of guided audits by visualizing the stages of background audio signal extraction (downloading, transient detection, harmonic mapping, semantic analysis) with a progress bar.
+
+#### Implementation
+- **Progress Simulation Hook**:
+  - Declared `analysisProgress` and `analysisStage` state variables in [AuditForm.jsx](file:///home/jackc/projects/arra/client/src/pages/AuditForm.jsx).
+  - Added a `useEffect` hook that detects when `song.audioAnalysisStatus === 'pending'` and increments progress (0% to 99%) over time. It transitions the text to reflect current extraction phases (downloading, beat detection, harmonic calculations, CLAP semantics).
+- **Progress Bar UI**:
+  - Replaced the simple text loader in [AuditForm.jsx](file:///home/jackc/projects/arra/client/src/pages/AuditForm.jsx) with a custom progress container, featuring a smooth transition bar utilizing the theme's core color `#d08f60`.
+- **Verification**:
+  - Run the production build via `npm --prefix client run build` to ensure no bundling/compilation issues.
+
+#### Commit
+`1b6d53a` — feat(ui): add simulated progress bar for background audio analysis
+
+---
+
+### 2026-06-10: Resume Guided Audits from Dashboard and Detail Views
+
+#### Goal
+Allow users to easily save their progress on guided audits (which are persisted via background auto-saves and active step endpoints) and resume editing them when returning to the app later.
+
+#### Implementation
+- **Dashboard Action Adjustments**:
+  - Modified [Dashboard.jsx](file:///home/jackc/projects/arra/client/src/pages/Dashboard.jsx) to check the status of each audit in the library history list.
+  - If the status is not `'completed'`, the review button changes from "Review →" to "Resume ⚡" and links directly to `/audit/form/${audit._id}` instead of the read-only detail page.
+- **Audit Detail Action Header**:
+  - Added a "Resume Audit" (or "Edit Audit" if completed) button to [AuditDetail.jsx](file:///home/jackc/projects/arra/client/src/pages/AuditDetail.jsx) next to the "Delete" and "Back to Library" actions. This allows users to easily transition from the static overview to the active editing workspace.
+- **Verification**:
+  - Compiled successfully via client production build check.
+
+#### Commit
+`9a95351` — feat(ui): allow resuming guided audits from dashboard and detail views
+
+---
+
+### 2026-06-10: Bitwig Dark Studio Aesthetic Integration & Timeline Feature Overhauls
+
+#### Goal
+Implement the UI/UX design handoff to transform the Arra Audit interface into a premium, high-density, tactile "dark studio" engineering environment styled after Bitwig Studio. Add horizontal timeline zoom controls and a time signature meter selector to satisfy open priority TODOs.
+
+#### Implementation
+- **Tactile Color System & Surface Tiers**:
+  - Implemented 3-tier dark theme surfaces (`#111111` deep background/sidebar, `#1e1e1e` workspace panels, `#282828` header/transport bars) in `global.js` and `App.jsx`.
+  - Upgraded buttons to use linear hardware console gradients (`linear-gradient(180deg, #333333 0%, #222222 100%)`) and hover glow effects.
+  - Converted the old copper branding color `#d08f60` to Bitwig Orange `#ff6600` across 14 files under `client/src/` to ensure visual accent consistency.
+  - Replaced the navigation emojis in `App.jsx` with clean feather-style vector SVG paths and styled sidebar active states with a left-edge orange vertical border accent.
+- **Docked Signal Analysis Matrix**:
+  - Docked matrix cards inside `AuditForm.jsx` and `AuditDetail.jsx` into a unified grid panel layout with `1px` shared boundaries, dedicated `#2D2D2D` dark header labels, and glowing circular LED status indicator dots.
+- **Electric Cyan Playhead Snapping**:
+  - Replaced waveform and arranger playhead styles with a solid electric cyan `#00e5ff` line featuring a downward-pointing triangle handle at the top.
+  - Removed transition lag (`transition: 'none'`) to make timeline playhead snapping and scrubbing feel instantaneous and responsive.
+- **Horizontal Zoom & Time Signature Selectors**:
+  - Replaced the static constant `PX_PER_SEC` in `ArrangementTimelineWidget.jsx` with a dynamic `pxPerSec` state linked to a horizontal zoom control slider.
+  - Added a `METER` dropdown selector in the timeline toolbar supporting `4/4`, `3/4`, and `6/8` time signatures, updating bar duration calculations on-the-fly.
+  - Replaced track lane emojis with standard console abbreviations (e.g. `VOC`, `DRM`, `BAS`, `SYN`).
+  - Styled arranger timeline section blocks with a semi-transparent color matching their category (e.g. intro violet, chorus teal, bridge amber) and a thick colored border.
+
+#### Verification
+- Built successfully via `npm --prefix client run build` with zero compilation errors.
+- Verified all 29 Jest server unit and integration tests continue to pass.
+
+#### Commit
+`e167637` — feat(ui): implement Bitwig dark studio aesthetic and timeline features
+
+---
+
+### 2026-06-10: Resolve Workspace Black Hole Aesthetic Inconsistency
+
+#### Goal
+Resolve the user-reported "black hole" look on the main page workspaces by replacing the ultra-dark backgrounds of the page layout grids and nested cards with the lighter, perfectly balanced dark grey (`#282828`) of the transport bar.
+
+#### Implementation
+- **Depth Contrast & Background Hierarchy**:
+  - Set the workspace container background to `#1E1E1E` in [App.jsx](file:///home/jackc/projects/arra/client/src/App.jsx) and the CSS variables.
+  - Set the background of all `.card` and `.panel` containers in [global.js](file:///home/jackc/projects/arra/client/src/styles/global.js) to `--bg-panel` (`#282828`), matching the transport bar level of dark gray.
+  - Added a subtle top highlight (`inset 0 1px 0 rgba(255, 255, 255, 0.05)`) and flat shadow to cards/panels to create a premium, hardware-extruded modular feel.
+- **Eliminated Hardcoded Dark Overrides**:
+  - Refactored 9 page views (`AuditCreate.jsx`, `AuditDetail.jsx`, `AuditForm.jsx`, `Dashboard.jsx`, `ImportSong.jsx`, `Login.jsx`, `Settings.jsx`, `TechniqueNotebook.jsx`, `Trash.jsx`) and modal views (`TechniqueDetailModal.jsx`) to remove hardcoded dark backgrounds (`#151518`, `#141418`, `#1c1c22`), allowing elements to inherit the standard theme variables and panel backgrounds automatically.
+
+#### Verification
+- Built successfully via client production build pipeline check.
+- Verified all 29 Jest server unit/integration tests pass.
+
+#### Commit
+`97fa1a7` — feat(ui): resolve black hole issue by setting workspace panels to #282828
+
+---
+
+### 2026-06-10: Research /teach & /caveman productivity skills
+
+#### Goal
+Integrate learning framework concepts. Save tokens.
+
+#### Implementation
+- **Memory Update**:
+  - Add constraints to `agent_memory.md`. Keep four lenses. Prefer HTML exports.
+  - Set caveman style rule for devlogs.
+- **Analysis**:
+  - Write `teach_skill_analysis.md`. Map mission, glossary, lessons, reference sheets.
+
+---
+
+### 2026-06-11: Active feed card UI unification
+
+#### Goal
+Unify active feed box spacing using two Tailwind flex rows.
+
+#### Implementation
+- **index.html**: Add Tailwind CDN.
+- **Dashboard.jsx**: Refactor song card action/status rows into matched Tailwind flex rows.
+
+#### Verification
+- Client build succeeds.
+- Jest unit/integration tests pass.
+
+#### Commit
+`d3d52c1` — refactor(ui): unify active feed boxes into Tailwind flex rows
+
+---
+
+### 2026-06-11: Concrete exercises typography upgrade
+
+#### Goal
+Improve readability of Concrete Exercises description text.
+
+#### Implementation
+- **AuditDetail.jsx & AuditForm.jsx**:
+  - Replace description style with Tailwind classes `text-sm leading-relaxed text-zinc-300 max-w-prose mt-1`.
+
+#### Verification
+- Client build succeeds. Skip backend tests (pure style change).
+
+#### Commit
+`49da561` — style(ui): upgrade concrete exercises description typography
+
+---
+
+### 2026-06-11: Concrete exercises card layout refactoring
+
+#### Goal
+Expand spacing, card padding, line height, and break text walls in Concrete Exercises cards.
+
+#### Implementation
+- **AuditDetail.jsx & AuditForm.jsx**:
+  - Replace grid layout with `flex flex-col gap-6` parent layout.
+  - Increase inner card padding to `p-6` with standard dark styling.
+  - Set description line height to `leading-7`.
+  - Parse description text by newline to render separate paragraphs and dynamic bullet lists (`space-y-3`).
+
+#### Verification
+- Client build succeeds. Skip backend tests (pure style change).
+
+#### Commit
+`e81824b` — style(ui): refactor concrete exercise cards layout and paragraph split
+
+---
+
+### 2026-06-11: Full-width concrete exercises text expansion
+
+#### Goal
+Expand concrete exercise card text to use full card width.
+
+#### Implementation
+- **AuditDetail.jsx & AuditForm.jsx**:
+  - Remove `max-w-prose` styling constraints.
+  - Set container elements to `w-full`.
+
+#### Verification
+- Client build succeeds. Skip backend tests.
+
+#### Commit
+`ef92b3d` — style(ui): remove max-width constraints on exercise description text
+
+---
+
+### 2026-06-11: Noto Sans global font configuration
+
+#### Goal
+Apply Noto Sans size 18 weight 400 globally.
+
+#### Implementation
+- **global.js**:
+  - Import Noto Sans from Google Fonts.
+  - Configure body with `font-family: 'Noto Sans', sans-serif`, `font-size: 18px`, `font-weight: 400`.
+  - Configure headings (`h1`-`h6`) and paragraph elements (`p`) to scale up and use Noto Sans.
+
+#### Verification
+- Client build succeeds. Skip backend tests.
+
+#### Commit
+`da5cd7e` — style: set Noto Sans 18px 400 as the global default typography
+
+---
+
+### 2026-06-11: Phase 3 audit questions font size upgrade
+
+#### Goal
+Increase audit questions label font size to 18px.
+
+#### Implementation
+- **AuditForm.jsx**: Set `fontSize: '18px'` on question labels.
+
+#### Verification
+- Client build succeeds. Skip backend tests.
+
+#### Commit
+`f9a1a6a` — style(ui): increase font size of audit questions in AuditForm to 18px
+
+### 2026-06-11: GTX 1050 Ti GPU setup for CLAP semantic audio analysis
+
+**Commit:** `15e025e`
+
+**Problem:** CLAP analyzer running in CPU simulation fallback. GTX 1050 Ti present but torch not installed and CUDA libs missing.
+
+**Work done:**
+- Disk space increased to 40GB (user), cleared 1.1GB pip cache mid-session
+- Tried torch 2.12.0 first — incompatible (built for sm_75+, 1050 Ti is sm_61/Pascal)
+- Installed correct stack: `torch==2.6.0+cu126` (supports sm_50–sm_89), all nvidia cu12 runtime libs (cudnn, cublas, cufft, cusolver, nccl, triton etc.)
+- `transformers 5.11.0` breaking change: `audios=` → `audio=` in CLAP processor — fixed in `analyzer.py`
+- FP16 casting now handles all tensor dtypes (not hardcoded `input_features` key)
+- Model `laion/clap-htsat-fused` (614MB) downloaded and cached, loads on `cuda` in FP16
+- GPU verified: `cuda.is_available()=True`, 4.23GB VRAM, 4.8x speedup over CPU on matmul benchmark
+- `arra-analysis` PM2 service restarted and online
+- `requirements.txt` updated with pinned GPU deps + cu126 install note
+
+---
+
+### 2026-06-12: PM2 Application Startup & Verification
+
+**Commit:** `-`
+
+**Problem:** Application services not running on startup.
+
+**Work done:**
+- Read active agent memory file `agent_memory.md` to align session focus.
+- Started `arra-server` (Express), `arra-client` (Vite), and `arra-analysis` (Python CLAP microservice) using PM2 config `ecosystem.config.cjs`.
+- Monitored process status (`pm2 status`) to verify all three services are online.
+- Tail-logged PM2 outputs to confirm successful database connectivity (MongoDB on remote Proxmox VM) and microservice initialization (CLAP model cached on CUDA).
+- Verified client (port 3050) and server (port 5050) HTTP endpoints with curl.
+
+---
+
+### 2026-06-14: Phase 5 Tooling & Config Fixes
+
+**Commit:** `-`
+
+**Tasks:**
+- SigMap `gen-context.config.json`: set `autoMaxTokens: false` so `maxTokens: 10000` honored.
+- Vite proxy: read target from `VITE_API_PROXY_TARGET`, default `http://localhost:5050`; keeps `VITE_API_URL=/api`.
+- `.gitignore`: add `.context/`, `server/uploads/`, `.venv/`.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `npm run build` in `client/`: builds successfully (chunk size warning unchanged).
+
+### 2026-06-14: Phase 3 Security Hardening
+
+**Commit:** `-`
+
+**Tasks:**
+- Webhook secret: `server/server.js` validates `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` on `POST /api/public/songs/:id/analysis-completed`. Missing/invalid returns 401. Production requires `ANALYSIS_WEBHOOK_SECRET`; dev warns and skips if absent.
+- Analysis CORS: `analysis_service/app.py` uses `ALLOWED_ORIGINS` comma list, default `http://localhost:5173`; removed wildcard with credentials.
+- Backend CORS: `server/server.js` uses `CLIENT_ORIGIN` env, default dev origin, required in production.
+- JWT fallback removal: `server/middleware/auth.js` and `server/services/authService.js` no longer fall back to `'your-secret'`; fail closed if `JWT_SECRET` missing.
+- `.env`: added placeholders for `ANALYSIS_WEBHOOK_SECRET` and `CLIENT_ORIGIN`; marked `JWT_SECRET` required.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+
+---
+
+### 2026-06-14: Cleanup Legacy Artifacts in `analysis_service/analyzer.py`
+
+**Commit:** `-`
+
+**Tasks:**
+- Replaced temp-file prefix `sonic_dna_temp_` with `arra_temp_` in download template, final output path, and downloaded-file search.
+- Replaced fallback `hashlib.md5(...).hexdigest()` with `hashlib.sha256(...).hexdigest()` for deterministic seeding.
+- No `md5` import existed (only `hashlib` imported), so no import removal needed.
+
+**Verification:**
+- `python3 -m py_compile analysis_service/analyzer.py`: passed.
+- `rg -n "sonic_dna_temp|md5" analysis_service/analyzer.py`: zero matches.
+
+---
+
+### 2026-06-14: Standardize Soft-Delete Query Patterns
+
+**Commit:** `-`
+
+**Problem:** Mixed soft-delete query shapes. Some fetches pull all records then filter `deletedAt` in JS; convention unclear.
+
+**Changes:**
+- `server/services/songService.js`: `getDeletedSongs()` now queries `{ userId, deletedAt: { $ne: null } }`.
+- `server/services/auditService.js`: `getDeletedAudits()` and `restoreAudit()` technique lookup now use `{ deletedAt: { $ne: null } }`.
+- All active-record queries keep `{ deletedAt: null }`; no repository helper added to stay minimal.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `rg -n "deletedAt:\s*\{[^}]*\$ne" server/services`: SongService + AuditService deleted queries standardized.
+
+---
+
+### 2026-06-14: Remove Mongoose Populate Leakage from studyProgress Route
+
+**Commit:** `-`
+
+**Problem:** `server/routes/studyProgress.js` `populateProgress()` helper directly accessed `studyProgressRepository.model.findById(...).populate(...).lean()`, leaking Mongoose specifics into route layer. InMemory branch duplicated join logic in route.
+
+**Changes:**
+- `server/ports/IRepository.js`: added `findByIdWithRelations(id, relations)` abstract method. Relations accept array of strings or `{ path, resolver }` objects.
+- `server/adapters/MongooseRepository.js`: implemented `findByIdWithRelations` using `model.findById(id).populate(path).lean()` for each relation path.
+- `server/adapters/InMemoryRepository.js`: implemented manual in-memory join. Supports single-field paths (`curriculumId`) and array-field subpaths (`dayProgress.songId`) via supplied `resolver` functions.
+- `server/services/curriculumService.js`: added `getPopulatedStudyProgress(id)` delegating to `studyProgressRepository.findByIdWithRelations` with curriculum and song resolvers.
+- `server/routes/studyProgress.js`: replaced Mongoose-aware `populateProgress` helper with thin wrapper calling `curriculumService.getPopulatedStudyProgress(progress._id)`. Route no longer references `.model`, `.populate`, or `.lean`.
+
+**Verification:**
+- `npm test` in `server/`: 8 suites, 44/44 pass.
+- `rg "\.(model|populate|lean)\b" server/routes/studyProgress.js`: zero matches.
+
+---

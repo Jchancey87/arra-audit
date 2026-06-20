@@ -112,15 +112,17 @@ With the MCP server registered, **Antigravity** can use the following tools nati
 
 ## 🔄 Maintenance & Best Practices
 
-To ensure **Antigravity** always has access to an up-to-date signature map, automate context generation:
+To ensure your AI assistant always has access to an up-to-date signature map:
 
-*   **Git Commit Hook**: Run `npx sigmap --setup` to automatically install a git commit hook that rebuilds the signature map whenever changes are committed.
+*   **On-demand (recommended)**: Run `npm run sigmap` from the project root after architecture-level changes (new files, renamed dirs, port/interface changes). This repo intentionally avoids the post-commit hook — it produced 4-6 noise commits per feature. The hook was removed in commit `2be1dd2`.
 *   **Watch Mode**: During active development, you can run `npx sigmap --watch` in a separate terminal to dynamically regenerate signatures on file save.
+*   **Git Commit Hook (NOT recommended for this repo)**: `npx sigmap --setup` installs a post-commit hook that regenerates on every commit. Use only if you're prepared to batch or squash the resulting `.github/*.md` noise commits.
 
 ---
 
-## 🔗 Reference Examples (homma-research)
+## 🔗 Reference Examples (arra)
 For reference, you can check how this is set up in our current repository:
 *   Local MCP Config: [mcp_config.json](file:///home/jackc/.gemini/antigravity-cli/mcp_config.json)
-*   Generated Signatures File: [.github/copilot-instructions.md](file:///home/jackc/projects/homma-research/.github/copilot-instructions.md)
-*   Detailed Evaluation: [sigmap_analysis.md](file:///home/jackc/.gemini/antigravity-cli/brain/369290e9-ddcc-4f92-bafe-be2fd4d9f76a/sigmap_analysis.md)
+*   Generated Signatures File: [.github/copilot-instructions.md](file:///home/jackc/projects/arra/.github/copilot-instructions.md)
+*   On-demand regen: `npm run sigmap` (root `package.json`); the post-commit hook was removed to avoid regen-noise commits.
+*   SigMap config: [gen-context.config.json](file:///home/jackc/projects/arra/gen-context.config.json) (`hot-cold` strategy, `maxTokens: 10000`, `autoMaxTokens: false`).

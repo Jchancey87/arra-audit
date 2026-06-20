@@ -3,8 +3,8 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:18:12.989Z.
-<!-- sigmap: version=7.0.1 -->
+The following code signatures were extracted by SigMap v7.24.2 on 2026-06-20T19:21:24.732Z.
+<!-- sigmap: version=7.24.2 -->
 
 These signatures represent every public function, class, and type in the project.
 Refer to them when answering questions about code structure, APIs, and implementation.
@@ -25,146 +25,91 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ```
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
-client/src/hooks/useRecommendations.js ← context/BackendContext
+client/src/hooks/useBookmarkAnalysisStream.js ← context/BackendContext
 analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## changes (last 5 commits — 72 minutes ago)
 ```
-server/adapters/MockRecommendationAdapter.js  +MockRecommendationAdapter
-server/adapters/TFIDFAdapter.js               +TFIDFAdapter
-server/ports/IRecommendationService.js        +IRecommendationService
-server/services/RecommendationService.js      +RecommendationService
+server/services/BookmarkAnalysisBus.js        +BookmarkAnalysisBus
+server/services/BookmarkAnalysisService.js    ~BookmarkAnalysisService
 client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
 client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
-client/src/hooks/useRecommendations.js        +useRecommendations
 client/src/ports/IBackendService.js           ~IBackendService
-.github/context-cold.md                       +useCompletionCheck  +MockIntersectionObserver  ~useAuditShortcuts  ~mergeFonts
-.github/copilot-instructions.md               +useRecommendations  +IBackendService  +MockRecommendationAdapter  +TFIDFAdapter
-.github/gemini-context.md                     +useRecommendations  +IBackendService  +MockRecommendationAdapter  +TFIDFAdapter
-```
-
-## .github
-
-### .github/context-cold.md
-```
-h1 Code signatures
-h2 SigMap commands
-h2 deps
-h2 client
-h3 client/UI/AC_AUDIT.md
-h3 client/index.html
-h3 client/public/index.html
-h3 client/src/App.jsx
-h3 client/src/components/ComparePlayer.jsx
-h3 client/src/components/ErrorBoundary.jsx
-h3 client/src/components/ResearchSummaryRenderer.jsx
-h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/context/AudioContext.jsx
-h3 client/src/context/AuthContext.jsx
-h3 client/src/context/BackendContext.jsx
-h3 client/src/hooks/__tests__/useSketches.test.jsx
-h3 client/src/hooks/__tests__/useTechniques.test.jsx
-h3 client/src/hooks/useAudit.js
-h3 client/src/hooks/useAuditAutosave.js
-h3 client/src/hooks/useAuditShortcuts.js
-h3 client/src/hooks/useAudits.js
-h3 client/src/hooks/useCompletionCheck.js
-h3 client/src/hooks/useCurricula.js
-h3 client/src/hooks/useDeepLinkParams.js
-h3 client/src/hooks/useSketches.js
-```
-
-### .github/copilot-instructions.md
-```
-h2 Auto-generated signatures
-h1 Code signatures
-h2 SigMap commands
-h2 deps
-h2 changes (last 5 commits — 1 second ago)
-h2 .github
-h3 .github/context-cold.md
-h3 .github/copilot-instructions.md
-h3 .github/gemini-context.md
-h2 analysis_service
-h3 analysis_service/analyzer.py
-h3 analysis_service/app.py
-h2 client
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/hooks/useRecommendations.js
-h3 client/src/ports/IBackendService.js
-h2 server
-h3 server/adapters/CLAPSegmentAdapter.js
-h3 server/adapters/MockBookmarkAnalysisAdapter.js
-h3 server/adapters/MockRecommendationAdapter.js
-h3 server/adapters/TFIDFAdapter.js
-h3 server/ports/IBookmarkAnalysisService.js
-h3 server/ports/IRecommendationService.js
-h3 server/services/BookmarkAnalysisService.js
-```
-
-### .github/gemini-context.md
-```
-h2 Auto-generated signatures
-h2 Code Signatures
-h2 SigMap commands
-h2 deps
-h2 changes (last 5 commits — 1 second ago)
-h2 .github
-h3 .github/context-cold.md
-h3 .github/copilot-instructions.md
-h3 .github/gemini-context.md
-h2 analysis_service
-h3 analysis_service/analyzer.py
-h3 analysis_service/app.py
-h2 client
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/hooks/useRecommendations.js
-h3 client/src/ports/IBackendService.js
-h2 server
-h3 server/adapters/CLAPSegmentAdapter.js
-h3 server/adapters/MockBookmarkAnalysisAdapter.js
-h3 server/adapters/MockRecommendationAdapter.js
-h3 server/adapters/TFIDFAdapter.js
-h3 server/ports/IBookmarkAnalysisService.js
-h3 server/ports/IRecommendationService.js
-h3 server/services/BookmarkAnalysisService.js
 ```
 
 ## analysis_service
 
 ### analysis_service/analyzer.py
 ```
-class ClapAnalyzer  :44-149
+class ClapAnalyzer  :113-225
   def __init__(model_name)
   def analyze_features(file_path, tags)
   def analyze_features_from_array(audio_array, sample_rate, tags)
-def get_clap_analyzer()  :154-160
-def analyze_segment(file_path, start_s, end_s, audio_id, pad_seconds)  :332-365  # Phase 2
-def analyze_audio_file(file_path, yt_id)  :368-578  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :581-673  # Downloads audio via yt-dlp to a temporary directory, analyze
-def analyze_sketch_file(file_path, sketch_id, callback_url)  :676-710  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
+def get_clap_analyzer()  :296-330  # Lazy-load and return the CLAP analyzer singleton
+def analyze_segment(file_path, start_s, end_s, audio_id, pad_seconds)  :526-558  # Phase 2
+def analyze_audio_file(file_path, yt_id)  :561-771  # Runs the audio analysis on the downloaded file
+def purge_stale_temp_files(max_age_seconds)  :781-812
+def download_and_analyze(youtube_url, yt_id, callback_url)  :815-912  # Downloads audio via yt-dlp to a temporary directory, analyze
+def analyze_sketch_file(file_path, sketch_id, callback_url)  :915-949  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
 ```
 
 ### analysis_service/app.py
 ```
-class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :44-48
-class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :50-53
-class SegmentAnalysisRequest(BaseModel) {audio_id?, file_path?, youtube_url?, yt_id?, start_seconds*, end_seconds*}  :55-64
-def health()  :107-108
-def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :111-132  # Triggers an asynchronous audio analysis job
-def trigger_sketch_analysis(request: SketchAnalysisRequest)  :135-162  # Synchronously analyze an uploaded DAW sketch from a local fi
-async def trigger_segment_analysis(request: SegmentAnalysisRequest)  :165-213  # Phase 2
-GET /health  →  health()  :107-108
-POST /analyze  →  trigger_analysis()  :111-132
-POST /analyze-sketch  →  trigger_sketch_analysis()  :135-162
-POST /analyze-segment  →  trigger_segment_analysis()  :165-213
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :67-71
+class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :73-76
+class SegmentAnalysisRequest(BaseModel) {audio_id?, file_path?, youtube_url?, yt_id?, start_seconds*, end_seconds*}  :78-87
+async def lifespan(app: FastAPI)  :24-35  # Phase 2
+def health()  :130-131
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :134-155  # Triggers an asynchronous audio analysis job
+def trigger_sketch_analysis(request: SketchAnalysisRequest)  :158-185  # Synchronously analyze an uploaded DAW sketch from a local fi
+async def trigger_segment_analysis(request: SegmentAnalysisRequest)  :188-236  # Phase 2
+GET /health  →  health()  :130-131
+POST /analyze  →  trigger_analysis()  :134-155
+POST /analyze-sketch  →  trigger_sketch_analysis()  :158-185
+POST /analyze-segment  →  trigger_segment_analysis()  :188-236
 ```
 
 ## client
+
+### client/UI/AC_AUDIT.md
+```
+h1 ARRA — Analysis Panel Accessibility (AC) Audit
+h2 AC-01 — Tab navigation is keyboard accessible (arrow keys cycle, Home/End jump to ends)
+h2 AC-02 — All form inputs have associated `<label>` elements
+h2 AC-03 — Icon-only buttons have `aria-label` or visible text
+h2 AC-04 — Color is never the sole conveyor of meaning
+h2 AC-05 — Focus visible on all interactive elements
+h2 AC-06 — Audio context (playhead) is exposed to assistive tech
+h2 AC-07 — Error and success states are announced
+h2 AC-08 — High contrast mode is supported
+h2 AC-09 — Page is operable at 200% zoom and on small viewports
+h2 Summary
+h2 Regression Check (run after every audit panel change)
+h1 1. AC-03: no unlabeled icon-only buttons in audit/*
+h1 2. AC-05: focus-visible still universal
+h1 3. AC-07: alerts/roles present
+code-fence bash
+code-fence ---
+```
+
+### client/UI/LIGHTHOUSE.md
+```
+h1 Lighthouse CI gate — setup + workflow
+h2 What runs
+h2 Exit codes
+h2 Running locally
+h2 Default thresholds
+h2 Chrome detection (the gotcha)
+h3 Fix it once
+h2 CI integration (future)
+h2 Manual a11y walkthrough (companion to the gate)
+code-fence bash
+code-fence plain
+code-fence js
+code-fence yaml
+```
 
 ### client/src/adapters/HttpBackendAdapter.js
 ```
@@ -185,14 +130,14 @@ export class InMemoryBackendAdapter  :7-32
   constructor()  :8-32
 ```
 
-### client/src/hooks/useRecommendations.js
+### client/src/hooks/useBookmarkAnalysisStream.js
 ```
-export function useRecommendations(techniqueId, { limit = 10, skip = false } = {})  :19-64
+export const useBookmarkAnalysisStream = (auditId) =>  :25-113
 ```
 
 ### client/src/ports/IBackendService.js
 ```
-export class IBackendService  :7-76
+export class IBackendService  :7-80
   async login(email, password)  :9-9
   async register(email, password, name)  :10-10
   async getUserProfile()  :11-11
@@ -203,74 +148,78 @@ export class IBackendService  :7-76
   async getSongs(filters)  :18-18
 ```
 
+### client/src/utils/arrangementExport.js
+```
+export const renderArrangementToCanvas = ({ sections = [], tracks = [], song, bpm, timeSignature, pxPerSec = 8 } = {}) =>  :97-160
+export const canvasToBlob = (canvas, type = 'image/png', quality) =>  :162-169
+export const downloadBlob = (blob, filename) =>  :171-181
+export const buildArrangementFilename = ({ song, ext = 'png' } = {}) =>  :183-186
+export const exportArrangementAsImage = async ({ sections, tracks, song, bpm, timeSignature, pxPerSec, filename } = {}) =>  :188-193
+```
+
+### client/src/utils/arrangementExportPdf.jsx
+```
+export const ArrangementReport = ({ song, sections = [], tracks = [], bpm, timeSignature, viewMode, generatedAt }) =>  :112-140
+```
+
+### client/src/utils/blockSelection.js
+```
+export const detectModifier = (event) =>  :24-30
+export const isSelected = (selected, id) =>  :32-58
+export const applyBlockClick = ({ selected, order, clickedId, lastClickedId, modifier = MODIFIER_NONE, allowToggleOff = true, }) => → Set<string>  :51-86
+export const pruneSelection = (selected, liveIds) => → Set<string>  :97-103
+```
+
+### client/src/utils/playheadAnnouncer.js
+```
+export const formatPlayheadAnnouncement = (currentTime, duration) =>  :17-25
+export const usePlayheadAnnouncer = (currentTime, duration, { intervalMs = 5000 } = {}) =>  :27-49
+```
+
 ## server
 
-### server/adapters/CLAPSegmentAdapter.js
+### server/adapters/OpenAIEmbeddingAdapter.js
 ```
-export class CLAPSegmentAdapter  :69-118
-  async analyzeSegment({ audioId, filePath, youtubeUrl, ytId, startSeconds, endSeconds, padSeconds = 5, })  :78-117
-  if(endSeconds <= startSeconds)  :90-92
-  if(!result || !result.analysis)  :113-115
-```
-
-### server/adapters/MockBookmarkAnalysisAdapter.js
-```
-export class MockBookmarkAnalysisAdapter  :65-98
-  constructor({ model = 'deterministic-v1', version = '2.3.0', latencyMs = 0, failureRate = 0 } = {})  :66-71
-  async analyzeSegment({ audioId, startSeconds, endSeconds })  :73-97
-  if(this.latencyMs > 0)  :74-76
-  if(endSeconds <= startSeconds)  :83-85
+export class OpenAIEmbeddingsError  :32-39
+  constructor(message, { cause, status } = {})  :33-38
+export class OpenAIEmbeddingAdapter  :60-188
+  constructor({ apiKey, model = DEFAULT_MODEL, batchSize = DEFAULT_BATCH, fetchImpl, endpoint = OPENAI_ENDPOINT, } = {})  :61-85
+  if(!apiKey || typeof apiKey !== 'string')  :68-72
+  if(batchSize < 1 || batchSize > 2048)  :73-75
+  if(!this.fetchImpl)  :81-83
+  clearCache()  :87-89
+  cacheSize()  :91-93
+  if(!response.ok)  :110-117
+  if(payload.data.length !== texts.length)  :127-131
 ```
 
-### server/adapters/MockRecommendationAdapter.js
+### server/middleware/auth.js
 ```
-export class MockRecommendationAdapter  :31-66
-  constructor({ mode = 'tag-jaccard' } = {})  :32-34
-  async rank({ targetId, targetText, corpus, limit = 10 } = {})  :36-65
-  for(const item of corpus)  :55-62
+export const authMiddleware = (req, res, next) =>  :11-31
 ```
 
-### server/adapters/TFIDFAdapter.js
+### server/services/BookmarkAnalysisBus.js
 ```
-export class TFIDFAdapter  :105-138
-  async rank({ targetId, targetText, corpus, limit = 10 })  :106-137
-  if(typeof targetId !== 'string' || !targetId)  :108-110
-  if(typeof targetText !== 'string')  :111-113
-  for(const item of corpus)  :118-120
-  for(const item of corpus)  :124-128
-export const tokenize = (text) =>  :31-41
-```
-
-### server/ports/IBookmarkAnalysisService.js
-```
-export class IBookmarkAnalysisService  :44-54
-  async analyzeSegment(req) → Promise<SegmentAnalysis>  :51-53
-```
-
-### server/ports/IRecommendationService.js
-```
-export class IRecommendationService  :32-44
-  async rank(req) → Promise<SimilarityScore[]  :41-43
+class BookmarkAnalysisBus  :31-91
+  constructor()  :32-36
+  publish(auditId, bookmarkId, analysis)  :45-54
+  if(!snap)  :48-51
+  snapshot(auditId)  :60-66
+  subscribe(auditId, handler)  :73-81
+  size()  :83-85
+  clear(auditId)  :87-90
+export const buildBookmarkAnalysisSseHandler = ({ auditRepository } = {}) =>  :107-162
 ```
 
 ### server/services/BookmarkAnalysisService.js
 ```
-export class BookmarkAnalysisService  :48-185
-  constructor({ adapter, auditRepository, songRepository, padSeconds = DEFAULT_PAD_SECONDS, queueLimit = DEFAULT_QUEUE_LIMIT, } = {})  :49-66
-  size()  :70-72
-  isFull()  :74-76
-  inFlightCount()  :78-80
-  enqueue({ auditId, bookmarkId, startSeconds, endSeconds, audioId, filePath, youtubeUrl, ytId, padSeconds })  :82-103
-  while(this.queue.length > 0 && this.inFlight < MAX_BACKGROUND_JOBS)  :109-120
-  if(this.queue.length > 0)  :116-118
-  if(!resolved.audioId && !resolved.filePath)  :131-134
-```
-
-### server/services/RecommendationService.js
-```
-export class RecommendationService  :29-88
-  constructor({ adapter, techniqueRepository })  :30-35
-  async findSimilarTechniques({ userId, techniqueId, limit = DEFAULT_LIMIT })  :37-87
-  if(!target || target.deletedAt)  :43-47
-  for(const r of ranked)  :71-78
+export class BookmarkAnalysisService  :48-187
+  constructor({ adapter, auditRepository, songRepository, eventBus, padSeconds = DEFAULT_PAD_SECONDS, queueLimit = DEFAULT_QUEUE_LIMIT, } = {})  :49-68
+  if(this.eventBus && analysis)  :71-73
+  size()  :78-80
+  isFull()  :82-84
+  inFlightCount()  :86-88
+  enqueue({ auditId, bookmarkId, startSeconds, endSeconds, audioId, filePath, youtubeUrl, ytId, padSeconds })  :90-132
+  while(this.queue.length > 0 && this.inFlight < MAX_BACKGROUND_JOBS)  :138-149
+  if(this.queue.length > 0)  :145-147
 ```
