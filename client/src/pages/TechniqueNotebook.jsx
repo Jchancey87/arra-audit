@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
 import EmptyState from '../components/EmptyState';
-import TechniqueDetailModal from '../components/TechniqueDetailModal';
+
+const TechniqueDetailModal = lazy(() => import('../components/TechniqueDetailModal'));
 
 const TechniqueNotebook = () => {
   const [activeTab, setActiveTab] = useState('library');
@@ -1022,22 +1023,26 @@ const TechniqueNotebook = () => {
         </form>
       )}
 
-      {/* Detail / Edit Modal */}
-      <TechniqueDetailModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedTech(null);
-        }}
-        tech={selectedTech}
-        songs={songs}
-        onUpdate={handleUpdateTechnique}
-        onDelete={deleteTechnique}
-        onOpenTechnique={(t) => {
-          // Phase 2.4: open a similar technique without closing the modal chain
-          setSelectedTech(t);
-        }}
-      />
+      {/* Detail / Edit Modal — lazy chunk (~60KB) only loaded on first click.
+          The modal itself returns null when isOpen=false, so a null Suspense
+          fallback is invisible until the user actually opens a technique. */}
+      <Suspense fallback={null}>
+        <TechniqueDetailModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedTech(null);
+          }}
+          tech={selectedTech}
+          songs={songs}
+          onUpdate={handleUpdateTechnique}
+          onDelete={deleteTechnique}
+          onOpenTechnique={(t) => {
+            // Phase 2.4: open a similar technique without closing the modal chain
+            setSelectedTech(t);
+          }}
+        />
+      </Suspense>
     </div>
   );
 };
