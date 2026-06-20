@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../utils/playheadAnnouncer.js';
 import { applyBlockClick, detectModifier, pruneSelection } from '../utils/blockSelection.js';
+import ExportArrangementButton from './ExportArrangementButton.jsx';
 
 // ── Section type colors ──────────────────────────────────────────────────────
 const TYPE_COLORS = {
@@ -633,22 +634,33 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           </div>
         </div>
 
-        {/* Right: Add Section button */}
-        {!readOnly && (
-          <button
-            type="button" onClick={addBlock}
-            style={{
-              padding: '8px 18px', fontSize: '13px', fontWeight: '600',
-              background: '#ff6600', color: '#151518', border: 'none', borderRadius: '4px',
-              cursor: 'pointer', fontFamily: '"Roboto Mono", monospace',
-              boxShadow: '0 2px 6px rgba(255,102,0,0.25)', transition: 'transform 0.1s ease',
-            }}
-            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
-            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            + Add Section
-          </button>
-        )}
+        {/* Right: Add Section + Export */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ExportArrangementButton
+            sections={sortedBlocks}
+            tracks={tracks}
+            song={song}
+            bpm={bpm}
+            timeSignature={timeSignature}
+            viewMode={viewMode}
+            readOnly={readOnly}
+          />
+          {!readOnly && (
+            <button
+              type="button" onClick={addBlock}
+              style={{
+                padding: '8px 18px', fontSize: '13px', fontWeight: '600',
+                background: '#ff6600', color: '#151518', border: 'none', borderRadius: '4px',
+                cursor: 'pointer', fontFamily: '"Roboto Mono", monospace',
+                boxShadow: '0 2px 6px rgba(255,102,0,0.25)', transition: 'transform 0.1s ease',
+              }}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              + Add Section
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
