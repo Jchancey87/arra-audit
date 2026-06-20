@@ -8,6 +8,21 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Remove Loudness, BPM, and Key boxes & Enhance Timeline with Zoom, Bird's-Eye Minimap, Density Graph, and Structural breakdown
+
+- **Context**: Addressed user feedback to streamline the analysis dashboard by removing distracting metric boxes (loudness, BPM, Key, Meter) and focused on making "time" a central feature for structural visualization.
+- **Removed Loudness/BPM/Key Boxes**:
+  - Deleted the `TrackAnalysisModules` component from the Edit Analysis Tab (`AuditAnalysisTab.jsx`) completely.
+  - Replaced the legacy `Active Values Grid` (loudness, BPM, Key, Meter) and simple sequencer grid timeline from the Audit Detail Page (`AuditDetail.jsx`) with a clean read-only rendering of the complete timeline schema (`AuditTimeline.jsx`).
+- **Interactive Timeline Upgrades (`AuditTimeline.jsx`)**:
+  - **Horizontal Zooming**: Introduced a custom `zoomScale` factor (from 1x to 8x) managed via slider and `[-]` / `[+]` button controls in the header. The main lanes container now scales dynamically, enabling responsive horizontal scrolling.
+  - **Finer Precision Dragging**: Calibrated the drag/resize action calculations to take the horizontal zoom factor into account, giving users finer precision for shifting and resizing structural blocks.
+  - **Bird's-Eye Song Minimap**: Rendered a full-song overview minimap at the top of the timeline. Displays color-coded blocks of all arrangement sections, a real-time playhead, and a draggable/scrolling viewport highlight frame mapping the active scrolled window.
+  - **Arrangement Density Graph Lane**: Created an interactive SVG area chart lane that counts the overlapping instrument clips active at any point in time. Visualizes build-ups, drops, and layer density synced to the timeline.
+  - **Structural Composition Breakdown**: Added an analytics breakdown card at the bottom showing a segmented horizontal proportion bar of sections, alongside occurrences and total duration statistics per section type.
+- **Verification & Testing**:
+  - Confirmed all 283 unit tests compile and pass cleanly after updating section query matchers to support multiple visual representations, and built the production bundle with zero warnings.
+
 ### 2026-06-20: Fix PDF Export Crash and Vite Duplicate Style Key Warning
 
 - **Context**: Resolved user-reported issue where PDF export was failing on audits and fixed a warning in the client production build.
