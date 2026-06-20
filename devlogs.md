@@ -1595,4 +1595,51 @@ b8e6128 docs: sigmap regen (final)
 965bd21 docs: sigmap regen (post-Phase 1 v2 sweep)
 ```
 
+---
+
+## 2026-06-20 — Phase 2.2: Timestamped Answers + Scrollytelling
+
+### Commit
+
+`05a5dc6 Phase 2.2: timestamped answers + scrollytelling` + `59bdc34 docs: sigmap regen (post-Phase 2.2)`
+
+### What shipped
+
+- **Response shape upgrade** (no schema change). `audit.responses` is Mixed, now accepts `{text, timestampSeconds}` per key. Legacy plain-string values still read fine via `normalizeResponse`.
+- **AuditForm** — new "⏱ Tag 2:25" button next to the existing "Stamp" text-insert button on every prompt. Clicking tags the answer with the current playback time. Tagged state shows "⏱ Tagged 0:30" pill (clicking re-tags with current time) + a small `×` to clear. Textarea edits preserve the tagged timestamp.
+- **AuditDetail** — header toggle "⏵/⏸ Scrollytelling" (only appears when ≥1 answer is tagged). Tagged answers show a clickable `⏱ 2:25` orange pill in both render branches; the whole card in the fallback branch is also clickable → `seekTo(ts)`. Active scrollytelling card gets cyan left-border + glow.
+- **Scrollytelling** — `useScrollytellingSeek` IntersectionObserver watches answer cards, debounces 350ms, and seeks to the most-visible card's timestamp when it changes. `minJumpSeconds: 6` prevents jitter on cards that happen to be near the playhead. `reset()` lets a re-entry of the same target re-seek.
+
+### Files
+
+| Path | Action | Notes |
+|---|---|---|
+| `client/src/utils/responseShape.js` | NEW | `normalizeResponse`, `extractText`, `extractTimestamp`, `isTaggedResponse`, `isEmptyResponse`, `withTimestamp`, `withText`, `formatTimestampLabel` |
+| `client/src/utils/scrollytelling.js` | NEW | `useMostVisible` (IntersectionObserver) + `useScrollytellingSeek` (debounced auto-seek) |
+| `client/src/utils/__tests__/responseShape.test.js` | NEW | 33 tests |
+| `client/src/utils/__tests__/scrollytelling.test.js` | NEW | 9 tests (Mock IntersectionObserver) |
+| `client/src/components/audit/__tests__/LensPanel.test.jsx` | NEW | 9 tests (tag button, retag, clear, shape preservation, answeredCount) |
+| `client/src/components/audit/LensPanel.jsx` | MOD | `LensPrompt` reads/writes object shape; tag button + pill + clear `×` |
+| `client/src/hooks/useCompletionCheck.js` | MOD | uses `normalizeResponse(...).text` for length check; counts timestamp-only as response |
+| `client/src/pages/AuditDetail.jsx` | MOD | imports, `scrollytellingItems` builder, `useScrollytellingSeek` (opt-in), scrollytelling toggle button, both answer card branches show clickable pill, fallback branch has ref + active highlight |
+
+### Test totals
+
+- client vitest: 91 → 142 (+51) — all green
+- server jest: 67/67 unchanged (no backend changes)
+- Vite build clean. AuditDetail chunk 47 → 51.8 KB. Main 613 KB unchanged.
+
+### Acceptance check
+
+- Tag answer at 2:25 → save → revisit audit → click the orange `⏱ 2:25` pill on the card → player seeks to 2:25 ✓
+- Toggle "⏵ Scrollytelling" → scroll through tagged answers → player scrubs to the visible card's timestamp (debounced 350ms, no jitter near current time) ✓
+- Legacy plain-string responses still read + write correctly (no migration needed) ✓
+
+### Pre-existing bug noted (not fixed in this commit)
+
+`AuditDetail.jsx` "Grouped by template lenses" branch reads responses via `responses[`${lens}-q${idx}`]` (e.g. `harmony-q0`) but the write side in `LensPanel` and `useCompletionCheck` uses `lens-${activeLens}-${i}` (e.g. `lens-harmony-0`). The `hasAnswers` gate at line 577 always returns false, so users always see the fallback branch. Follow-up: change line 577 + 722 to `lens-${lens}-${idx}` so the Grouped branch starts working. Safe, no migration needed.
+
+### Sigmap noise
+
+3 unstaged `.github/context-*.md` + 2 `.github/{copilot,gemini}-*.md` after post-commit hook. Tracked in resume-point tech-debt section; recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script first thing in next session.
 
