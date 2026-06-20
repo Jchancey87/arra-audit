@@ -7,6 +7,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '../context/AudioContext.jsx';
+import { decodeSketchEnvelope, referenceEnvelope, computeDelta } from '../utils/audioDelta.js';
 
 const DRIFT_SYNC_MS = 100;
 const DRIFT_THRESHOLD_SEC = 0.4;
@@ -196,6 +197,83 @@ function PlayIcon() {
 }
 function PauseIcon() {
   return <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10" /><rect x="7" y="1" width="3" height="10" /></svg>;
+}
+
+// SampleDeltaCanvas — sample-level abs-diff between the sketch audio and the
+// reference song's energy_curve. Decodes the sketch via Web Audio (one-shot on
+// mount), reads the reference curve from the song's audioAnalysis, and paints
+// the per-bar delta as a heatmap. Falls back to "no data" placeholder if
+// either source is unavailable.
+function SampleDeltaCanvas({ sketch, song }) {
+  const canvasRef = useRef(null);
+  const [status, setStatus] = useState('pending'); // 'pending' | 'ready' | 'unavailable'
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = sketch?.publicUrl;
+    if (!url) {
+      setStatus('unavailable');
+      return undefined;
+    }
+    setStatus('pending');
+    decodeSketchEnvelope(url)
+      .then((sketchEnv) => {
+        if (cancelled) return;
+        const refEnv = referenceEnvelope(song);
+        const delta = computeDelta(sketchEnv, refEnv);
+        if (!delta) {
+          setStatus('unavailable');
+          return;
+        }
+        paint(canvasRef.current, delta);
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setStatus('unavailable');
+      });
+    return () => { cancelled = true; };
+  }, [sketch?.publicUrl, sketch?._id, song?._id]);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ fontFamily: 'Roboto Mono, monospace', fontSize: 10, color: '#5a5d65', textTransform: 'uppercase', letterSpacing: 1.5 }}>
+          Sample-level delta (abs diff)
+        </div>
+        <div style={{ fontFamily: 'Roboto Mono, monospace', fontSize: 10, color: '#5a5d65' }}>
+          {status === 'pending' ? 'decoding…' : status === 'ready' ? 'decoded' : 'unavailable'}
+        </div>
+      </div>
+      <canvas
+        ref={canvasRef}
+        width={CANVAS_BARS * 6}
+        height={64}
+        style={{ width: '100%', height: 64, display: 'block', background: '#0c0c0e', borderRadius: 2 }}
+      />
+    </div>
+  );
+}
+
+function paint(canvas, delta) {
+  if (!canvas) return;
+  const ctx2d = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx2d.fillStyle = '#0c0c0e';
+  ctx2d.fillRect(0, 0, w, h);
+  const barW = w / CANVAS_BARS;
+  for (let i = 0; i < CANVAS_BARS; i += 1) {
+    const v = delta[i] || 0;
+    const barH = v * h;
+    const x = i * barW;
+    const y = h - barH;
+    // Color: green = low delta (good match), orange = mid, red = high
+    const r = Math.round(53 + (255 - 53) * v);
+    const g = Math.round(215 - 215 * v);
+    const b = Math.round(119 * (1 - v));
+    ctx2d.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.4 + v * 0.6})`;
+    ctx2d.fillRect(x + 1, y, barW - 2, barH);
+  }
 }
 
 export default function ComparePlayer({ sketch, song }) {
@@ -411,6 +489,9 @@ export default function ComparePlayer({ sketch, song }) {
         </div>
         <SketchEnergyCanvas audioRef={sketchAudioRef} />
       </div>
+
+      {/* Sample-level abs diff between sketch + reference (decoded once) */}
+      <SampleDeltaCanvas sketch={sketch} song={song} />
 
       {/* Metadata side-by-side + delta */}
       <div>

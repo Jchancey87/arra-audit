@@ -24,7 +24,7 @@ function extractYouTubeId(url) {
   return null;
 }
 
-export default function createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository) {
+export default function createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService) {
   const router = express.Router();
 
   const handleValidationErrors = (req, res, next) => {
@@ -250,6 +250,36 @@ export default function createSongRoutes(songService, auditRepository, technique
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ── yt-dlp audio fallback ─────────────────────────────────────────────────
+  // When the YouTube IFrame embed is blocked (codes 101/150), the client can
+  // request a direct audio stream URL via this endpoint and play it through
+  // <audio> instead. Requires YT_DLP_ENABLED=1 in production to use the
+  // real subprocess; otherwise the dev/CI mock returns a /uploads/*.m4a path.
+  if (ytDlpService) {
+    router.get('/audio-url/available', async (_req, res) => {
+      try {
+        const available = await ytDlpService.isAvailable();
+        res.json({ available: Boolean(available) });
+      } catch (err) {
+        res.json({ available: false, error: err.message });
+      }
+    });
+    router.get('/:id/audio-url', async (req, res) => {
+      try {
+        const song = await songService.getSong(req.params.id, req.userId);
+        if (!song) return res.status(404).json({ error: 'Song not found' });
+        const youtubeId = song.sourceId || song.youtubeId;
+        if (!youtubeId) return res.status(400).json({ error: 'Song has no YouTube id' });
+        const format = typeof req.query.format === 'string' ? req.query.format : 'bestaudio';
+        const out = await ytDlpService.extractAudioUrl({ youtubeId, format });
+        res.json(out);
+      } catch (err) {
+        console.error('[songs] audio-url error:', err.message);
+        res.status(err.status || 500).json({ error: err.message });
+      }
+    });
+  }
 
   return router;
 }

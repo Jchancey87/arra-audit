@@ -27,6 +27,13 @@ export const AudioProvider = ({ children }) => {
   const [bottomOpen, setBottomOpen] = useState(true);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
 
+  // yt-dlp fallback state. When the YouTube IFrame embed is blocked (101/150)
+  // we surface an audioUrl the consumer can play via <audio>. The fetch is
+  // fire-and-forget so the UI doesn't block on it.
+  const [audioFallbackUrl, setAudioFallbackUrl] = useState(null);
+  const [audioFallbackAvailable, setAudioFallbackAvailable] = useState(false);
+  const audioFallbackAbortRef = useRef(null);
+
   // Deep-link highlight: id of the bookmark currently pulsing in the UI.
   // Cleared automatically after 4s so the visual cue fades.
   const [highlightBookmarkId, setHighlightBookmarkId] = useState(null);
@@ -101,6 +108,9 @@ export const AudioProvider = ({ children }) => {
     setCurrentTime(0);
     setDuration(song.durationSeconds || 0);
     setEmbedError(false); // reset error on new song load
+    setAudioFallbackUrl(null); // reset fallback on new song load
+    setAudioFallbackAvailable(false);
+    audioFallbackAbortRef.current?.abort();
     // Reset the player-ready promise: previous resolvers will never fire
     // (we'd have lost their context anyway) and a fresh chain starts.
     playerReadyPromiseRef.current = new Promise((resolve) => {
@@ -238,6 +248,29 @@ export const AudioProvider = ({ children }) => {
     // 101 & 150 = video not allowed to be embedded by owner
     if (code === 101 || code === 150) {
       setEmbedError(true);
+      // Best-effort: kick off a fetch for the yt-dlp fallback URL so the
+      // consumer (compare player, future audio-element transport) can use it.
+      try {
+        if (backend && typeof backend.isAudioFallbackAvailable === 'function' && activeSong) {
+          audioFallbackAbortRef.current?.abort();
+          const ac = new AbortController();
+          audioFallbackAbortRef.current = ac;
+          backend.isAudioFallbackAvailable()
+            .then((res) => {
+              if (ac.signal.aborted) return;
+              setAudioFallbackAvailable(Boolean(res?.available));
+              if (res?.available) {
+                return backend.getAudioFallbackUrl(activeSong._id || activeSong.id);
+              }
+              return null;
+            })
+            .then((audio) => {
+              if (ac.signal.aborted) return;
+              if (audio && audio.url) setAudioFallbackUrl(audio.url);
+            })
+            .catch(() => { /* swallow — fallback is best-effort */ });
+        }
+      } catch (_) { /* swallow */ }
     }
   };
 
@@ -272,6 +305,8 @@ export const AudioProvider = ({ children }) => {
     showVideo,
     setShowVideo,
     embedError,
+    audioFallbackUrl,
+    audioFallbackAvailable,
     bottomOpen,
     setBottomOpen,
     videoDock,
@@ -359,6 +394,15 @@ export const AudioProvider = ({ children }) => {
             <div style={{ fontSize: '9px', color: '#f87171', fontFamily: 'Roboto Mono', marginBottom: '6px', lineHeight: '1.3' }}>
               Embedding restricted by owner
             </div>
+            {audioFallbackUrl ? (
+              <div style={{ fontSize: '9px', color: '#35d777', fontFamily: 'Roboto Mono', marginBottom: '6px', lineHeight: '1.3' }}>
+                Audio fallback ready
+              </div>
+            ) : audioFallbackAvailable ? (
+              <div style={{ fontSize: '9px', color: '#fbbf24', fontFamily: 'Roboto Mono', marginBottom: '6px', lineHeight: '1.3' }}>
+                Fetching audio fallback…
+              </div>
+            ) : null}
             <a href={youtubeWatchUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '9px', color: '#ff6600', fontFamily: 'Roboto Mono', textDecoration: 'underline' }}>
               Open in YouTube →
             </a>

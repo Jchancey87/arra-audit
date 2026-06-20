@@ -894,5 +894,26 @@ export class InMemoryBackendAdapter extends IBackendService {
     s.updatedAt = new Date().toISOString();
     return { queued: false, analysis: s.analysis, sketch: { ...s } };
   }
+
+  // Audio fallback (mock) — always available in the in-memory adapter, returns
+  // a synthetic /uploads/ URL the consumer can play or treat as a placeholder.
+  async getAudioFallbackUrl(songId, format = 'bestaudio') {
+    const song = this.songs.find((s) => s._id === songId && !s.deletedAt);
+    if (!song) {
+      const err = new Error('Song not found');
+      err.status = 404;
+      throw err;
+    }
+    const sourceId = song.sourceId || song.youtubeId || 'mock';
+    return {
+      url: `/uploads/fake-audio-${sourceId}.m4a`,
+      expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      format,
+    };
+  }
+
+  async isAudioFallbackAvailable() {
+    return { available: true };
+  }
 }
 

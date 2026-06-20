@@ -51,11 +51,13 @@ describe('ComparePlayer', () => {
     expect(screen.getAllByText(/Sketch/i).length).toBeGreaterThan(0);
     // Metadata label present
     expect(screen.getByText(/Metadata/i)).toBeInTheDocument();
-    // Delta panel appears when reference meta exists
-    expect(screen.getByText(/Delta/i)).toBeInTheDocument();
+    // The metadata-driven Delta panel appears when reference meta exists.
+    // Match the panel heading only to avoid colliding with the new
+    // "Sample-level delta" canvas label.
+    expect(screen.getByText(/^Delta$/i)).toBeInTheDocument();
   });
 
-  it('hides the delta panel when neither side has analysis data', () => {
+  it('hides the metadata delta panel when neither side has analysis data', () => {
     const sketch = {
       _id: 'sk-2',
       title: 'No analysis',
@@ -65,7 +67,10 @@ describe('ComparePlayer', () => {
       analysisStatus: 'not_started',
     };
     render(<ComparePlayer sketch={sketch} song={song} />, { wrapper: makeWrapper(backend) });
-    expect(screen.queryByText(/Delta/i)).toBeNull();
+    // The metadata DeltaPanel is hidden, but the SampleDeltaCanvas header
+    // still renders (no analysis data → it's "unavailable"). Match strictly
+    // on the metadata-driven panel heading.
+    expect(screen.queryByText(/^Delta$/i)).toBeNull();
     // But master + panels still render
     expect(screen.getByText(/master clock: YouTube reference/i)).toBeInTheDocument();
   });
@@ -94,5 +99,20 @@ describe('ComparePlayer', () => {
     // Reset back
     fireEvent.click(updatedBtn);
     expect(screen.getByTitle('Reset to 1.0x').textContent).toBe('1.00x');
+  });
+
+  it('renders the sample-level delta canvas header in unavailable state when no publicUrl', () => {
+    const sketch = {
+      _id: 'sk-4',
+      title: 'No URL',
+      originalName: 'na.wav',
+      publicUrl: '',
+      analysis: { tempo_bpm: 120, key: 'C', scale: 'major', estimated_meter: '4/4' },
+      analysisStatus: 'success',
+    };
+    render(<ComparePlayer sketch={sketch} song={song} />, { wrapper: makeWrapper(backend) });
+    expect(screen.getByText(/Sample-level delta \(abs diff\)/i)).toBeInTheDocument();
+    // The label is "unavailable" because no publicUrl → no fetch attempted
+    expect(screen.getByText(/^unavailable$/i)).toBeInTheDocument();
   });
 });

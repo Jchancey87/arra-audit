@@ -33,6 +33,7 @@ import { TemplateComposer } from './services/templateComposer.js';
 import { TasteService } from './services/tasteService.js';
 import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
+import { YtDlpMockAdapter, YtDlpSubprocessAdapter } from './services/ytDlpService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
@@ -124,6 +125,12 @@ const curriculumService = new CurriculumService(
 );
 const sketchService = new SketchService(sketchRepository, songRepository);
 
+// yt-dlp adapter: prefer the real subprocess when YT_DLP_ENABLED is set;
+// otherwise use the deterministic mock so dev/CI always have a fallback path.
+const ytDlpService = process.env.YT_DLP_ENABLED === '1'
+  ? new YtDlpSubprocessAdapter({ binaryPath: process.env.YT_DLP_BIN })
+  : new YtDlpMockAdapter({ available: process.env.NODE_ENV !== 'production' });
+
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
   try {
@@ -162,7 +169,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 });
 
 app.use('/api/auth',       createAuthRoutes(authService));
-app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository));
+app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));

@@ -68,5 +68,9 @@ export class IBackendService {
   async updateSketch(id, updates) { throw new Error('Not implemented'); }
   async deleteSketch(id) { throw new Error('Not implemented'); }
   async analyzeSketch(id) { throw new Error('Not implemented'); }
+
+  // yt-dlp audio fallback (when YouTube embed is blocked)
+  async getAudioFallbackUrl(songId, format = 'bestaudio') { throw new Error('Not implemented'); }
+  async isAudioFallbackAvailable() { throw new Error('Not implemented'); }
 }
 

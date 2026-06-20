@@ -15,6 +15,12 @@ dist/
 .next/
 out/
 
+# Playwright test artifacts
+client/test-results/
+client/playwright-report/
+client/blob-report/
+client/playwright/.cache/
+
 # IDE
 .vscode/
 .idea/

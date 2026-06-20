@@ -338,5 +338,16 @@ export class HttpBackendAdapter extends IBackendService {
     const res = await this.api.post(`/sketches/${id}/analyze`);
     return res.data;
   }
+
+  // Audio fallback (yt-dlp). Returns { url, expiresAt } or throws.
+  async getAudioFallbackUrl(songId, format = 'bestaudio') {
+    const res = await this.api.get(`/songs/${songId}/audio-url`, { params: { format } });
+    return res.data;
+  }
+
+  async isAudioFallbackAvailable() {
+    const res = await this.api.get('/songs/audio-url/available');
+    return res.data;
+  }
 }
 
