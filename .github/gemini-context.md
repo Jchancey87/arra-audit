@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:08:50.397Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:10:23.932Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -31,7 +31,7 @@ analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
 server/adapters/CLAPSegmentAdapter.js         +CLAPSegmentAdapter
 server/adapters/MockBookmarkAnalysisAdapter.js +MockBookmarkAnalysisAdapter
@@ -42,9 +42,9 @@ client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
 client/src/ports/IBackendService.js           ~IBackendService
 analysis_service/analyzer.py                  +analyze_features_from_array  +_deterministic_seed  +_load_segment_audio  +_fallback_segment_analysis
 analysis_service/app.py                       +SegmentAnalysisRequest  +_ensure_cached_audio  +trigger_segment_analysis  ~SketchAnalysisRequest
-.github/context-cold.md                       +makeWrapper  +useTechniques  +countAll  +guessLens
-.github/copilot-instructions.md               ~makeWrapper  ~useTechniques  ~countAll  ~guessLens
-.github/gemini-context.md                     ~makeWrapper  ~useTechniques  ~countAll  ~guessLens
+.github/context-cold.md                       +App  ~ClapAnalyzer  ~__init__  ~analyze_features
+.github/copilot-instructions.md               +ClapAnalyzer  +__init__  +analyze_features  +analyze_features_from_array
+.github/gemini-context.md                     +ClapAnalyzer  +__init__  +analyze_features  +analyze_features_from_array
 ```
 
 ## .github
