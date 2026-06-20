@@ -1891,6 +1891,29 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
   - The torchvision shim is a band-aid. A real fix would be to rebuild torchvision against the installed torch, or to remove all torchvision imports from the project's dep tree (no current code uses real torchvision).
   - If you upgrade to a Turing-or-newer GPU (sm_70+), remove the cuDNN-disable line AND re-enable `.half()`. The skill comment in `analyzer.py:80-100` says exactly that.
 
+### 2026-06-20: SESSION WRAP-UP (analysis service hardening)
+
+- **Context**: this session was a follow-up to the Phase 2.4 wrap-up. User came back with a stuck song (analysis webhook 401), then asked about 1GB constant RAM, then "we could even find a bigger weight model since we can go to idle". Three loose threads, all closed.
+- **Three shipped commits**:
+  1. **Webhook 401 hotfix** (rolled into `fbfb892`) — `analyzer.py` was posting callbacks without the `Authorization: Bearer <ANALYSIS_WEBHOOK_SECRET>` header that `server.js:156` enforces. Stdlib `_load_repo_dotenv()` reads `../.env` at import (PM2's `env` block for `arra-analysis` is empty), `_callback_headers()` helper attaches the Bearer token. All 4 callback `requests.post` call sites updated. Symptom: songs stuck `audioAnalysisStatus: 'pending'`, simulated progress bar pinned at 99%. Song `6a3683c1a5b03c11405b4b09` ("Everything In Its Right Place") was unstuck via direct Mongo write (status='failed' + importErrors).
+  2. **CLAP idle-evict** (`fbfb892`) — singleton model → lazy-load + daemon reaper. After 60s (default, env-tunable) of no use, the model is unloaded via `del` + `gc.collect()` + `torch.cuda.empty_cache()` + `malloc_trim(0)`. Last-used timestamp is touched inside `get_clap_analyzer()` so an in-flight analysis isn't reaped mid-pass. **GPU memory fully released** on eviction; RSS only drops ~26 MB (mmap'd safetensors pages stay in heap arena, re-used on next load for fast warm restart). For full ~600 MB RSS recovery: `pm2 restart arra-analysis` (1s downtime). Also fixed a pre-existing bug: orphan `return _clap_analyzer` at the end of `analyze_segment()` was unreachable AND would have shadowed the function name.
+  3. **Bigger CLAP on sm_61** (`166b147`) — `laion/larger_clap_music` (1.2GB, music-tuned) shipped on the GTX 1050 Ti via two Pascal workarounds: `torch.backends.cudnn.enabled = False` (sm_61 missing from torch 2.6 cuDNN 9.x's cap list `[sm_50, sm_60, sm_70, sm_75, sm_80, sm_86, sm_90]`), and skip `.half()` (FP16 convs hang on the cuDNN-disabled path). FP32 inference at ~0.4s/10s clip is fast enough. The checkpoint is in `transformers` `ClapModel` format — no laion-clap package dep needed. Default `_CLAP_MODEL` is now the bigger model; set `CLAP_MODEL=laion/clap-htsat-fused` in `.env` to downgrade.
+- **State at wrap**:
+  - `arra-server` 25h online, `arra-client` 25h online, `arra-analysis` 7m online (restarted for bigger model) at 716.9 MB RSS, GPU 0 MiB.
+  - Working tree: 2 stale `.github/*.md` files from sigmap regen post-commit hook (pre-existing tech debt noted in Phase 2.4 wrap-up).
+  - Venv: laion-clap 1.1.4 + h5py/ftfy/braceexpand/webdataset/wandb/wget/torchlibrosa/pandas (investigation artifacts, inert on production path) + minimal torchvision shim (production safety net for `FrozenBatchNorm2d`).
+- **Files modified**: `analysis_service/analyzer.py`, `analysis_service/requirements.txt`, `agent_memory.md`, `devlogs.md` (this entry + 3 prior entries).
+- **Test impact**: none — these are runtime/infrastructure fixes, not testable changes. 168/168 client + 104/104 server still pass.
+- **Bundle impact**: none — all changes are Python.
+- **Risks + follow-ups**:
+  - **cuDNN disable affects whole process** — only this analysis service uses torch, so no impact. If you ever co-locate other ML workloads, scope the disable to just the model.
+  - **FP32 doubles VRAM** (1.2GB vs 600MB FP16) — still fits 4GB GPU with room.
+  - **Torchvision shim** is a band-aid. Real fix: rebuild torchvision against installed torch, or remove torchvision imports entirely (no current code uses real torchvision).
+  - **Venv bloat** — laion-clap + 9 deps add ~200 MB. Can `pip uninstall` after verifying nothing else uses them.
+  - **Integration smoke test** (still TODO from earlier sessions) — a test that triggers an analysis on a stubbed yt_id and asserts the callback returns 200 would have caught both regressions in this session.
+  - **Simulated progress bar UX** — `useAnalysisProgressSim` caps at 99% on purpose, but the pinned number is alarming. Consider "finalizing…" text instead of a percent.
+  - **Sigmap regen noise** — pre-existing. Fix the post-commit hook to batch or disable.
+
 
 
 
