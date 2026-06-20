@@ -18,7 +18,7 @@ import TasteProfile from '../models/TasteProfile.js';
  *   POST /api/audits/:id/steps/skip      → skip current guided step
  */
 
-export default function createAuditRoutes(auditService, templateComposer, techniqueRepository) {
+export default function createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService = null) {
   const router = express.Router();
 
   const handleValidationErrors = (req, res, next) => {
@@ -236,9 +236,79 @@ export default function createAuditRoutes(auditService, templateComposer, techni
   router.post('/:id/bookmarks', async (req, res) => {
     try {
       const audit = await auditService.addBookmark(req.params.id, req.userId, req.body);
+      // Phase 2.3: auto-enqueue per-bookmark CLAP analysis if a service is
+      // available. Fire-and-forget — the bookmark is already saved with
+      // analysis: null and will be updated in the background.
+      if (bookmarkAnalysisService && audit && audit.bookmarks?.length) {
+        const newest = audit.bookmarks[audit.bookmarks.length - 1];
+        const newestId = newest?._id?.toString?.() || newest?.id;
+        const ts = newest?.timestampSeconds;
+        if (newestId && Number.isFinite(ts)) {
+          bookmarkAnalysisService
+            .enqueue({
+              auditId: req.params.id,
+              bookmarkId: newestId,
+              startSeconds: Math.max(0, ts - 0.001),
+              endSeconds: ts + 0.001,
+            })
+            .catch(() => { /* swallow — analysis is best-effort */ });
+        }
+      }
       res.json(audit);
     } catch (error) {
       if (error.message === 'Audit not found') return res.status(404).json({ error: error.message });
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Re-analyze a single bookmark (Phase 2.3) ────────────────────────────
+  router.post('/:id/bookmarks/:bookmarkId/analyze', async (req, res) => {
+    if (!bookmarkAnalysisService) {
+      return res.status(503).json({ error: 'Bookmark analysis service is not configured' });
+    }
+    try {
+      const audit = await auditService.getAudit(req.params.id, req.userId);
+      if (!audit) return res.status(404).json({ error: 'Audit not found' });
+      const bookmark = (audit.bookmarks || []).find((b) => {
+        const id = b._id?.toString?.() || b.id;
+        return id === req.params.bookmarkId;
+      });
+      if (!bookmark) return res.status(404).json({ error: 'Bookmark not found' });
+      const ts = Number(bookmark.timestampSeconds);
+      if (!Number.isFinite(ts)) {
+        return res.status(400).json({ error: 'Bookmark has no valid timestampSeconds' });
+      }
+      const result = bookmarkAnalysisService.enqueue({
+        auditId: req.params.id,
+        bookmarkId: req.params.bookmarkId,
+        startSeconds: req.body?.startSeconds ?? Math.max(0, ts - 0.001),
+        endSeconds: req.body?.endSeconds ?? ts + 0.001,
+        padSeconds: req.body?.padSeconds,
+      });
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Get the analysis status of a single bookmark (Phase 2.3) ─────────────
+  router.get('/:id/bookmarks/:bookmarkId/analysis', async (req, res) => {
+    try {
+      const audit = await auditService.getAudit(req.params.id, req.userId);
+      if (!audit) return res.status(404).json({ error: 'Audit not found' });
+      const bookmark = (audit.bookmarks || []).find((b) => {
+        const id = b._id?.toString?.() || b.id;
+        return id === req.params.bookmarkId;
+      });
+      if (!bookmark) return res.status(404).json({ error: 'Bookmark not found' });
+      res.json({
+        bookmarkId: req.params.bookmarkId,
+        analysis: bookmark.analysis || null,
+        queue: bookmarkAnalysisService
+          ? { size: bookmarkAnalysisService.size(), inFlight: bookmarkAnalysisService.inFlightCount() }
+          : null,
+      });
+    } catch (error) {
       res.status(500).json({ error: error.message });
     }
   });

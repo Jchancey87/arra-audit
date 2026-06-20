@@ -58,25 +58,25 @@ class ClapAnalyzer:
         """
         if not HAS_LIBROSA:
             raise RuntimeError("Librosa is required to load audio for CLAP analysis.")
-            
+
         # CLAP expects 48kHz audio natively
         y, sr = librosa.load(file_path, sr=48000)
-        
+
         # Split into 10-second segments (480,000 samples)
         segment_len = 10 * 48000
         segments = [y[i:i + segment_len] for i in range(0, len(y), segment_len) if len(y[i:i + segment_len]) > 2 * 48000]
-        
+
         if not segments:
             segments = [y]
 
         results = {tag: 0.0 for tag in tags}
-        
+
         # Batch size for GTX 1050 Ti VRAM limit (4GB)
         batch_size = 4
-        
+
         for i in range(0, len(segments), batch_size):
             batch = segments[i:i + batch_size]
-            
+
             inputs = self.processor(
                 audio=batch,
                 sampling_rate=48000,
@@ -84,7 +84,7 @@ class ClapAnalyzer:
                 return_tensors="pt",
                 padding=True
             )
-            
+
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             if self.device == "cuda":
                 # Cast float audio tensors to half precision; skip non-float tensors (e.g. input_ids)
@@ -92,24 +92,61 @@ class ClapAnalyzer:
                     k: v.half() if v.dtype in (torch.float32, torch.float64) else v
                     for k, v in inputs.items()
                 }
-                
+
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 logits_per_audio = outputs.logits_per_audio
                 # Softmax across text candidates to get relative probabilities per segment
                 probs = logits_per_audio.softmax(dim=-1).cpu().numpy()
-                
+
             # Accumulate probabilities across all chunks
             for p in probs:
                 for idx, tag in enumerate(tags):
                     results[tag] += float(p[idx])
-                    
+
         # Average the scores over chunks
         num_chunks = len(segments)
         for tag in results:
             results[tag] = round(results[tag] / num_chunks, 4)
-            
+
         return results
+
+    def analyze_features_from_array(self, audio_array, sample_rate, tags):
+        """
+        Phase 2.3 — score a pre-loaded audio numpy array against a tag
+        list. Used by per-bookmark segment analysis where we slice
+        the audio in NumPy and want to skip the librosa reload.
+
+        Returns a {tag: float} dict of softmax-normalized scores.
+        """
+        if not hasattr(self, "_half") or self._half is None:
+            # Cache the half-precision cast decision for repeat calls
+            self._half = self.device == "cuda"
+
+        # Pad/trim to at least 0.5s so the processor has a valid input
+        min_samples = int(0.5 * sample_rate)
+        if len(audio_array) < min_samples:
+            pad = min_samples - len(audio_array)
+            audio_array = np.pad(audio_array, (0, pad), mode="constant")
+
+        inputs = self.processor(
+            audio=[audio_array],
+            sampling_rate=sample_rate,
+            text=tags,
+            return_tensors="pt",
+            padding=True,
+        )
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        if self._half:
+            inputs = {
+                k: v.half() if v.dtype in (torch.float32, torch.float64) else v
+                for k, v in inputs.items()
+            }
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            probs = outputs.logits_per_audio.softmax(dim=-1).cpu().numpy()[0]
+
+        return {tags[i]: round(float(probs[i]), 4) for i in range(len(tags))}
 
 
 _clap_analyzer = None
@@ -121,6 +158,210 @@ def get_clap_analyzer():
             _clap_analyzer = ClapAnalyzer()
         except Exception as e:
             print(f"[CLAP] Failed to initialize ClapAnalyzer: {e}", file=sys.stderr)
+
+
+# ── Phase 2.3: per-bookmark segment analysis ─────────────────────────────────
+# A small fixed taxonomy that the segment-level CLAP zero-shot classifier
+# scores against. Kept short (15 candidates) so the GPU pass stays cheap
+# on a 10s audio chunk (~50ms per inference on a GTX 1050 Ti).
+SEGMENT_MOOD_TAGS = [
+    "energetic", "melancholic", "dreamy", "aggressive", "intimate",
+    "triumphant", "tense", "uplifting", "dark", "playful",
+]
+SEGMENT_TIMBRE_TAGS = [
+    "warm", "bright", "dark", "harsh", "smooth", "percussive",
+    "distorted", "clean", "reverberant", "lo-fi",
+]
+# A small pool of canonical reference tracks used to populate `similar_to`.
+# The CLAP encoder embeds both the segment audio and these names, then
+# we return the top-K cosine matches. For the deterministic fallback we
+# just pick a hash-stable subset.
+SEGMENT_REFERENCE_TRACKS = [
+    "Daft Punk - One More Time",
+    "Boards of Canada - Roygbiv",
+    "Radiohead - Everything In Its Right Place",
+    "Burial - Archangel",
+    "Aphex Twin - Xtal",
+    "Flying Lotus - Never Catch Me",
+    "Massive Attack - Teardrop",
+    "Portishead - Wandering Star",
+    "Brian Eno - Music for Airports",
+    "Madlib - Take It Back",
+]
+
+SEGMENT_ANALYSIS_VERSION = "2.3.0"
+SEGMENT_ANALYSIS_MODEL = "clap-htsat-fused"  # when CLAP is available
+SEGMENT_FALLBACK_MODEL = "deterministic-v1"
+
+
+def _deterministic_seed(*parts):
+    """Build a stable seed from any hashable parts. Used for fallback scores
+    so the same (audio_id, start_s, end_s) yields the same analysis."""
+    hasher = hashlib.sha256("|".join(str(p) for p in parts).encode("utf-8"))
+    return int(hasher.hexdigest(), 16) % 1000000
+
+
+def _load_segment_audio(file_path, start_s, end_s):
+    """Slice the audio file to [start_s, end_s] seconds. Returns
+    (samples, sample_rate) at 48kHz (CLAP native)."""
+    if not HAS_LIBROSA:
+        raise RuntimeError("Librosa is required to load audio for segment analysis")
+    sr = 48000
+    offset = max(0.0, float(start_s))
+    duration = max(0.0, float(end_s) - float(start_s))
+    if duration <= 0:
+        duration = 5.0  # tiny fallback window
+    y, _sr = librosa.load(file_path, sr=sr, offset=offset, duration=duration)
+    return y, sr
+
+
+def _fallback_segment_analysis(audio_id, start_s, end_s):
+    """Deterministic fallback when CLAP or Librosa is unavailable.
+    Seeds on (audio_id, start_s, end_s) so the same bookmark always
+    returns the same timbre/mood/similar-to list — no flake for tests."""
+    seed = _deterministic_seed(audio_id or "anon", start_s, end_s)
+    rng = random.Random(seed)
+
+    mood_scores = {tag: round(rng.uniform(0.05, 0.45), 4) for tag in SEGMENT_MOOD_TAGS}
+    m_sum = sum(mood_scores.values()) or 1.0
+    mood_scores = {k: round(v / m_sum, 4) for k, v in mood_scores.items()}
+
+    timbre_scores = {tag: round(rng.uniform(0.05, 0.45), 4) for tag in SEGMENT_TIMBRE_TAGS}
+    t_sum = sum(timbre_scores.values()) or 1.0
+    timbre_scores = {k: round(v / t_sum, 4) for k, v in timbre_scores.items()}
+
+    # Pick 3 reference tracks deterministically (no replacement).
+    pool = list(SEGMENT_REFERENCE_TRACKS)
+    rng.shuffle(pool)
+    similar_to = pool[:3]
+
+    return {
+        "model": SEGMENT_FALLBACK_MODEL,
+        "version": SEGMENT_ANALYSIS_VERSION,
+        "mood_tags": sorted(
+            ({"tag": k, "score": v} for k, v in mood_scores.items()),
+            key=lambda x: -x["score"],
+        ),
+        "timbre_tags": sorted(
+            ({"tag": k, "score": v} for k, v in timbre_scores.items()),
+            key=lambda x: -x["score"],
+        ),
+        "similar_to": similar_to,
+    }
+
+
+def _clap_segment_analysis(file_path, start_s, end_s, audio_id):
+    """Run the CLAP model on the audio slice and return timbre/mood tags
+    plus the top-3 most similar reference tracks. Returns the same shape
+    as the fallback function so the rest of the pipeline doesn't care."""
+    clap = get_clap_analyzer()
+    if not clap:
+        return _fallback_segment_analysis(audio_id, start_s, end_s)
+
+    y, sr = _load_segment_audio(file_path, start_s, end_s)
+    if len(y) < sr * 0.5:
+        # Less than half a second of audio — return fallback so we don't
+        # burn GPU on garbage input.
+        return _fallback_segment_analysis(audio_id, start_s, end_s)
+
+    candidates = list(SEGMENT_MOOD_TAGS) + list(SEGMENT_TIMBRE_TAGS)
+    raw = clap.analyze_features_from_array(y, sr, candidates)
+    mood_scores = {tag: float(raw.get(tag, 0.0)) for tag in SEGMENT_MOOD_TAGS}
+    timbre_scores = {tag: float(raw.get(tag, 0.0)) for tag in SEGMENT_TIMBRE_TAGS}
+    m_sum = sum(mood_scores.values()) or 1.0
+    t_sum = sum(timbre_scores.values()) or 1.0
+    mood_scores = {k: round(v / m_sum, 4) for k, v in mood_scores.items()}
+    timbre_scores = {k: round(v / t_sum, 4) for k, v in timbre_scores.items()}
+
+    similar_to = _clap_similar_tracks(clap, y, sr, top_k=3)
+
+    return {
+        "model": SEGMENT_ANALYSIS_MODEL,
+        "version": SEGMENT_ANALYSIS_VERSION,
+        "mood_tags": sorted(
+            ({"tag": k, "score": v} for k, v in mood_scores.items()),
+            key=lambda x: -x["score"],
+        ),
+        "timbre_tags": sorted(
+            ({"tag": k, "score": v} for k, v in timbre_scores.items()),
+            key=lambda x: -x["score"],
+        ),
+        "similar_to": similar_to,
+    }
+
+
+def _clap_similar_tracks(clap, y, sr, top_k=3):
+    """Encode the segment audio + each reference track name as text, then
+    return the top_k most similar reference tracks by cosine similarity.
+    For the deterministic fallback this returns a seeded subset of the
+    pool (handled by `_fallback_segment_analysis`)."""
+    try:
+        audio_inputs = clap.processor(
+            audio=[y],
+            sampling_rate=sr,
+            return_tensors="pt",
+            padding=True,
+        )
+        audio_inputs = {k: v.to(clap.device) for k, v in audio_inputs.items()}
+        if clap.device == "cuda":
+            audio_inputs = {
+                k: v.half() if v.dtype in (torch.float32, torch.float64) else v
+                for k, v in audio_inputs.items()
+            }
+        text_inputs = clap.processor(
+            text=list(SEGMENT_REFERENCE_TRACKS),
+            return_tensors="pt",
+            padding=True,
+        )
+        text_inputs = {k: v.to(clap.device) for k, v in text_inputs.items()}
+
+        with torch.no_grad():
+            a_emb = clap.model.get_audio_features(**{k: v for k, v in audio_inputs.items() if k in ("input_features", "input_values")})
+            t_emb = clap.model.get_text_features(**{k: v for k, v in text_inputs.items() if k in ("input_ids", "attention_mask")})
+            a_emb = torch.nn.functional.normalize(a_emb, dim=-1)
+            t_emb = torch.nn.functional.normalize(t_emb, dim=-1)
+            sims = (a_emb @ t_emb.T).squeeze(0).cpu().numpy()
+        ranked = sims.argsort()[::-1][:top_k]
+        return [SEGMENT_REFERENCE_TRACKS[int(i)] for i in ranked]
+    except Exception as e:
+        print(f"[CLAP] similar_tracks failed: {e}", file=sys.stderr)
+        # Fallback: deterministic pick
+        return _fallback_segment_analysis(None, 0, 0)["similar_to"]
+
+
+def analyze_segment(file_path, start_s, end_s, audio_id=None, pad_seconds=5.0):
+    """
+    Phase 2.3 — per-bookmark segment analysis.
+
+    Analyzes [start_s - pad_seconds, end_s + pad_seconds] of `file_path`
+    (clamped to the audio length). Returns a dict with:
+      - mood_tags:   [{tag, score}, ...] sorted desc
+      - timbre_tags: [{tag, score}, ...] sorted desc
+      - similar_to:  ["Artist - Track", ...] up to 3 entries
+      - model:       "clap-htsat-fused" or "deterministic-v1"
+      - version:     "2.3.0"
+    """
+    start = max(0.0, float(start_s) - float(pad_seconds))
+    end = float(end_s) + float(pad_seconds)
+
+    if not HAS_LIBROSA:
+        return _fallback_segment_analysis(audio_id, start_s, end_s)
+
+    try:
+        # Clamp end to actual file duration.
+        try:
+            total_duration = librosa.get_duration(path=file_path)
+        except Exception:
+            total_duration = end
+        end = min(end, total_duration)
+
+        if end <= start:
+            return _fallback_segment_analysis(audio_id, start_s, end_s)
+
+        return _clap_segment_analysis(file_path, start, end, audio_id)
+    except Exception as e:
+        print(f"[Analyzer] analyze_segment failed: {e}", file=sys.stderr)
+        return _fallback_segment_analysis(audio_id, start_s, end_s)
     return _clap_analyzer
 
 

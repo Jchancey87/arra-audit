@@ -38,6 +38,10 @@ export class IBackendService {
   async restoreAudit(id) { throw new Error('Not implemented'); }
   async purgeAudit(id) { throw new Error('Not implemented'); }
   async purgeAllAudits() { throw new Error('Not implemented'); }
+
+  // Bookmark analysis (Phase 2.3) — per-bookmark CLAP analysis
+  async analyzeBookmark(auditId, bookmarkId, { startSeconds, endSeconds, padSeconds } = {}) { throw new Error('Not implemented'); }
+  async getBookmarkAnalysis(auditId, bookmarkId) { throw new Error('Not implemented'); }
   
   // Techniques
   async getTechniques(filters) { throw new Error('Not implemented'); }

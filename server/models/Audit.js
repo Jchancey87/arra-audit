@@ -1,6 +1,24 @@
 import mongoose from 'mongoose';
 
 // ── Bookmark sub-document ──────────────────────────────────────────────────
+const bookmarkAnalysisSchema = new mongoose.Schema(
+  {
+    status: {
+      type: String,
+      enum: ['pending', 'running', 'success', 'error', 'skipped'],
+      default: 'pending',
+    },
+    model: { type: String, default: null },
+    version: { type: String, default: null },
+    mood_tags: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    timbre_tags: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    similar_to: { type: [String], default: [] },
+    error: { type: String, default: null },
+    computedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const bookmarkSchema = new mongoose.Schema(
   {
     timestampSeconds: {
@@ -20,6 +38,13 @@ const bookmarkSchema = new mongoose.Schema(
     lens: {
       type: String,
       enum: ['rhythm', 'texture', 'harmony', 'arrangement', null],
+      default: null,
+    },
+    // Phase 2.3: per-bookmark CLAP analysis. `null` means "not yet
+    // requested" (older bookmarks). `status: 'pending'` is set the
+    // moment the service enqueues the job.
+    analysis: {
+      type: bookmarkAnalysisSchema,
       default: null,
     },
   },

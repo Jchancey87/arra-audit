@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 import { OpenAIAdapter } from './adapters/OpenAIAdapter.js';
 import { TavilyAdapter } from './adapters/TavilyAdapter.js';
 import { MongooseRepository, UserRepository } from './adapters/MongooseRepository.js';
+import { CLAPSegmentAdapter } from './adapters/CLAPSegmentAdapter.js';
 
 // Models
 import User from './models/User.js';
@@ -34,6 +35,7 @@ import { TasteService } from './services/tasteService.js';
 import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
 import { YtDlpMockAdapter, YtDlpSubprocessAdapter } from './services/ytDlpService.js';
+import { BookmarkAnalysisService } from './services/BookmarkAnalysisService.js';
 
 // Routes
 import createAuthRoutes from './routes/auth.js';
@@ -125,6 +127,14 @@ const curriculumService = new CurriculumService(
 );
 const sketchService = new SketchService(sketchRepository, songRepository);
 
+// ── Phase 2.3: per-bookmark CLAP analysis ────────────────────────────────────
+const clapSegmentAdapter = new CLAPSegmentAdapter();
+const bookmarkAnalysisService = new BookmarkAnalysisService({
+  adapter: clapSegmentAdapter,
+  auditRepository,
+  songRepository,
+});
+
 // yt-dlp adapter: prefer the real subprocess when YT_DLP_ENABLED is set;
 // otherwise use the deterministic mock so dev/CI always have a fallback path.
 const ytDlpService = process.env.YT_DLP_ENABLED === '1'
@@ -170,7 +180,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService));
-app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository));
+app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));

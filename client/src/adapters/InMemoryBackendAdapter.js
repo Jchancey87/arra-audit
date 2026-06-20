@@ -281,6 +281,46 @@ export class InMemoryBackendAdapter extends IBackendService {
     return audit;
   }
 
+  async analyzeBookmark(auditId, bookmarkId, { startSeconds, endSeconds } = {}) {
+    const audit = await this.getAudit(auditId);
+    if (!audit) throw new Error('Not found');
+    const bookmark = (audit.bookmarks || []).find((b) => b._id === bookmarkId);
+    if (!bookmark) throw new Error('Bookmark not found');
+    // Deterministic in-memory stub for tests. Seed by bookmark id so
+    // repeated calls return the same analysis.
+    const seed = String(bookmarkId).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const rng = (() => { let s = seed; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xffffffff; }; })();
+    const moods = ['energetic', 'melancholic', 'dreamy', 'aggressive', 'intimate', 'triumphant'];
+    const timbres = ['warm', 'bright', 'dark', 'harsh', 'smooth', 'percussive'];
+    const refs = ['Daft Punk - One More Time', 'Boards of Canada - Roygbiv', 'Radiohead - Everything In Its Right Place'];
+    const normalize = (arr) => {
+      const raw = arr.map((tag) => ({ tag, score: 0.05 + rng() * 0.4 }));
+      const sum = raw.reduce((a, t) => a + t.score, 0) || 1;
+      return raw.map((t) => ({ tag: t.tag, score: Math.round((t.score / sum) * 10000) / 10000 }))
+        .sort((a, b) => b.score - a.score);
+    };
+    const analysis = {
+      status: 'success',
+      model: 'deterministic-v1',
+      version: '2.3.0',
+      mood_tags: normalize(moods),
+      timbre_tags: normalize(timbres),
+      similar_to: refs.slice(0, 3),
+      error: null,
+      computedAt: new Date().toISOString(),
+    };
+    bookmark.analysis = { ...(bookmark.analysis || {}), ...analysis };
+    return { ok: true, accepted: true, analysis };
+  }
+
+  async getBookmarkAnalysis(auditId, bookmarkId) {
+    const audit = await this.getAudit(auditId);
+    if (!audit) throw new Error('Not found');
+    const bookmark = (audit.bookmarks || []).find((b) => b._id === bookmarkId);
+    if (!bookmark) throw new Error('Bookmark not found');
+    return { bookmarkId, analysis: bookmark.analysis || null };
+  }
+
   // ── Guided steps ──────────────────────────────────────────────────────────
   async advanceStep(auditId) {
     const audit = await this.getAudit(auditId);

@@ -7,6 +7,7 @@ import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
 import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 import ShareLinkButton from '../components/ShareLinkButton';
 import ExportPdfButton from '../components/ExportPdfButton';
+import BookmarkAnalysisTags from '../components/BookmarkAnalysisTags';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
 import { useTechniques } from '../hooks/useTechniques.js';
 import { recordLinkOpen } from '../utils/shareAnalytics';
@@ -915,6 +916,11 @@ const AuditDetail = () => {
                     </div>
                     {bookmark.label && <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '5px', fontFamily: 'Roboto Mono', color: 'rgba(255,255,255,0.9)' }}>{bookmark.label}</div>}
                     {bookmark.note && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{bookmark.note}</p>}
+                    <BookmarkAnalysisTags
+                      auditId={audit._id}
+                      bookmarkId={bmId}
+                      analysis={bookmark.analysis}
+                    />
                   </div>
                 );
               })}
