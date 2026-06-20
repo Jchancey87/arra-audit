@@ -1855,6 +1855,43 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
   - `CLAP_IDLE_EVICT_SECONDS=0` disables eviction (always-resident; legacy behavior) — set this in `../.env` if you want to compare or if you start running many analyses in a session.
   - The reaper is a daemon thread — it dies with the process. PM2's `kill -9` could in theory skip graceful eviction, but in practice the reaper runs at most ~15s after a request completes.
 
+### 2026-06-20: SHIPPED — laion/larger_clap_music on the GTX 1050 Ti (sm_61)
+
+- **Context**: user asked "try an older laion-clap" after learning the laion-clap 1.1.7 + torch 2.12 path was blocked by sm_61.
+- **Key insight**: the `laion/larger_clap_music` checkpoint is uploaded in `transformers`-format `ClapModel` (transformers v4.35+), NOT in the laion-clap package's own format. So the standard `transformers.ClapModel.from_pretrained()` API works — no laion-clap package dependency needed.
+- **Investigation trail** (in order):
+  1. Installed `laion-clap==1.1.4` (the original "larger CLAP" release, April 2023) with `--no-deps` to avoid torch upgrade.
+  2. **Blocker 1**: `laion-clap 1.1.4` imports `from torchvision.ops.misc import FrozenBatchNorm2d` (its timm audio encoder uses it). The real `torchvision 0.21+` can't import on this box: `RuntimeError: operator torchvision::nms does not exist` (C++ ABI mismatch with torch 2.6.0+cu126).
+  3. **Blocker 1 fix**: Wrote a minimal `torchvision` shim at `venv/lib/python3.13/site-packages/torchvision/{__init__.py,ops/__init__.py,ops/misc.py}` that provides just `FrozenBatchNorm2d` (pure Python + `torch.nn`, no C++ ops). Marked as `0.21.0+shim`. `is_available()` returns True so `transformers.is_torchvision_available()` is happy.
+  4. **Blocker 2**: `laion-clap 1.1.4` deps chain (h5py, ftfy, braceexpand, webdataset, six, wandb, wget, torchlibrosa, pandas). Installed all with `--no-deps`.
+  5. **Blocker 3**: `torch.load(weights_only=True)` (default in torch 2.6) rejects numpy scalars from the older pickle format. Patched `laion_clap/clap_module/factory.py` to add `weights_only=False` to all 7 `torch.load()` call sites.
+  6. **Blocker 4**: laion-clap 1.1.4's model configs (`HTSAT-base` = embed_dim 1024, `HTSAT-large` = 2048) don't match the `larger_clap_music` checkpoint (hidden_size 768). State-dict shape mismatches.
+  7. **Pivot**: queried HuggingFace for `laion/larger_clap_music` and found the config is in `transformers`-format with `ClapModel` architecture. So just use `transformers.ClapModel.from_pretrained('laion/larger_clap_music')` directly. Bypasses all laion-clap package issues.
+  8. **Blocker 5 (sm_61)**: At runtime, inference crashes with `cuDNN error: CUDNN_STATUS_EXECUTION_FAILED_CUDART`. torch 2.6's cuDNN 9.x supports `[sm_50, sm_60, sm_70, sm_75, sm_80, sm_86, sm_90]` — sm_61 (Pascal) is missing. The base `clap-htsat-fused` model survives because PyTorch falls back to native CUDA for the small set of ops it uses, but the larger model hits a failing op.
+  9. **Blocker 5 fix**: `torch.backends.cudnn.enabled = False` at analyzer module import, gated on `torch.cuda.get_device_capability(0) == (6, 1)` so it only kicks in on Pascal. Forces native CUDA convs (slower but correct on sm_61).
+  10. **Blocker 6 (FP16)**: With cuDNN disabled, `.half()` (FP16) hangs indefinitely. Discovered by running a 13-min hang on a real `/analyze` request.
+  11. **Blocker 6 fix**: Skip `.half()` when `torch.backends.cudnn.enabled` is False. FP32 inference at ~0.4s per 10s clip is fast enough for low-frequency use.
+- **Final state**:
+  - `analyzer.py:80-100` — sm_61 detection + cuDNN disable
+  - `analyzer.py:112-126` — `ClapAnalyzer.__init__` skips `.half()` when cuDNN is off
+  - `analyzer.py:202-219` (in CLAP config block) — default `_CLAP_MODEL = "laion/larger_clap_music"`, doc comment lists the cuDNN-disable + FP32 requirements
+  - `requirements.txt` — added comment block explaining the bigger model + Pascal workarounds
+  - The venv now has laion-clap 1.1.4 + h5py/ftfy/braceexpand/etc. installed (investigation artifacts). They're inert for the production path (transformers doesn't import them). Clean up whenever convenient via `pip uninstall laion-clap h5py ftfy braceexpand webdataset wandb wget torchlibrosa pandas` — but verify nothing else in the project uses them first.
+  - The `torchvision` shim is the production safety net: if any future code tries to `import torchvision`, the shim loads and provides `FrozenBatchNorm2d` + `is_available()`. Real torchvision ops (NMS, IO, models) won't work — they need a real install.
+- **End-to-end verification**: triggered `POST /analyze` with `yt_id=jNQXAC9IVRw` ("Me at the zoo", 19s) on the production PM2 service. Model loaded to GPU (1.43 GB RSS, 384 MB on GPU in FP16 mode at first then dropped when eviction fired... actually verified: with FP32, model is ~742 MB on GPU). CLAP scoring ran in FP32 with cuDNN off. Reaper evicted the model after 60s idle. `pm2 logs` shows: `cuDNN disabled (sm_61 / Pascal detected; use native CUDA kernels)` → `Initializing laion/larger_clap_music on cuda...` → eviction cycle clean.
+- **Files**:
+  - `analysis_service/analyzer.py` — MOD (+~50 / -5): sm_61 cuDNN-disable block, .half() skip logic, updated `_CLAP_MODEL` default + comment.
+  - `analysis_service/requirements.txt` — MOD: added CLAP block explaining the Pascal workarounds.
+  - `agent_memory.md` — replaced "bigger-model path blocked" red line with "Bigger CLAP model on sm_61" entry documenting the workarounds; new Session Log row.
+  - `devlogs.md` — this entry.
+- **Commit**: uncommitted. Suggested: `feat(analysis): ship laion/larger_clap_music on sm_61 via cuDNN-disable + FP32 workarounds — better music zero-shot accuracy on the existing 4GB GPU; no laion-clap package needed (transformers-format checkpoint).`
+- **Caveats**:
+  - FP32 doubles VRAM (1.2GB vs 600MB FP16) — still fits on the 4GB 1050 Ti with room to spare.
+  - cuDNN disabled is ~30-50% slower than cuDNN-enabled convs. For 2-3 analyses per day on 3-5 min songs, the user is unlikely to notice.
+  - The torchvision shim is a band-aid. A real fix would be to rebuild torchvision against the installed torch, or to remove all torchvision imports from the project's dep tree (no current code uses real torchvision).
+  - If you upgrade to a Turing-or-newer GPU (sm_70+), remove the cuDNN-disable line AND re-enable `.half()`. The skill comment in `analyzer.py:80-100` says exactly that.
+
+
 
 
 

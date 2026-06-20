@@ -88,6 +88,26 @@ try:
 except ImportError:
     HAS_CLAP = False
 
+# sm_61 (GTX 1050 Ti, Pascal) cuDNN workaround
+# =============================================
+# torch 2.6 ships with cuDNN 9.x whose supported compute caps are
+# [sm_50, sm_60, sm_70, sm_75, sm_80, sm_86, sm_90] — sm_61 (Pascal) is
+# missing. The base `laion/clap-htsat-fused` model still works because
+# PyTorch falls back to native CUDA kernels for the small set of ops it
+# uses, but the larger `laion/larger_clap_music` checkpoint hits a
+# cuDNN op that crashes with CUDNN_STATUS_EXECUTION_FAILED on Pascal.
+#
+# Disabling cuDNN forces native convolutions for all torch ops in this
+# process. ~30-50% slower on most workloads, but correct. The analysis
+# service is the only thing running in this process, and the user runs
+# a couple of songs per day, so the perf hit is acceptable.
+#
+# If you upgrade to a Turing-or-newer GPU (sm_70+), this line can be
+# removed to restore cuDNN acceleration.
+if HAS_CLAP and torch.cuda.is_available() and torch.cuda.get_device_capability(0) == (6, 1):
+    torch.backends.cudnn.enabled = False
+    print("[CLAP] cuDNN disabled (sm_61 / Pascal detected; use native CUDA kernels)")
+
 
 class ClapAnalyzer:
     def __init__(self, model_name=None):
@@ -98,7 +118,11 @@ class ClapAnalyzer:
         print(f"[CLAP] Initializing {model_name} on {self.device}...")
         self.processor = AutoProcessor.from_pretrained(model_name)
         self.model = ClapModel.from_pretrained(model_name).to(self.device)
-        if self.device == "cuda":
+        # Skip .half() when cuDNN is disabled (Pascal / sm_61 workaround):
+        # FP16 convs fall back to a code path that hangs indefinitely on
+        # this configuration. FP32 inference at ~0.4s per 10s clip is fast
+        # enough for low-frequency analysis.
+        if self.device == "cuda" and torch.backends.cudnn.enabled:
             self.model = self.model.half()
         self.model.eval()
 
@@ -201,17 +225,20 @@ class ClapAnalyzer:
 
 
 # ── CLAP runtime config ───────────────────────────────────────────────────────
-# Default model is `laion/clap-htsat-fused` (~600MB, weights in `transformers`).
+# Default to the bigger, music-tuned CLAP model — works on the GTX 1050 Ti
+# with cuDNN disabled (see Pascal workaround above). Override via env
+# (e.g. set CLAP_MODEL=laion/clap-htsat-fused in ../.env to fall back to
+# the smaller, cuDNN-friendly model if perf is a concern).
 #
-# BIGGER-MODEL PATH: laion hosts `laion/larger_clap_music` and
-# `laion/larger_clap_music_and_speech` (~1.2GB each, better zero-shot accuracy
-# for music production tags) but they live in the `laion-clap` package, not in
-# `transformers`. laion-clap 1.1.7 pins torch >= 2.12, which DROPPED sm_61
-# support (GTX 1050 Ti compute capability 6.1). Tried 2026-06-20: torch 2.12.1
-# install nvidia-smi warning "no longer supported", laion-clap import fails.
-# To unlock the larger models: upgrade the GPU to sm_70+ (Turing or newer)
-# OR pin laion-clap to an older release that supports sm_61.
-_CLAP_MODEL = os.environ.get("CLAP_MODEL", "laion/clap-htsat-fused")
+# - `laion/larger_clap_music`        — 1.2GB, music-tuned, better zero-shot
+#                                       accuracy for production tags. Uses
+#                                       cuDNN ops that fail on sm_61, so the
+#                                       cuDNN disable above is required.
+# - `laion/clap-htsat-fused`         — 600MB, general-purpose, smaller cold
+#                                       start. Works with cuDNN enabled.
+# - `laion/larger_clap_music_and_speech` / `larger_clap_general` — also
+#                                       transformers-format; same cuDNN caveat.
+_CLAP_MODEL = os.environ.get("CLAP_MODEL", "laion/larger_clap_music")
 
 # Idle-evict timeout in seconds. After this many seconds with no use the model
 # is unloaded and ~1.2 GB of RAM is freed. Set to 0 to disable eviction

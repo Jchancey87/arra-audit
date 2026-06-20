@@ -11,3 +11,10 @@ transformers>=4.30.0
 accelerate>=0.20.0
 librosa>=0.10.0
 soundfile>=0.12.0
+
+# CLAP audio model — `transformers.ClapModel` (no laion-clap package).
+# Default checkpoint is `laion/larger_clap_music` (~1.2GB, music-tuned, better
+# zero-shot accuracy). On sm_61 (Pascal) the analyzer disables cuDNN and
+# runs in FP32 (see analyzer.py sm_61 workaround block). Set
+# `CLAP_MODEL=laion/clap-htsat-fused` in ../.env to fall back to the smaller
+# 600MB model (cuDNN-friendly, FP16).
