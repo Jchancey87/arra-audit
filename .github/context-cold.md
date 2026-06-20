@@ -41,6 +41,7 @@ client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/Back
 client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
+client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants, utils/responseShape
 client/src/hooks/useCurricula.js ← context/BackendContext
 client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
 client/src/hooks/useSketches.js ← context/BackendContext
@@ -51,6 +52,7 @@ client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 client/src/utils/__tests__/lensGuess.test.js ← lensGuess
+client/src/utils/__tests__/scrollytelling.test.js ← scrollytelling
 client/src/utils/pdfData.js ← pdf/theme
 ```
 
@@ -185,6 +187,11 @@ export function useAuditShortcuts({ togglePlay, hasArrangementLens, currentTime,
 export function useAudits(filters = {})  :15-101
 ```
 
+### client/src/hooks/useCompletionCheck.js
+```
+export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :15-52
+```
+
 ### client/src/hooks/useCurricula.js
 ```
 export function useCurricula()  :10-64
@@ -250,6 +257,16 @@ function mergeFonts(overrides)  :93-102
 function countAll(text)  :50-62
 ```
 
+### client/src/utils/__tests__/scrollytelling.test.js
+```
+class MockIntersectionObserver  :5-23
+  constructor(cb)  :6-10
+  observe(el)  :11-13
+  unobserve(el)  :14-16
+  disconnect()  :17-19
+  trigger(entries)  :20-22
+```
+
 ### client/src/utils/audioDelta.js
 ```
 export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
@@ -293,6 +310,24 @@ export async function loadPdfRenderer()  :6-20
 export async function renderAuditToBlob(audit, song)  :22-37
 export function downloadBlob(blob, filename)  :39-50
 export function buildAuditFilename(audit, song)  :52-57
+```
+
+### client/src/utils/responseShape.js
+```
+export const normalizeResponse = (value) =>  :20-34
+export const extractText = (value) =>  :36-43
+export const extractTimestamp = (value) =>  :38-43
+export const isTaggedResponse = (value) =>  :40-43
+export const isEmptyResponse = (value) =>  :45-48
+export const withTimestamp = (value, timestampSeconds) =>  :50-59
+export const withText = (value, text) =>  :61-64
+export const formatTimestampLabel = (seconds) =>  :66-72
+```
+
+### client/src/utils/scrollytelling.js
+```
+export const useMostVisible = (items, options = {}) =>  :31-106
+export const useScrollytellingSeek = (items, { seek, currentTime = 0, enabled = true, debounceMs = DEFAULTS.debounceMs, minJumpSeconds = DEFAULTS.minJumpSeconds } = {}) =>  :108-147
 ```
 
 ### client/src/utils/shareAnalytics.js
