@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import TasteProfile from '../models/TasteProfile.js';
+import { buildBookmarkAnalysisSseHandler } from '../services/BookmarkAnalysisBus.js';
 
 /**
  * Audit routes — single-step creation (Issue 4 clean cutover).
@@ -18,7 +19,8 @@ import TasteProfile from '../models/TasteProfile.js';
  *   POST /api/audits/:id/steps/skip      → skip current guided step
  */
 
-export default function createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService = null) {
+export default function createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService = null, deps = {}) {
+  const { analysisBus = null, auditRepository = null } = deps;
   const router = express.Router();
 
   const handleValidationErrors = (req, res, next) => {
@@ -312,6 +314,45 @@ export default function createAuditRoutes(auditService, templateComposer, techni
       res.status(500).json({ error: error.message });
     }
   });
+
+  // ── Phase 2.3 v2: SSE stream of bookmark analysis state changes ──────────
+  // The bookmark analysis pipeline writes status transitions
+  // (pending → running → success/error) into the Audit doc. This SSE
+  // stream lets the AuditDetail page subscribe so the "Queued / Analyzing"
+  // pill updates in real time without polling.
+  //
+  // Wire format (text/event-stream):
+  //   event: snapshot
+  //   data: { auditId, bookmarks: { [bookmarkId]: { status, ... } } }
+  //
+  //   event: bookmark-update
+  //   data: { bookmarkId, analysis: { status, ... } }
+  //
+  //   :keep-alive   (every 25s; comment line keeps corporate proxies alive)
+  //
+  // Auth: relies on the authMiddleware mounted at /api/audits (server.js).
+  // Ownership: the audit lookup goes through auditService which checks
+  // userId. We also confirm via the raw auditRepository findById (the
+  // SSE handler doesn't take a userId, so it must be 404 vs 403 by
+  // omitting the audit — the service layer is the authoritative gate).
+  if (analysisBus && auditRepository) {
+    const sseHandler = buildBookmarkAnalysisSseHandler({ auditRepository });
+    router.get('/:id/bookmarks/events', async (req, res, next) => {
+      // Ownership check first (returns 404 on miss, 200 on hit). We
+      // piggy-back on the same auditService.getAudit path the polling
+      // endpoint uses so a non-owner gets 404, not a working stream.
+      try {
+        const audit = await auditService.getAudit(req.params.id, req.userId);
+        if (!audit) return res.status(404).json({ error: 'Audit not found' });
+      } catch (err) {
+        return next(err);
+      }
+      // Replace req.params.id with the verified id so the SSE handler
+      // can't be tricked by a forged param after the ownership check.
+      req.params.id = String(audit._id || audit.id || req.params.id);
+      return sseHandler(req, res);
+    });
+  }
 
   // ── Update a single bookmark ──────────────────────────────────────────────
   router.patch('/:id/bookmarks/:bookmarkId', async (req, res) => {

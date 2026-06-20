@@ -9,7 +9,13 @@ const getJwtSecret = () => {
 };
 
 export const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
+  // Phase 2.3 v2: EventSource can't send custom headers, so the SSE
+  // endpoint passes the JWT in a `?token=` query param. We accept either
+  // form, header first (preferred), query as fallback for SSE.
+  let token = req.headers.authorization?.split(' ')[1];
+  if (!token && typeof req.query?.token === 'string') {
+    token = req.query.token;
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });

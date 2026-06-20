@@ -42,6 +42,12 @@ export class IBackendService {
   // Bookmark analysis (Phase 2.3) — per-bookmark CLAP analysis
   async analyzeBookmark(auditId, bookmarkId, { startSeconds, endSeconds, padSeconds } = {}) { throw new Error('Not implemented'); }
   async getBookmarkAnalysis(auditId, bookmarkId) { throw new Error('Not implemented'); }
+  // Phase 2.3 v2: subscribe to bookmark analysis status changes via SSE.
+  // Returns an object with `close()` to tear down the stream, plus
+  // `on(event, handler)` for `snapshot` / `bookmark-update` / `error`
+  // / `open` events. Default impl in HttpBackendAdapter uses
+  // EventSource; InMemoryBackendAdapter emits synthetic events.
+  subscribeBookmarkAnalysis(auditId, handlers = {}) { throw new Error('Not implemented'); }
   
   // Techniques
   async getTechniques(filters) { throw new Error('Not implemented'); }

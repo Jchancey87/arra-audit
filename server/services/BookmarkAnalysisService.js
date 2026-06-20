@@ -50,6 +50,7 @@ export class BookmarkAnalysisService {
     adapter,
     auditRepository,
     songRepository,
+    eventBus,
     padSeconds = DEFAULT_PAD_SECONDS,
     queueLimit = DEFAULT_QUEUE_LIMIT,
   } = {}) {
@@ -58,11 +59,18 @@ export class BookmarkAnalysisService {
     this.adapter = adapter;
     this.auditRepository = auditRepository;
     this.songRepository = songRepository || null;
+    this.eventBus = eventBus || null;
     this.padSeconds = padSeconds;
     this.queueLimit = queueLimit;
     this.queue = [];
     this.inFlight = 0;
     this.processing = false;
+  }
+
+  _publish(auditId, bookmarkId, analysis) {
+    if (this.eventBus && analysis) {
+      try { this.eventBus.publish(auditId, bookmarkId, analysis); } catch { /* never let pub break a job */ }
+    }
   }
 
   // ── Queue + concurrency control ─────────────────────────────────────────
@@ -97,7 +105,28 @@ export class BookmarkAnalysisService {
     });
     // Best-effort: mark bookmark as pending immediately so the UI can
     // surface the "analyzing" state on the next audit fetch.
-    this._setBookmarkAnalysis(auditId, bookmarkId, initialAnalysis({ status: 'pending' })).catch(() => {});
+    this._setBookmarkAnalysis(auditId, bookmarkId, initialAnalysis({ status: 'pending' }))
+      .then(() => {
+        // Publish AFTER the DB write so subscribers see a snapshot that
+        // matches the next GET response. Re-read the merged value so the
+        // event payload is the authoritative one (not just our patch).
+        this.auditRepository
+          .findById(auditId)
+          .then((audit) => {
+            if (!audit) return;
+            const bookmark = (audit.bookmarks || []).find(
+              (b) => (b._id?.toString() ?? b.id) === bookmarkId
+            );
+            if (bookmark?.analysis) this._publish(auditId, bookmarkId, bookmark.analysis);
+          })
+          .catch(() => {});
+      })
+      .catch(() => {
+        // Even if the DB write failed, still publish a synthetic pending
+        // event so the SSE stream isn't silent (the next GET will
+        // eventually reflect the real state).
+        this._publish(auditId, bookmarkId, initialAnalysis({ status: 'pending' }));
+      });
     this._drain();
     return { accepted: true, queueSize: this.queue.length };
   }
@@ -133,16 +162,15 @@ export class BookmarkAnalysisService {
         resolved = { ...resolved, ...audio };
       }
     } catch (err) {
-      await this._setBookmarkAnalysis(auditId, bookmarkId, {
-        status: 'error',
-        error: `Audio resolution failed: ${err.message}`,
-      }).catch(() => {});
+      const patch = { status: 'error', error: `Audio resolution failed: ${err.message}` };
+      await this._setBookmarkAnalysis(auditId, bookmarkId, patch).catch(() => {});
+      this._publish(auditId, bookmarkId, { ...initialAnalysis(), ...patch });
       return;
     }
 
-    await this._setBookmarkAnalysis(auditId, bookmarkId, {
-      status: 'running',
-    }).catch(() => {});
+    const runningPatch = { status: 'running' };
+    await this._setBookmarkAnalysis(auditId, bookmarkId, runningPatch).catch(() => {});
+    this._publish(auditId, bookmarkId, { ...initialAnalysis(), ...runningPatch });
 
     try {
       const analysis = await this.adapter.analyzeSegment({
@@ -154,7 +182,7 @@ export class BookmarkAnalysisService {
         endSeconds: resolved.endSeconds,
         padSeconds: resolved.padSeconds,
       });
-      await this._setBookmarkAnalysis(auditId, bookmarkId, {
+      const successPatch = {
         status: 'success',
         model: analysis.model || null,
         version: analysis.version || null,
@@ -163,12 +191,13 @@ export class BookmarkAnalysisService {
         similar_to: analysis.similar_to || [],
         error: null,
         computedAt: new Date(),
-      });
+      };
+      await this._setBookmarkAnalysis(auditId, bookmarkId, successPatch).catch(() => {});
+      this._publish(auditId, bookmarkId, { ...initialAnalysis(), ...successPatch });
     } catch (err) {
-      await this._setBookmarkAnalysis(auditId, bookmarkId, {
-        status: 'error',
-        error: err.message || 'Bookmark analysis failed',
-      }).catch(() => {});
+      const errorPatch = { status: 'error', error: err.message || 'Bookmark analysis failed' };
+      await this._setBookmarkAnalysis(auditId, bookmarkId, errorPatch).catch(() => {});
+      this._publish(auditId, bookmarkId, { ...initialAnalysis(), ...errorPatch });
     }
   }
 

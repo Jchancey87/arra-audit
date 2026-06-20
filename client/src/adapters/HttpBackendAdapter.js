@@ -199,6 +199,36 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  // ── Phase 2.3 v2: SSE subscription to bookmark analysis state changes ────
+  // Native EventSource doesn't support custom headers, so the JWT is
+  // passed as a `?token=` query param. The server's auth middleware
+  // accepts the same Bearer scheme from a query param when SSE is in
+  // use (browsers forbid setting Authorization on EventSource).
+  subscribeBookmarkAnalysis(auditId, handlers = {}) {
+    const token = localStorage.getItem('token') || '';
+    const baseURL = this.api.defaults.baseURL || '/api';
+    const url = `${baseURL.replace(/\/$/, '')}/audits/${encodeURIComponent(auditId)}/bookmarks/events?token=${encodeURIComponent(token)}`;
+    let es;
+    try {
+      es = new EventSource(url, { withCredentials: true });
+    } catch (err) {
+      handlers.error?.(err);
+      return { close() {}, readyState: 2 };
+    }
+    if (handlers.open) es.addEventListener('open', handlers.open);
+    es.addEventListener('snapshot', (e) => {
+      try { handlers.snapshot?.(JSON.parse(e.data)); } catch (err) { handlers.error?.(err); }
+    });
+    es.addEventListener('bookmark-update', (e) => {
+      try { handlers.bookmarkUpdate?.(JSON.parse(e.data)); } catch (err) { handlers.error?.(err); }
+    });
+    es.addEventListener('error', (e) => handlers.error?.(e));
+    return {
+      close: () => es.close(),
+      readyState: () => es.readyState,
+    };
+  }
+
   // ── Guided steps ──────────────────────────────────────────────────────────
   async advanceStep(auditId) {
     const res = await this.api.post(`/audits/${auditId}/steps/advance`);

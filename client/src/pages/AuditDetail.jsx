@@ -8,6 +8,7 @@ import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 import ShareLinkButton from '../components/ShareLinkButton';
 import ExportPdfButton from '../components/ExportPdfButton';
 import BookmarkAnalysisTags from '../components/BookmarkAnalysisTags';
+import { useBookmarkAnalysisStream } from '../hooks/useBookmarkAnalysisStream.js';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
 import { useTechniques } from '../hooks/useTechniques.js';
 import { recordLinkOpen } from '../utils/shareAnalytics';
@@ -35,6 +36,13 @@ const AuditDetail = () => {
   } = useAudio();
 
   const deepLinkAppliedRef = useRef(false);
+
+  // Phase 2.3 v2: live bookmark-analysis updates via SSE. The hook keeps
+  // a `snapshots` map keyed by bookmarkId; we merge those into the audit's
+  // bookmarks below so the BookmarkAnalysisTags card re-renders as the
+  // server-side pipeline transitions through pending → running → success.
+  const { snapshots: liveBookmarkAnalysis, status: streamStatus } =
+    useBookmarkAnalysisStream(id);
 
   const [scrollytellingEnabled, setScrollytellingEnabled] = useState(false);
   const answerCardRefs = useRef(new Map());
@@ -919,7 +927,7 @@ const AuditDetail = () => {
                     <BookmarkAnalysisTags
                       auditId={audit._id}
                       bookmarkId={bmId}
-                      analysis={bookmark.analysis}
+                      analysis={liveBookmarkAnalysis[bmId] || bookmark.analysis}
                     />
                   </div>
                 );

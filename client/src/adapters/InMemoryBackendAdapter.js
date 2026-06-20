@@ -321,6 +321,31 @@ export class InMemoryBackendAdapter extends IBackendService {
     return { bookmarkId, analysis: bookmark.analysis || null };
   }
 
+  // Phase 2.3 v2: SSE subscription stub for offline / test mode.
+  // Emits the current snapshot synchronously and never delivers updates
+  // (the InMemory adapter's analyzeBookmark mutates the audit doc in
+  // place; tests that need SSE behavior can call handlers.bookmarkUpdate
+  // directly). The returned object satisfies the same `close()` contract
+  // as the HTTP adapter so callers don't need to branch.
+  subscribeBookmarkAnalysis(auditId, handlers = {}) {
+    let closed = false;
+    Promise.resolve(this.getAudit(auditId)).then((audit) => {
+      if (closed || !audit) return;
+      const bookmarks = {};
+      for (const b of audit.bookmarks || []) {
+        if (b._id && b.analysis) bookmarks[b._id] = b.analysis;
+      }
+      handlers.open?.();
+      handlers.snapshot?.({ auditId, bookmarks });
+    }).catch((err) => {
+      if (!closed) handlers.error?.(err);
+    });
+    return {
+      close: () => { closed = true; },
+      readyState: () => (closed ? 2 : 1),
+    };
+  }
+
   // ── Guided steps ──────────────────────────────────────────────────────────
   async advanceStep(auditId) {
     const audit = await this.getAudit(auditId);

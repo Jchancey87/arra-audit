@@ -198,4 +198,100 @@ describe('BookmarkAnalysisService', () => {
       await expect(adapter.analyzeSegment({ audioId: 'x', startSeconds: 5, endSeconds: 5 })).rejects.toThrow(/greater/);
     });
   });
+
+  describe('eventBus integration (Phase 2.3 v2)', () => {
+    test('publishes pending → running → success on the bus', async () => {
+      const auditRepository = new InMemoryRepository();
+      const songRepository = new InMemoryRepository();
+      const { audit, song } = await buildAuditWithBookmark(auditRepository, songRepository);
+      const events = [];
+      const eventBus = { publish: (aid, bid, analysis) => events.push({ aid, bid, analysis }) };
+
+      const service = new BookmarkAnalysisService({
+        adapter: new MockBookmarkAnalysisAdapter(),
+        auditRepository,
+        songRepository,
+        eventBus,
+      });
+      service.enqueue({ auditId: audit._id, bookmarkId: 'bm-1', startSeconds: 10, endSeconds: 12 });
+      await pollUntil(async () => {
+        const a = await auditRepository.findById(audit._id);
+        return a.bookmarks[0].analysis?.status === 'success';
+      });
+
+      const statuses = events.filter((e) => e.bid === 'bm-1').map((e) => e.analysis.status);
+      expect(statuses).toContain('pending');
+      expect(statuses).toContain('running');
+      expect(statuses).toContain('success');
+      // pending should be the first transition, success the last
+      expect(statuses[0]).toBe('pending');
+      expect(statuses[statuses.length - 1]).toBe('success');
+    });
+
+    test('publishes an error event when the adapter throws', async () => {
+      const auditRepository = new InMemoryRepository();
+      const songRepository = new InMemoryRepository();
+      const { audit, song } = await buildAuditWithBookmark(auditRepository, songRepository);
+      const events = [];
+      const eventBus = { publish: (_aid, bid, analysis) => events.push({ bid, analysis }) };
+
+      const service = new BookmarkAnalysisService({
+        adapter: { analyzeSegment: async () => { throw new Error('boom'); } },
+        auditRepository,
+        songRepository,
+        eventBus,
+      });
+      service.enqueue({ auditId: audit._id, bookmarkId: 'bm-1', startSeconds: 5, endSeconds: 10 });
+      await pollUntil(async () => {
+        const a = await auditRepository.findById(audit._id);
+        return a.bookmarks[0].analysis?.status === 'error';
+      });
+
+      const statuses = events.filter((e) => e.bid === 'bm-1').map((e) => e.analysis.status);
+      expect(statuses).toContain('error');
+      const errorEvent = events.find((e) => e.bid === 'bm-1' && e.analysis.status === 'error');
+      expect(errorEvent.analysis.error).toMatch(/boom/);
+    });
+
+    test('does not throw when eventBus.publish is a no-op / throws', async () => {
+      const auditRepository = new InMemoryRepository();
+      const songRepository = new InMemoryRepository();
+      const { audit, song } = await buildAuditWithBookmark(auditRepository, songRepository);
+      const eventBus = { publish: () => { throw new Error('bus down'); } };
+
+      const service = new BookmarkAnalysisService({
+        adapter: new MockBookmarkAnalysisAdapter(),
+        auditRepository,
+        songRepository,
+        eventBus,
+      });
+      service.enqueue({ auditId: audit._id, bookmarkId: 'bm-1', startSeconds: 1, endSeconds: 2 });
+      await pollUntil(async () => {
+        const a = await auditRepository.findById(audit._id);
+        return a.bookmarks[0].analysis?.status === 'success';
+      });
+      // No assertion — the test is that the service completed without
+      // crashing the bus exception.
+      const a = await auditRepository.findById(audit._id);
+      expect(a.bookmarks[0].analysis.status).toBe('success');
+    });
+
+    test('tolerates a missing eventBus (back-compat)', async () => {
+      const auditRepository = new InMemoryRepository();
+      const songRepository = new InMemoryRepository();
+      const { audit, song } = await buildAuditWithBookmark(auditRepository, songRepository);
+
+      const service = new BookmarkAnalysisService({
+        adapter: new MockBookmarkAnalysisAdapter(),
+        auditRepository,
+        songRepository,
+        // no eventBus
+      });
+      service.enqueue({ auditId: audit._id, bookmarkId: 'bm-1', startSeconds: 1, endSeconds: 2 });
+      await pollUntil(async () => {
+        const a = await auditRepository.findById(audit._id);
+        return a.bookmarks[0].analysis?.status === 'success';
+      });
+    });
+  });
 });

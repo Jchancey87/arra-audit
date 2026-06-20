@@ -37,6 +37,7 @@ import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
 import { YtDlpMockAdapter, YtDlpSubprocessAdapter } from './services/ytDlpService.js';
 import { BookmarkAnalysisService } from './services/BookmarkAnalysisService.js';
+import { bookmarkAnalysisBus } from './services/BookmarkAnalysisBus.js';
 import { RecommendationService } from './services/RecommendationService.js';
 
 // Routes
@@ -135,6 +136,7 @@ const bookmarkAnalysisService = new BookmarkAnalysisService({
   adapter: clapSegmentAdapter,
   auditRepository,
   songRepository,
+  eventBus: bookmarkAnalysisBus,
 });
 
 // ── Phase 2.4: liked-by-artist discovery (TF-IDF cosine sim) ─────────────────
@@ -208,7 +210,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 
 app.use('/api/auth',       createAuthRoutes(authService));
 app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService));
-app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService));
+app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService, { analysisBus: bookmarkAnalysisBus, auditRepository }));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService, recommendationService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));
 app.use('/api/curricula',      authMiddleware, createCurriculumRoutes(curriculumService, techniqueRepository));
