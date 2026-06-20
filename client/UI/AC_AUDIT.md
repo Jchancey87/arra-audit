@@ -91,9 +91,9 @@
 
 | Status | Evidence | Notes |
 |---|---|---|
-| 🟡 Partial | Layout uses flex/grid and `minWidth: 0` patterns; fonts use relative sizing via CSS tokens. | Mobile/tablet breakpoints added in Phase 4.2. 200% zoom testing requires manual Lighthouse run. |
+| 🟡 Partial | Layout uses flex/grid and `minWidth: 0` patterns; fonts use relative sizing via CSS tokens. Mobile/tablet breakpoints added in Phase 4.2. | Lighthouse gate script shipped: `scripts/lighthouse.mjs` + `client/UI/LIGHTHOUSE.md` + `npm run lighthouse`. Exits 1 on threshold miss, 77 on missing-Chrome. Thresholds (perf 90, a11y 95, bp 90, seo 80) baseline the live `arra.homma.casa` build. Real numbers pending the Chrome system-libs install (libnspr4+). Manual 200% zoom walkthrough script lives in `LIGHTHOUSE.md`. |
 
-**Fix notes:** Phase 4.2 introduces `@media (max-width: 1199px)` and `@media (max-width: 767px)` blocks for layout adaptation. Lighthouse audit pending.
+**Fix notes:** Phase 4.2 introduces `@media (max-width: 1199px)` and `@media (max-width: 767px)` blocks for layout adaptation. Lighthouse gate wired but Chrome unavailable in current dev env. Manual walkthrough checklist: see `LIGHTHOUSE.md` § "Manual a11y walkthrough".
 
 ---
 
@@ -109,10 +109,10 @@
 | AC-06 Playhead accessibility | ✅ |
 | AC-07 Error/success announcements | ✅ |
 | AC-08 High contrast | ✅ (added Phase 4.1) |
-| AC-09 Zoom + small viewport | 🟡 (depends on 4.2) |
+| AC-09 Zoom + small viewport | 🟡 (Lighthouse gate shipped; real scores pending Chrome install) |
 
 **Outstanding (deferred):**
-- AC-09 — Lighthouse run after Phase 4.2 lands.
+- AC-09 — Real Lighthouse scores pending Chrome system libs (libnspr4+) install on the dev host. Gate script + workflow ready (`scripts/lighthouse.mjs` + `LIGHTHOUSE.md`). 200% zoom manual walkthrough checklist lives in `LIGHTHOUSE.md` and should be re-run after any layout change.
 
 ---
 

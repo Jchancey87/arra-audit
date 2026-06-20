@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "lighthouse": "npm run build && npm run preview & LIGHTHOUSE_PREVIEW_PID=$! ; sleep 3 && node ../scripts/lighthouse.mjs --url http://localhost:4173 ; kill $LIGHTHOUSE_PREVIEW_PID 2>/dev/null || true"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
