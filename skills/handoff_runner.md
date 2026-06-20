@@ -7,7 +7,7 @@ Use this skill to take a handoff file, align on details, implement features, ver
 ## 📋 Execution Phases
 
 ### Phase 1: Ingestion & Analysis
-1. Locate and view the designated handoff file (defaulting to [HANDOFF.md](file:///home/jackc/projects/arra/HANDOFF.md) unless specified otherwise).
+1. Locate and view the designated handoff file. If none specified, ask the user which handoff to execute — stale handoffs for completed work have been removed from this repo, so do not assume a default filename.
 2. Scan the "Next Steps", dependencies, and target architectural goals.
 3. Identify existing files to analyze and gather necessary context from the codebase.
 
