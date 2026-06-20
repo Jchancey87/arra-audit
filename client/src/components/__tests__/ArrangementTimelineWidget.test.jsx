@@ -63,43 +63,6 @@ describe('ArrangementTimelineWidget', () => {
     mockSeekTo.mockClear();
     mockOnChange.mockClear();
     mockSaveNow.mockClear();
-
-    // Mock HTMLCanvasElement.prototype.getContext
-    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
-      fillRect: vi.fn(),
-      clearRect: vi.fn(),
-      getImageData: vi.fn(),
-      putImageData: vi.fn(),
-      createImageData: vi.fn(),
-      setTransform: vi.fn(),
-      drawImage: vi.fn(),
-      save: vi.fn(),
-      restore: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      closePath: vi.fn(),
-      stroke: vi.fn(),
-      fill: vi.fn(),
-      scale: vi.fn(),
-      roundRect: vi.fn(),
-      rect: vi.fn(),
-      fillText: vi.fn(),
-      measureText: vi.fn().mockReturnValue({ width: 50 }),
-      createLinearGradient: vi.fn().mockReturnValue({
-        addColorStop: vi.fn(),
-      }),
-    });
-
-    // Mock getBoundingClientRect for all canvas instances
-    HTMLCanvasElement.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
-      left: 0,
-      top: 0,
-      right: 800,
-      bottom: 600,
-      width: 800,
-      height: 600,
-    });
   });
 
   afterEach(() => {
@@ -122,15 +85,16 @@ describe('ArrangementTimelineWidget', () => {
     expect(screen.getByText('Synth Bass')).toBeInTheDocument();
     expect(screen.getByDisplayValue('120')).toBeInTheDocument();
 
-    const canvas = document.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    const introBlock = screen.getByTestId('section-block-sec-1');
+    expect(introBlock).toBeInTheDocument();
 
-    // Verify click on canvas selecting block shows in inspector
-    fireEvent.mouseDown(canvas, { clientX: 30, clientY: 50 }); // MouseDown "Intro"
+    // Verify click on section block selecting it shows in inspector
+    fireEvent.mouseDown(introBlock); 
     fireEvent.mouseUp(window); // Complete action
     expect(screen.getByText(/INSPECTOR: Intro/i)).toBeInTheDocument();
 
-    fireEvent.mouseDown(canvas, { clientX: 150, clientY: 50 }); // MouseDown "Verse 1"
+    const verseBlock = screen.getByTestId('section-block-sec-2');
+    fireEvent.mouseDown(verseBlock); 
     fireEvent.mouseUp(window); // Complete action
     expect(screen.getByText(/INSPECTOR: Verse 1/i)).toBeInTheDocument();
   });
@@ -147,11 +111,11 @@ describe('ArrangementTimelineWidget', () => {
       { wrapper }
     );
 
-    const canvas = document.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    const introBlock = screen.getByTestId('section-block-sec-1');
+    expect(introBlock).toBeInTheDocument();
 
-    // Trigger right click / context menu on canvas where "Intro" is located (x: 0-96, y: 28-142)
-    fireEvent.mouseDown(canvas, { clientX: 30, clientY: 50, button: 2 });
+    // Trigger right click / context menu on block
+    fireEvent.mouseDown(introBlock, { button: 2 });
 
     // Verify context menu is visible
     expect(screen.getByText(/Inspect Section/i)).toBeInTheDocument();
@@ -178,11 +142,11 @@ describe('ArrangementTimelineWidget', () => {
       { wrapper }
     );
 
-    const canvas = document.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    const sectionsLane = screen.getByTestId('sections-lane');
+    expect(sectionsLane).toBeInTheDocument();
 
-    // Right click on empty sections lane coordinate (x: 400, y: 50)
-    fireEvent.mouseDown(canvas, { clientX: 400, clientY: 50, button: 2 });
+    // Right click on empty sections lane coordinate (clientX: 400 triggers clickedTime = 400 / 6 = 66.6s)
+    fireEvent.mouseDown(sectionsLane, { button: 2, clientX: 400 });
 
     expect(screen.getByText(/Add Section Here/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/Add Section Here/i));
@@ -202,11 +166,11 @@ describe('ArrangementTimelineWidget', () => {
       { wrapper }
     );
 
-    const canvas = document.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    const trackBlock = screen.getByTestId('track-block-tb-1');
+    expect(trackBlock).toBeInTheDocument();
 
-    // Right click track block tb-1 (x: 0-96, y: 142-188)
-    fireEvent.mouseDown(canvas, { clientX: 30, clientY: 160, button: 2 });
+    // Right click track block
+    fireEvent.mouseDown(trackBlock, { button: 2 });
 
     expect(screen.getByText(/Play Block/i)).toBeInTheDocument();
     expect(screen.getByText(/Sync to Playhead/i)).toBeInTheDocument();
@@ -228,11 +192,11 @@ describe('ArrangementTimelineWidget', () => {
       { wrapper }
     );
 
-    const canvas = document.querySelector('canvas');
-    expect(canvas).toBeInTheDocument();
+    const trackLane = screen.getByTestId('track-lane-track-1');
+    expect(trackLane).toBeInTheDocument();
 
-    // Right click empty track lane (x: 200, y: 160, button: 2)
-    fireEvent.mouseDown(canvas, { clientX: 200, clientY: 160, button: 2 });
+    // Right click empty track lane at clientX: 200
+    fireEvent.mouseDown(trackLane, { button: 2, clientX: 200 });
 
     expect(screen.getByText(/Add Block Here/i)).toBeInTheDocument();
     expect(screen.getByText(/Clear Track/i)).toBeInTheDocument();

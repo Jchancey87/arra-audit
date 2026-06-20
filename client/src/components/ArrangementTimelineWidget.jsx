@@ -29,23 +29,10 @@ const TRACK_CATEGORIES = {
 };
 
 // ── Layout constants ─────────────────────────────────────────────────────────
-
 const GUTTER_W      = 140;  // left label column width (px)
+const HEADER_H      = 28;   // height of the ruler header
 const SECTION_ROW_H = 114;  // height of the sections row
 const TRACK_ROW_H   = 46;   // height of each instrument track lane
-
-// ── Bar / beat utilities (4/4 time assumed) ──────────────────────────────────
-const barDurSecs  = (bpm) => (60 / bpm) * 4;
-const secToBar    = (sec, bpm) => Math.floor(sec / barDurSecs(bpm)) + 1;
-const barToSec    = (bar, bpm) => (bar - 1) * barDurSecs(bpm);
-const snapDurBars = (sec, bpm) => {
-  const bd = barDurSecs(bpm);
-  return Math.max(bd, Math.round(sec / bd) * bd);
-};
-const snapStartBars = (sec, bpm) => {
-  const bd = barDurSecs(bpm);
-  return Math.max(0, Math.round(sec / bd) * bd);
-};
 
 // ── Auto-expanding observations textarea ─────────────────────────────────────
 const AutoExpandingTextarea = ({ value, onChange, placeholder, disabled }) => {
@@ -142,20 +129,18 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const multiSelectedIdsRef = useRef(new Set());
   const selectedTrackBlockRef = useRef(null);
 
-  // ── Drag & Resize Refs for Canvas ──
-  const canvasRef = useRef(null);
+  // ── Drag & Resize Refs ──
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
   const dragStartInfoRef = useRef(null);
 
-  // ── Dismiss context menu on click or scroll anywhere ──
   useEffect(() => {
     const closeMenu = () => setContextMenu(null);
     window.addEventListener('click', closeMenu);
-    window.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('contextmenu', closeMenu);
     return () => {
       window.removeEventListener('click', closeMenu);
-      window.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('contextmenu', closeMenu);
     };
   }, []);
 
@@ -164,9 +149,6 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const [showAdvanced,    setShowAdvanced]       = useState(false);
 
   // ── Multi-select (bulk delete) ──
-  // Independent from `selectedBlockId` (single-click inspector). Plain
-  // click keeps the old single-select behavior; cmd/ctrl-click + shift
-  // + click drive the multi-select. Esc clears the multi-selection.
   const [multiSelectedIds, setMultiSelectedIds] = useState(() => new Set());
   const lastClickedIdRef = useRef(null);
 
@@ -209,7 +191,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     || sortedBlocks.reduce((acc, b) => acc + (parseInt(b.duration) || 0), 0)
     || 120;
 
-  // AC-06: throttled sr-only live-region announcement for the playhead
+  // Announcement for playhead status updates (accessibility)
   const playheadAnnouncement = usePlayheadAnnouncer(currentTime, totalDuration);
   const contentWidth   = Math.max(600, totalDuration * pxPerSec);
   const selectedBlock  = sortedBlocks.find(b => b.id === selectedBlockId);
@@ -298,10 +280,6 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     if (saveNow) setTimeout(saveNow, 100);
   };
 
-  // ── Multi-select delete: removes the selected ids from sections,
-  //    then from any track's blocks. Both data structures share the
-  //    id space (widget generates unique ids with Date.now()+random),
-  //    so a single pass with two filters is enough.
   const deleteSelected = () => {
     if (!multiSelectedIds || multiSelectedIds.size === 0) return;
     const ids = multiSelectedIds;
@@ -371,79 +349,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     });
   };
 
-  // ── Canvas text truncater helper ──
-  const truncateText = (ctx, text, maxWidth) => {
-    if (!text) return '';
-    if (ctx.measureText(text).width <= maxWidth) return text;
-    let truncated = text;
-    while (truncated.length > 0 && ctx.measureText(truncated + '...').width > maxWidth) {
-      truncated = truncated.slice(0, -1);
-    }
-    return truncated + '...';
-  };
-
-  // ── Canvas coordinate mapping cursor hover ──
-  const handleMouseMoveHover = (e) => {
-    if (readOnly) return;
-    if (isDraggingRef.current || isResizingRef.current) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const clickedTime = mouseX / pxPerSec;
-    
-    // Check sections
-    if (mouseY >= 28 && mouseY < 28 + 114) {
-      const hoverBlock = sortedBlocks.find(
-        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
-      );
-      if (hoverBlock) {
-        const isSel = hoverBlock.id === selectedBlockIdRef.current;
-        const blockRightEdgeX = ((hoverBlock.startTime || 0) + (hoverBlock.duration || 0)) * pxPerSec;
-        if (isSel && Math.abs(mouseX - blockRightEdgeX) < 10) {
-          canvas.style.cursor = 'col-resize';
-        } else {
-          canvas.style.cursor = 'pointer';
-        }
-        return;
-      }
-      canvas.style.cursor = 'default';
-      return;
-    }
-
-    // Check tracks
-    let trackIdx = -1;
-    if (mouseY >= 28 + 114) {
-      trackIdx = Math.floor((mouseY - (28 + 114)) / 46);
-    }
-
-    if (trackIdx >= 0 && trackIdx < tracksRef.current.length) {
-      const track = tracksRef.current[trackIdx];
-      const clickedBlock = track.blocks?.find(
-        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
-      );
-
-      if (clickedBlock) {
-        const isSel = selectedTrackBlockRef.current?.trackId === track.id && selectedTrackBlockRef.current?.blockId === clickedBlock.id;
-        const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
-        if (isSel && Math.abs(mouseX - blockRightEdgeX) < 8) {
-          canvas.style.cursor = 'col-resize';
-        } else {
-          canvas.style.cursor = 'grab';
-        }
-        return;
-      }
-      canvas.style.cursor = 'crosshair';
-      return;
-    }
-
-    canvas.style.cursor = 'default';
-  };
-
-  // ── Drag Listeners registration ──
+  // ── DOM Drag Listeners ──
   const registerDragListeners = () => {
     window.addEventListener('mousemove', handleDragMove);
     window.addEventListener('mouseup', handleDragUp);
@@ -571,418 +477,113 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     }
   };
 
-  const handleMouseDown = (e) => {
-    if (readOnly) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+  // ── DOM click routing handlers ──
 
-    const clickedTime = mouseX / pxPerSec;
-    const isRightClick = e.button === 2 || e.ctrlKey; // support ctrl+click context menu on mac
+  const handleRulerMouseDown = (e) => {
+    const isRightClick = e.button === 2 || e.ctrlKey;
+    if (isRightClick) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickedTime = clickX / pxPerSec;
+    handleSeek(clickedTime);
+  };
 
-    // Check if clicked in sections lane (y: 28 to 28 + 114)
-    if (mouseY >= 28 && mouseY < 28 + 114) {
-      const clickedBlock = sortedBlocks.find(
-        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
-      );
+  const handleSectionsLaneMouseDown = (e) => {
+    const isRightClick = e.button === 2 || e.ctrlKey;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickedTime = clickX / pxPerSec;
 
-      if (clickedBlock) {
-        if (isRightClick) {
-          handleContextMenu(e, 'section-block', { block: clickedBlock });
-        } else {
-          const isSel = clickedBlock.id === selectedBlockIdRef.current;
-          const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
-          const isResize = isSel && Math.abs(mouseX - blockRightEdgeX) < 10;
-
-          if (isResize) {
-            isResizingRef.current = true;
-            dragStartInfoRef.current = {
-              type: 'section-resize',
-              block: clickedBlock,
-              startX: e.clientX,
-              startDur: clickedBlock.duration || 30,
-            };
-            registerDragListeners();
-          } else {
-            isDraggingRef.current = true;
-            dragStartInfoRef.current = {
-              type: 'section-move',
-              block: clickedBlock,
-              startX: e.clientX,
-              startY: e.clientY,
-              isActualDrag: false,
-            };
-            registerDragListeners();
-          }
-        }
-      } else {
-        if (isRightClick) {
-          handleContextMenu(e, 'sections-lane', { time: clickedTime });
-        } else {
-          setSelectedBlockId(null);
-          setSelectedTrackBlock(null);
-          setMultiSelectedIds(new Set());
-        }
-      }
-      return;
-    }
-
-    // Check if clicked in tracks lane (y > 28 + 114)
-    if (mouseY >= 28 + 114) {
-      const trackIdx = Math.floor((mouseY - (28 + 114)) / 46);
-      if (trackIdx >= 0 && trackIdx < tracksRef.current.length) {
-        const track = tracksRef.current[trackIdx];
-        const clickedBlock = track.blocks?.find(
-          (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
-        );
-
-        if (clickedBlock) {
-          if (isRightClick) {
-            handleContextMenu(e, 'track-block', { track, block: clickedBlock });
-          } else {
-            const isSel = selectedTrackBlockRef.current?.trackId === track.id && selectedTrackBlockRef.current?.blockId === clickedBlock.id;
-            const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
-            const isResize = isSel && Math.abs(mouseX - blockRightEdgeX) < 8;
-
-            if (isResize) {
-              isResizingRef.current = true;
-              dragStartInfoRef.current = {
-                type: 'track-block-resize',
-                track,
-                block: clickedBlock,
-                startX: e.clientX,
-                startDur: clickedBlock.duration || 8,
-              };
-              registerDragListeners();
-            } else {
-              isDraggingRef.current = true;
-              dragStartInfoRef.current = {
-                type: 'track-block-move',
-                track,
-                block: clickedBlock,
-                startX: e.clientX,
-                startSec: clickedBlock.startTime || 0,
-                didMove: false,
-              };
-              registerDragListeners();
-            }
-          }
-        } else {
-          if (isRightClick) {
-            handleContextMenu(e, 'track-lane', { track, time: clickedTime });
-          } else {
-            let s = clickedTime;
-            s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
-            addTrackBlock(track.id, s);
-          }
-        }
-      }
-      return;
-    }
-
-    // Check if clicked in ruler (y < 28)
-    if (mouseY < 28) {
-      if (!isRightClick) {
-        handleSeek(clickedTime);
-      }
+    if (isRightClick) {
+      handleContextMenu(e, 'sections-lane', { time: clickedTime });
+    } else {
+      setSelectedBlockId(null);
+      setSelectedTrackBlock(null);
+      setMultiSelectedIds(new Set());
     }
   };
 
-  // ── Canvas Painting Effect ──
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+  const handleTrackLaneMouseDown = (e, track) => {
+    if (e.target !== e.currentTarget) return; // ignore clicks on blocks themselves
+    const isRightClick = e.button === 2 || e.ctrlKey;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickedTime = clickX / pxPerSec;
 
-    const HEADER_H = 28;
-    const SECTION_ROW_H = 114;
-    const TRACK_ROW_H = 46;
+    if (isRightClick) {
+      handleContextMenu(e, 'track-lane', { track, time: clickedTime });
+    } else if (!readOnly) {
+      let s = clickedTime;
+      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
+      addTrackBlock(track.id, s);
+    }
+  };
 
-    const dpr = window.devicePixelRatio || 1;
-    const logicalWidth = contentWidth;
-    const logicalHeight = HEADER_H + SECTION_ROW_H + tracks.length * TRACK_ROW_H;
-
-    canvas.width = logicalWidth * dpr;
-    canvas.height = logicalHeight * dpr;
-    canvas.style.width = `${logicalWidth}px`;
-    canvas.style.height = `${logicalHeight}px`;
-
-    ctx.scale(dpr, dpr);
-
-    // Clear and draw background
-    ctx.fillStyle = '#0c0c0f';
-    ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-
-    // Draw ruler background
-    ctx.fillStyle = '#08080b';
-    ctx.fillRect(0, 0, logicalWidth, HEADER_H);
-
-    // Draw sections lane background
-    ctx.fillStyle = '#070709';
-    ctx.fillRect(0, HEADER_H, logicalWidth, SECTION_ROW_H);
-
-    // Draw horizontal dividers
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, HEADER_H);
-    ctx.lineTo(logicalWidth, HEADER_H);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.beginPath();
-    ctx.moveTo(0, HEADER_H + SECTION_ROW_H);
-    ctx.lineTo(logicalWidth, HEADER_H + SECTION_ROW_H);
-    ctx.stroke();
-
-    tracks.forEach((track, idx) => {
-      const y = HEADER_H + SECTION_ROW_H + (idx + 1) * TRACK_ROW_H;
-      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(logicalWidth, y);
-      ctx.stroke();
-    });
-
-    // Draw Ticks & Grid Lines
-    if (viewMode === 'bars') {
-      const totalBarsCount = Math.ceil((totalDuration / 60) * (bpm / 4));
-      let interval = 1;
-      if (totalBarsCount > 128) interval = 16;
-      else if (totalBarsCount > 64) interval = 8;
-      else if (totalBarsCount > 32) interval = 4;
-      else if (totalBarsCount > 16) interval = 2;
-
-      for (let bar = 1; bar <= totalBarsCount + interval; bar += interval) {
-        const x = barToSec(bar, bpm) * pxPerSec;
-        if (x > logicalWidth + 20) break;
-
-        // Grid line
-        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-        ctx.beginPath();
-        ctx.moveTo(x, HEADER_H);
-        ctx.lineTo(x, logicalHeight);
-        ctx.stroke();
-
-        // Tick
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-        ctx.beginPath();
-        ctx.moveTo(x, HEADER_H - 6);
-        ctx.lineTo(x, HEADER_H);
-        ctx.stroke();
-
-        ctx.fillStyle = bar === 1 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)';
-        ctx.font = '10px "Roboto Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(bar === 1 ? 'Bar 1' : String(bar), x, HEADER_H - 12);
-      }
-    } else {
-      const tickInterval = totalDuration > 360 ? 60 : 30;
-      for (let t = 0; t <= totalDuration + tickInterval; t += tickInterval) {
-        const x = t * pxPerSec;
-        if (x > logicalWidth + 20) break;
-
-        // Grid line
-        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-        ctx.beginPath();
-        ctx.moveTo(x, HEADER_H);
-        ctx.lineTo(x, logicalHeight);
-        ctx.stroke();
-
-        // Tick
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-        ctx.beginPath();
-        ctx.moveTo(x, HEADER_H - 6);
-        ctx.lineTo(x, HEADER_H);
-        ctx.stroke();
-
-        ctx.fillStyle = t === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)';
-        ctx.font = '10px "Roboto Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(formatTime(t), x, HEADER_H - 12);
-      }
+  const handleSectionBlockMouseDown = (e, block) => {
+    if (readOnly) return;
+    e.stopPropagation();
+    const isRightClick = e.button === 2 || e.ctrlKey;
+    if (isRightClick) {
+      handleContextMenu(e, 'section-block', { block });
+      return;
     }
 
-    // Draw Continuous Waveform background
-    ctx.save();
-    const waveGrad = ctx.createLinearGradient(0, HEADER_H, 0, HEADER_H + SECTION_ROW_H);
-    waveGrad.addColorStop(0, '#00e5ff');
-    waveGrad.addColorStop(0.5, '#ff6600');
-    waveGrad.addColorStop(1, '#00e5ff');
+    isDraggingRef.current = true;
+    dragStartInfoRef.current = {
+      type: 'section-move',
+      block,
+      startX: e.clientX,
+      startY: e.clientY,
+      isActualDrag: false,
+    };
+    registerDragListeners();
+  };
 
-    const waveGrad2 = ctx.createLinearGradient(0, HEADER_H, 0, HEADER_H + SECTION_ROW_H);
-    waveGrad2.addColorStop(0, '#22c55e');
-    waveGrad2.addColorStop(1, '#10b981');
+  const handleSectionResizeMouseDown = (e, block) => {
+    e.stopPropagation();
+    isResizingRef.current = true;
+    dragStartInfoRef.current = {
+      type: 'section-resize',
+      block,
+      startX: e.clientX,
+      startDur: block.duration || 30,
+    };
+    registerDragListeners();
+  };
 
-    ctx.globalAlpha = 0.08;
-    
-    const pointsCount = 200;
-    const midYOffset = HEADER_H + SECTION_ROW_H / 2;
-
-    // Path 1
-    ctx.fillStyle = waveGrad;
-    ctx.beginPath();
-    ctx.moveTo(0, midYOffset);
-    for (let i = 0; i <= pointsCount; i++) {
-      const x = (i / pointsCount) * logicalWidth;
-      const noise = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
-      ctx.lineTo(x, midYOffset - noise);
+  const handleTrackBlockMouseDown = (e, track, block) => {
+    if (readOnly) return;
+    e.stopPropagation();
+    const isRightClick = e.button === 2 || e.ctrlKey;
+    if (isRightClick) {
+      handleContextMenu(e, 'track-block', { track, block });
+      return;
     }
-    for (let i = pointsCount; i >= 0; i--) {
-      const x = (i / pointsCount) * logicalWidth;
-      const noise = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
-      ctx.lineTo(x, midYOffset + noise);
-    }
-    ctx.closePath();
-    ctx.fill();
 
-    // Path 2
-    ctx.fillStyle = waveGrad2;
-    ctx.beginPath();
-    ctx.moveTo(0, midYOffset);
-    for (let i = 0; i <= pointsCount; i++) {
-      const x = (i / pointsCount) * logicalWidth;
-      const noise = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
-      ctx.lineTo(x, midYOffset - noise);
-    }
-    for (let i = pointsCount; i >= 0; i--) {
-      const x = (i / pointsCount) * logicalWidth;
-      const noise = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
-      ctx.lineTo(x, midYOffset + noise);
-    }
-    ctx.closePath();
-    ctx.fill();
+    isDraggingRef.current = true;
+    dragStartInfoRef.current = {
+      type: 'track-block-move',
+      track,
+      block,
+      startX: e.clientX,
+      startSec: block.startTime || 0,
+      didMove: false,
+    };
+    registerDragListeners();
+  };
 
-    ctx.restore();
-
-    // Draw Section blocks
-    sortedBlocks.forEach(block => {
-      const bx = (block.startTime || 0) * pxPerSec;
-      const bw = Math.max(80, (block.duration || 30) * pxPerSec);
-      const isSel = block.id === selectedBlockId;
-      const isMulti = multiSelectedIds.has(block.id);
-      const isCur = activeBlock?.id === block.id;
-      const color = TYPE_COLORS[block.type] || TYPE_COLORS.custom;
-      const by = HEADER_H + 8;
-      const bh = SECTION_ROW_H - 16;
-
-      ctx.fillStyle = isSel || isMulti ? `${color}40` : `${color}18`;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 3);
-      ctx.fill();
-
-      ctx.strokeStyle = isSel ? '#ff6600' : isMulti ? '#fbbf24' : color;
-      ctx.lineWidth = isSel ? 1.5 : 1;
-      ctx.stroke();
-
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.roundRect(bx, by, 4, bh, [3, 0, 0, 3]);
-      ctx.fill();
-
-      ctx.fillStyle = isSel ? '#ffffff' : 'rgba(255,255,255,0.85)';
-      ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(truncateText(ctx, block.name || '', bw - 16), bx + 8, by + 8);
-
-      if (block.notes) {
-        ctx.fillStyle = 'rgba(255,255,255,0.28)';
-        ctx.font = 'italic 10px system-ui, -apple-system, sans-serif';
-        ctx.fillText(truncateText(ctx, block.notes, bw - 16), bx + 8, by + 26);
-      }
-
-      ctx.fillStyle = color;
-      ctx.font = 'bold 10px "Roboto Mono", monospace';
-      ctx.textBaseline = 'bottom';
-      const timeStr = viewMode === 'bars'
-        ? formatBarRange(block.startTime || 0, block.duration || 30)
-        : formatTime(block.startTime);
-      ctx.fillText(timeStr, bx + 8, by + bh - 8);
-
-      const durStr = viewMode === 'bars'
-        ? formatDurBars(block.duration || 30)
-        : `${block.duration}s`;
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.font = '10px "Roboto Mono", monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(durStr, bx + bw - 8, by + bh - 8);
-
-      if (isCur) {
-        const prog = Math.min(100, Math.max(0, ((currentTime - (block.startTime || 0)) / (block.duration || 1)) * 100));
-        ctx.fillStyle = color;
-        ctx.fillRect(bx, by + bh - 2, bw * (prog / 100), 2);
-      }
-
-      if (isSel) {
-        ctx.fillStyle = '#ff6600';
-        ctx.fillRect(bx + bw - 3, by + bh / 2 - 8, 2, 16);
-      }
-    });
-
-    // Draw Track blocks
-    tracks.forEach((track, trackIdx) => {
-      const ty = HEADER_H + SECTION_ROW_H + trackIdx * TRACK_ROW_H;
-      ctx.fillStyle = trackIdx % 2 === 0 ? 'rgba(255,255,255,0.005)' : 'rgba(255,255,255,0.015)';
-      ctx.fillRect(0, ty, logicalWidth, TRACK_ROW_H);
-
-      track.blocks?.forEach(block => {
-        const bx = (block.startTime || 0) * pxPerSec;
-        const bw = Math.max(18, (block.duration || 8) * pxPerSec);
-        const bh = TRACK_ROW_H - 14;
-        const by = ty + 7;
-
-        const isSel = selectedTrackBlock?.trackId === track.id && selectedTrackBlock?.blockId === block.id;
-        const isMulti = multiSelectedIds.has(block.id);
-
-        ctx.fillStyle = isSel || isMulti ? `${track.color}45` : `${track.color}28`;
-        ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, 3);
-        ctx.fill();
-
-        ctx.strokeStyle = isSel ? track.color : isMulti ? '#fbbf24' : track.color + '70';
-        ctx.lineWidth = isSel ? 1.5 : 1;
-        ctx.stroke();
-
-        ctx.fillStyle = track.color;
-        ctx.font = 'bold 9px "Roboto Mono", monospace';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        const clipStr = viewMode === 'bars'
-          ? formatBarRange(block.startTime || 0, block.duration || 8)
-          : formatTime(block.startTime);
-        ctx.fillText(truncateText(ctx, clipStr, bw - 8), bx + 6, by + bh / 2);
-
-        if (isSel) {
-          ctx.fillStyle = track.color;
-          ctx.fillRect(bx + bw - 2, by + bh / 2 - 5, 1.5, 10);
-        }
-      });
-    });
-
-    // Draw Playhead
-    const playheadX = currentTime * pxPerSec;
-    if (playheadX <= logicalWidth) {
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, logicalHeight);
-      ctx.stroke();
-
-      ctx.fillStyle = '#00e5ff';
-      ctx.beginPath();
-      ctx.moveTo(playheadX - 5, 0);
-      ctx.lineTo(playheadX + 5, 0);
-      ctx.lineTo(playheadX, 7);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }, [tracks, sortedBlocks, bpm, pxPerSec, currentTime, selectedBlockId, selectedTrackBlock, multiSelectedIds, viewMode, activeBlock, totalDuration, contentWidth]);
-
-  // ── Keyboard shortcuts ──
+  const handleTrackBlockResizeMouseDown = (e, track, block) => {
+    e.stopPropagation();
+    isResizingRef.current = true;
+    dragStartInfoRef.current = {
+      type: 'track-block-resize',
+      track,
+      block,
+      startX: e.clientX,
+      startDur: block.duration || 8,
+    };
+    registerDragListeners();
+  };
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -1031,6 +632,78 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const selTrack = selectedTrackBlock ? tracks.find(t => t.id === selectedTrackBlock.trackId) : null;
   const selTb    = selTrack ? selTrack.blocks.find(b => b.id === selectedTrackBlock.blockId) : null;
 
+  // ── DOM Ruler Ticks & Grid Lines Generators ──
+
+  const renderRulerTicks = () => {
+    const ticks = [];
+    if (viewMode === 'bars') {
+      const totalBarsCount = Math.ceil((totalDuration / 60) * (bpm / 4));
+      let interval = 1;
+      if (totalBarsCount > 128) interval = 16;
+      else if (totalBarsCount > 64) interval = 8;
+      else if (totalBarsCount > 32) interval = 4;
+      else if (totalBarsCount > 16) interval = 2;
+
+      for (let bar = 1; bar <= totalBarsCount + interval; bar += interval) {
+        const x = barToSec(bar, bpm) * pxPerSec;
+        if (x > contentWidth + 20) break;
+        ticks.push(
+          <div key={`bar-${bar}`} style={{ position: 'absolute', left: x, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+            <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: bar === 1 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)', transform: 'translateY(2px)' }}>
+              {bar === 1 ? 'Bar 1' : String(bar)}
+            </span>
+            <div style={{ width: '1px', height: '6px', background: 'rgba(255,255,255,0.12)', position: 'absolute', bottom: 0 }} />
+          </div>
+        );
+      }
+    } else {
+      const tickInterval = totalDuration > 360 ? 60 : 30;
+      for (let t = 0; t <= totalDuration + tickInterval; t += tickInterval) {
+        const x = t * pxPerSec;
+        if (x > contentWidth + 20) break;
+        ticks.push(
+          <div key={`sec-${t}`} style={{ position: 'absolute', left: x, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+            <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: t === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)', transform: 'translateY(2px)' }}>
+              {formatTime(t)}
+            </span>
+            <div style={{ width: '1px', height: '6px', background: 'rgba(255,255,255,0.12)', position: 'absolute', bottom: 0 }} />
+          </div>
+        );
+      }
+    }
+    return ticks;
+  };
+
+  const renderGridLines = () => {
+    const gridLines = [];
+    if (viewMode === 'bars') {
+      const totalBarsCount = Math.ceil((totalDuration / 60) * (bpm / 4));
+      let interval = 1;
+      if (totalBarsCount > 128) interval = 16;
+      else if (totalBarsCount > 64) interval = 8;
+      else if (totalBarsCount > 32) interval = 4;
+      else if (totalBarsCount > 16) interval = 2;
+
+      for (let bar = 1; bar <= totalBarsCount + interval; bar += interval) {
+        const x = barToSec(bar, bpm) * pxPerSec;
+        if (x > contentWidth + 20) break;
+        gridLines.push(
+          <div key={`grid-bar-${bar}`} style={{ position: 'absolute', left: x, top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
+        );
+      }
+    } else {
+      const tickInterval = totalDuration > 360 ? 60 : 30;
+      for (let t = 0; t <= totalDuration + tickInterval; t += tickInterval) {
+        const x = t * pxPerSec;
+        if (x > contentWidth + 20) break;
+        gridLines.push(
+          <div key={`grid-sec-${t}`} style={{ position: 'absolute', left: x, top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
+        );
+      }
+    }
+    return gridLines;
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', margin: '10px 0 25px 0', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
@@ -1052,7 +725,6 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
             )}
           </h3>
 
-          {/* AC-06: playhead readout for sighted users + sr-only live region for AT */}
           <span
             aria-hidden="true"
             style={{
@@ -1075,9 +747,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
             {playheadAnnouncement}
           </div>
 
-          {/* Multi-select bulk action — only visible when ≥1 block is
-              selected. Destructive action so the confirm dialog guards
-              against accidental clicks. */}
+          {/* Multi-select bulk action */}
           {multiSelectedIds.size > 0 && !readOnly && (
             <div
               role="group"
@@ -1259,7 +929,6 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       {hasContent && (
         <div style={{ background: '#0c0c0f', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
 
-          {/* Two-column layout: fixed gutter | scrollable content */}
           <div style={{ display: 'flex' }}>
 
             {/* ── LEFT GUTTER ─────────────────────────────────────────────── */}
@@ -1271,7 +940,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
               zIndex: 3,
             }}>
               {/* Ruler label row */}
-              <div style={{ height: 28, display: 'flex', alignItems: 'center', paddingLeft: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ height: HEADER_H, display: 'flex', alignItems: 'center', paddingLeft: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', boxSizing: 'border-box' }}>
                 <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: '"Roboto Mono", monospace', letterSpacing: '0.06em' }}>
                   {viewMode === 'bars' ? '♩ BARS' : '⏱ TIME'}
                 </span>
@@ -1283,6 +952,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                   height: SECTION_ROW_H, display: 'flex', alignItems: 'center',
                   paddingLeft: '12px',
                   borderBottom: tracks.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  boxSizing: 'border-box',
                 }}>
                   <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                     Sections
@@ -1297,6 +967,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                   paddingLeft: '10px', paddingRight: '6px',
                   borderBottom: idx < tracks.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.008)',
+                  boxSizing: 'border-box',
                 }}>
                   <span style={{ 
                     fontSize: '8px', 
@@ -1354,16 +1025,281 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
             {/* ── SCROLLABLE CONTENT ───────────────────────────────────────── */}
             <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
-              <div style={{ minWidth: contentWidth, position: 'relative' }}>
-                <canvas
-                  ref={canvasRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMoveHover}
-                  onContextMenu={(e) => e.preventDefault()}
-                  width={contentWidth}
-                  height={28 + 114 + tracks.length * 46}
-                  style={{ display: 'block', background: '#0c0c0f' }}
-                />
+              <div 
+                style={{ 
+                  minWidth: contentWidth, 
+                  width: contentWidth,
+                  position: 'relative', 
+                  height: HEADER_H + SECTION_ROW_H + tracks.length * TRACK_ROW_H,
+                  background: '#0c0c0f',
+                  userSelect: 'none',
+                }}
+              >
+                {/* 1. RULER */}
+                <div 
+                  data-testid="timeline-ruler"
+                  onMouseDown={handleRulerMouseDown}
+                  style={{ 
+                    position: 'absolute', 
+                    left: 0, 
+                    right: 0, 
+                    top: 0, 
+                    height: HEADER_H, 
+                    background: '#08080b', 
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {renderRulerTicks()}
+                </div>
+
+                {/* 2. SECTIONS LANE */}
+                <div 
+                  data-testid="sections-lane"
+                  onMouseDown={handleSectionsLaneMouseDown}
+                  style={{ 
+                    position: 'absolute', 
+                    left: 0, 
+                    right: 0, 
+                    top: HEADER_H, 
+                    height: SECTION_ROW_H, 
+                    background: '#070709', 
+                    borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {/* Waveform Background Decoration */}
+                  <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.08 }} preserveAspectRatio="none" viewBox="0 0 100 100">
+                    <path d="M 0 50 Q 25 10, 50 50 T 100 50 Q 75 90, 50 50 T 0 50" fill="url(#waveGrad)" />
+                    <path d="M 0 50 Q 15 20, 40 50 T 80 50 Q 60 80, 30 50 T 0 50" fill="url(#waveGrad2)" />
+                    <defs>
+                      <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00e5ff" />
+                        <stop offset="50%" stopColor="#ff6600" />
+                        <stop offset="100%" stopColor="#00e5ff" />
+                      </linearGradient>
+                      <linearGradient id="waveGrad2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#10b981" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  {/* Section Grid Vertical Lines */}
+                  {renderGridLines()}
+
+                  {/* Section Blocks */}
+                  {sortedBlocks.map(block => {
+                    const color = TYPE_COLORS[block.type] || TYPE_COLORS.custom;
+                    const isSel = block.id === selectedBlockId;
+                    const isMulti = multiSelectedIds.has(block.id);
+                    const isCur = activeBlock?.id === block.id;
+                    const bx = (block.startTime || 0) * pxPerSec;
+                    const bw = Math.max(80, (block.duration || 30) * pxPerSec);
+                    const by = 8;
+                    const bh = SECTION_ROW_H - 16;
+
+                    const timeStr = viewMode === 'bars'
+                      ? formatBarRange(block.startTime || 0, block.duration || 30)
+                      : formatTime(block.startTime);
+
+                    const durStr = viewMode === 'bars'
+                      ? formatDurBars(block.duration || 30)
+                      : `${block.duration}s`;
+
+                    return (
+                      <div
+                        key={block.id}
+                        data-testid={`section-block-${block.id}`}
+                        onMouseDown={(e) => handleSectionBlockMouseDown(e, block)}
+                        style={{
+                          position: 'absolute',
+                          left: bx,
+                          width: bw,
+                          top: by,
+                          height: bh,
+                          background: isSel || isMulti ? `${color}40` : `${color}18`,
+                          border: isSel ? '1.5px solid #ff6600' : isMulti ? '1px solid #fbbf24' : `1px solid ${color}`,
+                          borderRadius: '3px',
+                          cursor: readOnly ? 'default' : 'grab',
+                          boxSizing: 'border-box',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          padding: '8px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Left solid indicator */}
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px', background: color }} />
+
+                        {/* Title */}
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: isSel ? '#ffffff' : 'rgba(255,255,255,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: '4px' }}>
+                          {block.name}
+                        </div>
+
+                        {/* Notes snippet */}
+                        {block.notes && (
+                          <div style={{ fontSize: '10px', fontStyle: 'italic', color: 'rgba(255,255,255,0.28)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: '4px' }}>
+                            {block.notes}
+                          </div>
+                        )}
+
+                        {/* Footer row */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingLeft: '4px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 'bold', fontFamily: '"Roboto Mono", monospace', color }}>
+                            {timeStr}
+                          </span>
+                          <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: 'rgba(255,255,255,0.3)' }}>
+                            {durStr}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar (Active) */}
+                        {isCur && (
+                          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: color }}>
+                            <div style={{ width: `${Math.min(100, Math.max(0, ((currentTime - (block.startTime || 0)) / (block.duration || 1)) * 100))}%`, height: '100%', background: '#fff', opacity: 0.8 }} />
+                          </div>
+                        )}
+
+                        {/* Right Edge Resize Handle */}
+                        {isSel && !readOnly && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: '8px',
+                              cursor: 'col-resize',
+                              zIndex: 2,
+                            }}
+                            onMouseDown={(e) => handleSectionResizeMouseDown(e, block)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 3. TRACK LANES */}
+                {tracks.map((track, trackIdx) => {
+                  const ty = HEADER_H + SECTION_ROW_H + trackIdx * TRACK_ROW_H;
+                  return (
+                    <div
+                      key={track.id}
+                      data-track-id={track.id}
+                      data-testid={`track-lane-${track.id}`}
+                      onMouseDown={(e) => handleTrackLaneMouseDown(e, track)}
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: ty,
+                        height: TRACK_ROW_H,
+                        background: trackIdx % 2 === 0 ? 'rgba(255,255,255,0.005)' : 'rgba(255,255,255,0.015)',
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box',
+                        cursor: readOnly ? 'default' : 'crosshair',
+                      }}
+                    >
+                      {/* Track Grid Lines */}
+                      {renderGridLines()}
+
+                      {/* Track Blocks */}
+                      {(track.blocks || []).map(block => {
+                        const bx = (block.startTime || 0) * pxPerSec;
+                        const bw = Math.max(18, (block.duration || 8) * pxPerSec);
+                        const bh = TRACK_ROW_H - 14;
+                        const by = 7;
+
+                        const isSel = selectedTrackBlock?.trackId === track.id && selectedTrackBlock?.blockId === block.id;
+                        const isMulti = multiSelectedIds.has(block.id);
+
+                        const clipStr = viewMode === 'bars'
+                          ? formatBarRange(block.startTime || 0, block.duration || 8)
+                          : formatTime(block.startTime);
+
+                        return (
+                          <div
+                            key={block.id}
+                            data-testid={`track-block-${block.id}`}
+                            onMouseDown={(e) => handleTrackBlockMouseDown(e, track, block)}
+                            style={{
+                              position: 'absolute',
+                              left: bx,
+                              width: bw,
+                              top: by,
+                              height: bh,
+                              background: isSel || isMulti ? `${track.color}45` : `${track.color}28`,
+                              border: isSel ? `1.5px solid ${track.color}` : isMulti ? '1px solid #fbbf24' : `${track.color}70`,
+                              borderRadius: '3px',
+                              cursor: readOnly ? 'default' : 'grab',
+                              boxSizing: 'border-box',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '0 6px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <span style={{ fontSize: '9px', fontWeight: 'bold', fontFamily: '"Roboto Mono", monospace', color: track.color, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {clipStr}
+                            </span>
+
+                            {/* Right Edge Resize Handle */}
+                            {isSel && !readOnly && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  right: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: '6px',
+                                  cursor: 'col-resize',
+                                  zIndex: 2,
+                                }}
+                                onMouseDown={(e) => handleTrackBlockResizeMouseDown(e, track, block)}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {/* 4. PLAYHEAD */}
+                {playheadLeft !== null && playheadLeft <= contentWidth && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: playheadLeft,
+                      top: 0,
+                      bottom: 0,
+                      width: '1.5px',
+                      background: '#00e5ff',
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {/* Playhead handle at the top */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: '-5px',
+                        top: 0,
+                        width: 0,
+                        height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderTop: '7px solid #00e5ff',
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1545,181 +1481,130 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                   {/* Duration */}
                   <div style={{ position: 'relative', flex: 1 }}>
                     {viewMode === 'bars' ? (
-                      <>
-                        <input
-                          type="number"
-                          value={Math.max(1, Math.round((selectedBlock.duration || 0) / barDurSecs(bpm)))}
-                          min={1}
-                          onChange={e => {
-                            const bars = Math.max(1, parseInt(e.target.value, 10) || 1);
-                            updateBlock(selectedBlock.id, { duration: bars * barDurSecs(bpm) });
-                          }}
-                          style={{ width: '100%', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '14px', outline: 'none', fontFamily: '"Roboto Mono", monospace' }}
-                        />
-                        <span style={{ position: 'absolute', right: '8px', top: '11px', fontSize: '11px', color: 'rgba(255,255,255,0.2)', pointerEvents: 'none' }}>Bars</span>
-                      </>
+                      <input
+                        type="number"
+                        value={Math.max(1, Math.round(selectedBlock.duration / barDurSecs(bpm)))}
+                        onChange={e => {
+                          const v = parseInt(e.target.value, 10) || 1;
+                          updateBlock(selectedBlock.id, { duration: Math.max(1, v * barDurSecs(bpm)) });
+                        }}
+                        min={1}
+                        style={{ width: '100%', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '14px', outline: 'none', fontFamily: '"Roboto Mono", monospace' }}
+                      />
                     ) : (
-                      <>
-                        <input
-                          type="number"
-                          value={selectedBlock.duration}
-                          onChange={e => updateBlock(selectedBlock.id, { duration: parseInt(e.target.value, 10) || 0 })}
-                          placeholder="Duration (s)"
-                          style={{ width: '100%', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '14px', outline: 'none', fontFamily: '"Roboto Mono", monospace' }}
-                        />
-                        <span style={{ position: 'absolute', right: '8px', top: '11px', fontSize: '11px', color: 'rgba(255,255,255,0.2)', pointerEvents: 'none' }}>Secs</span>
-                      </>
+                      <input
+                        type="number"
+                        value={selectedBlock.duration}
+                        onChange={e => updateBlock(selectedBlock.id, { duration: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                        min={1}
+                        style={{ width: '100%', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '14px', outline: 'none', fontFamily: '"Roboto Mono", monospace' }}
+                      />
                     )}
+                    <span style={{ position: 'absolute', right: '8px', top: '11px', fontSize: '11px', color: 'rgba(255,255,255,0.2)', pointerEvents: 'none' }}>
+                      {viewMode === 'bars' ? 'Bars' : 'Dur(s)'}
+                    </span>
                   </div>
-
-                  {/* Sync button */}
-                  <button
-                    type="button"
-                    onClick={() => updateBlock(selectedBlock.id, { startTime: Math.floor(currentTime) })}
-                    title="Capture current player time as start"
-                    style={{ padding: '0 14px', fontSize: '13px', background: 'rgba(255,102,0,0.1)', color: '#ff6600', border: '1px solid rgba(255,102,0,0.3)', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    🎯 Sync
-                  </button>
-                </div>
-
-                {/* Show bar hint when in seconds mode and vice versa */}
-                <div style={{ marginTop: '5px', fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontFamily: '"Roboto Mono", monospace' }}>
-                  {viewMode === 'bars'
-                    ? `≈ ${formatTime(selectedBlock.startTime || 0)} · ${selectedBlock.duration ? Math.round(selectedBlock.duration) + 's' : ''}`
-                    : `≈ ${formatBarRange(selectedBlock.startTime || 0, selectedBlock.duration || 0)} · ${formatDurBars(selectedBlock.duration || 0)}`
-                  }
                 </div>
               </div>
-            </div>
 
-            {/* Category swatch picker */}
-            <div>
-              <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>Category / Sound Type</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                {Object.keys(TYPE_COLORS).map(type => (
-                  <button
-                    key={type} type="button"
-                    onClick={() => updateBlock(selectedBlock.id, { type })}
-                    style={{
-                      padding: '6px 12px', fontSize: '12px', borderRadius: '4px', cursor: 'pointer',
-                      border: `1px solid ${selectedBlock.type === type ? TYPE_COLORS[type] : 'rgba(255,255,255,0.06)'}`,
-                      background: selectedBlock.type === type ? `${TYPE_COLORS[type]}20` : '#161619',
-                      color: selectedBlock.type === type ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                      textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '6px',
-                      fontFamily: '"Roboto Mono", monospace', transition: 'all 0.15s',
-                    }}
-                  >
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: TYPE_COLORS[type] }} />
-                    {type}
-                  </button>
-                ))}
+              {/* Section Type Selector */}
+              <div>
+                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '6px' }}>Section Type (Theme Color)</label>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {Object.keys(TYPE_COLORS).map(type => (
+                    <button
+                      key={type} type="button"
+                      onClick={() => updateBlock(selectedBlock.id, { type })}
+                      style={{
+                        padding: '6px 12px', fontSize: '11px', borderRadius: '4px', cursor: 'pointer',
+                        background: selectedBlock.type === type ? TYPE_COLORS[type] : '#161619',
+                        color:      selectedBlock.type === type ? '#151518' : 'rgba(255,255,255,0.6)',
+                        border: selectedBlock.type === type ? `1px solid ${TYPE_COLORS[type]}` : '1px solid rgba(255,255,255,0.08)',
+                        fontWeight: selectedBlock.type === type ? 'bold' : 'normal',
+                        transition: 'all 0.1s ease',
+                      }}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Advanced production cues toggle */}
-            <div>
-              <button
-                type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-                style={{ background: 'transparent', border: 'none', color: '#ff6600', fontSize: '13px', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontFamily: '"Roboto Mono", monospace', outline: 'none' }}
-              >
-                {showAdvanced ? '▼ Hide Advanced Production Cues' : '▶ Show Advanced Production Cues'}
-              </button>
-            </div>
-
-            {showAdvanced && (
-              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', display: 'block' }}>Production Cues / Dynamic Actions</label>
-                <AutoExpandingTextarea
-                  value={selectedBlock.notes || ''}
-                  onChange={e => updateBlock(selectedBlock.id, { notes: e.target.value })}
-                  placeholder="e.g. Drums filter out, synth pad sweeps, vocal delays increase..."
-                />
-              </div>
-            )}
-
-            {/* Inspector footer actions */}
-            <div style={{ marginTop: '10px', display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '14px' }}>
+            {/* Quick Actions (Play, Sync, Close) */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
               <button
                 type="button" onClick={() => handleSeek(selectedBlock.startTime || 0)}
-                style={{ padding: '8px 18px', fontSize: '13px', fontWeight: 'bold', background: '#ff6600', color: '#151518', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: '"Roboto Mono", monospace' }}
+                style={{ padding: '6px 16px', fontSize: '13px', background: 'rgba(255,102,0,0.12)', color: '#ff6600', border: '1px solid rgba(255,102,0,0.4)', borderRadius: '4px', cursor: 'pointer', fontFamily: '"Roboto Mono", monospace', fontWeight: 'bold' }}
               >
                 ▶ Play Section
               </button>
               <button
+                type="button" onClick={() => updateBlock(selectedBlock.id, { startTime: Math.floor(currentTime) })}
+                title="Align start boundary to player timeline position"
+                style={{ padding: '6px 14px', fontSize: '13px', background: 'transparent', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', cursor: 'pointer', fontFamily: '"Roboto Mono", monospace' }}
+              >
+                🎯 Sync to Playhead
+              </button>
+              <button
                 type="button" onClick={() => setSelectedBlockId(null)}
-                style={{ padding: '8px 14px', fontSize: '13px', background: 'transparent', color: 'rgba(255,255,255,0.4)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: '"Roboto Mono", monospace' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}
+                style={{ marginLeft: 'auto', padding: '6px 16px', fontSize: '13px', background: 'transparent', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', cursor: 'pointer' }}
               >
                 Close Inspector
               </button>
             </div>
+
+            {/* Template Answers / Questions Section */}
+            {lensData?.templateQuestions && lensData.templateQuestions.length > 0 && (
+              <div style={{ marginTop: '15px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h4 style={{ margin: 0, fontSize: '11px', fontFamily: '"Roboto Mono", monospace', color: '#ff6600', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                    Observations & Structural Auditing questions
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(v => !v)}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '11px', cursor: 'pointer', outline: 'none', textDecoration: 'underline' }}
+                  >
+                    {showAdvanced ? 'Hide inactive questions' : 'Show all questions'}
+                  </button>
+                </div>
+
+                {lensData.templateQuestions.map((q) => {
+                  const key = `section-${selectedBlock.id}-q-${q.id}`;
+                  const isAnswered = !!responses[key];
+                  const shouldShow = showAdvanced || isAnswered || q.required;
+                  if (!shouldShow) return null;
+
+                  const question = q.text || q.label || 'Observation Prompt';
+                  const val = responses[key] || '';
+
+                  return (
+                    <div key={key}>
+                      <label style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '6px', fontWeight: '500', lineHeight: '1.4' }}>
+                        {question}
+                      </label>
+                      {readOnly ? (
+                        <div style={{ background: '#0c0c0f', padding: '12px 14px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', fontSize: '13px', color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+                          {val || <em style={{ color: 'rgba(255,255,255,0.3)' }}>No response entered</em>}
+                        </div>
+                      ) : (
+                        <textarea
+                          value={val}
+                          onChange={e => onChange(key, e.target.value)}
+                          onBlur={saveNow}
+                          placeholder="Add technical findings..."
+                          style={{ width: '100%', height: '80px', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'system-ui, sans-serif' }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          ANALYSIS MATRIX (existing, unchanged)
-      ══════════════════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', background: '#111114', padding: '20px', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '4px', width: '100%' }}>
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontFamily: '"Roboto Mono", monospace', fontSize: '14px', color: '#ff6600', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            🔬 ANALYSIS MATRIX: ARRANGEMENT
-          </h3>
-          <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>
-            Map sections, transitions, and dynamic layers over the timeline.
-          </p>
-        </div>
-
-        {lensData?.description && (
-          <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', lineHeight: '1.5', background: '#161619', padding: '14px 16px', borderLeft: '3px solid #ff6600', borderRadius: '2px' }}>
-            {lensData.description}
-          </div>
-        )}
-
-        {lensData?.exercises?.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <span style={{ fontFamily: '"Roboto Mono", monospace', fontSize: '12px', color: '#ff6600', textTransform: 'uppercase' }}>Exercises</span>
-            {lensData.exercises.map((ex, idx) => (
-              <div key={idx} style={{ background: '#0c0c0f', padding: '12px 14px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <strong style={{ fontSize: '13px', color: '#ffffff', display: 'block' }}>{ex.name}</strong>
-                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', display: 'block', marginTop: '2px', lineHeight: '1.4' }}>{ex.description}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {lensData?.questions?.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '5px' }}>
-            <span style={{ fontFamily: '"Roboto Mono", monospace', fontSize: '12px', color: '#ff6600', textTransform: 'uppercase' }}>Structural Inquiries</span>
-            {lensData.questions.map((question, idx) => {
-              const key = `arrangement-q${idx}`;
-              const val = responses[key] || '';
-              return (
-                <div key={key}>
-                  <label style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '6px', fontWeight: '500', lineHeight: '1.4' }}>
-                    {question}
-                  </label>
-                  {readOnly ? (
-                    <div style={{ background: '#0c0c0f', padding: '12px 14px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.03)', fontSize: '13px', color: 'rgba(255,255,255,0.7)', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
-                      {val || <em style={{ color: 'rgba(255,255,255,0.3)' }}>No response entered</em>}
-                    </div>
-                  ) : (
-                    <textarea
-                      value={val}
-                      onChange={e => onChange(key, e.target.value)}
-                      onBlur={saveNow}
-                      placeholder="Add technical findings..."
-                      style={{ width: '100%', height: '80px', background: '#161619', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '10px 12px', color: '#ffffff', fontSize: '13px', resize: 'vertical', outline: 'none', fontFamily: 'system-ui, sans-serif' }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       {/* ── DRAGGED SECTION GHOST ── */}
       {draggedSection && (

@@ -1,9 +1,9 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Fixed section and track resizing/moving closure bugs, implemented drag-and-drop section duplication onto track lanes, and built rich right-click context menus.
-- **Status**: 288/288 client + 139/139 server + Vite clean. Build clean.
-- **Next**: Phase 3 (3.1 daily digest / 3.2 offline-first PWA / 3.3 mobile listening) or polish (Lighthouse real scores, venv recreation, SSE→Redis pub/sub, PDF export perf).
+- **Goal**: Rewrote AuditTimeline from 1,967-line hybrid canvas/DOM to clean 705-line pure DOM component. Fixed infinite re-render OOM (unstable empty-array refs in useMemo deps).
+- **Status**: 288/288 client + Vite clean. Build clean.
+- **Next**: Deploy timeline rewrite, then Phase 3 or polish.
 
 ## Resume Point (checkpoint 2026-06-20 — TIMELINE INTERACTIONS SHIPPED)
 - Commits closed all timeline interactive needs: resizing/moving drag bugs, section drag-to-copy, and context menus for blocks & lanes.
