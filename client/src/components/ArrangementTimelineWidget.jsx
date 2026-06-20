@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../utils/playheadAnnouncer.js';
+import { applyBlockClick, detectModifier, pruneSelection } from '../utils/blockSelection.js';
 
 // ── Section type colors ──────────────────────────────────────────────────────
 const TYPE_COLORS = {
@@ -100,6 +101,13 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   // ── Existing section state ──
   const [selectedBlockId, setSelectedBlockId]   = useState(null);
   const [showAdvanced,    setShowAdvanced]       = useState(false);
+
+  // ── Multi-select (bulk delete) ──
+  // Independent from `selectedBlockId` (single-click inspector). Plain
+  // click keeps the old single-select behavior; cmd/ctrl-click + shift
+  // + click drive the multi-select. Esc clears the multi-selection.
+  const [multiSelectedIds, setMultiSelectedIds] = useState(() => new Set());
+  const lastClickedIdRef = useRef(null);
 
   // ── BPM + view mode ──
   const [bpm, setBpmState] = useState(() => {
@@ -219,6 +227,28 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const deleteBlock = (id) => {
     saveBlocks(blocks.filter(b => b.id !== id));
     if (selectedBlockId === id) setSelectedBlockId(null);
+    if (saveNow) setTimeout(saveNow, 100);
+  };
+
+  // ── Multi-select delete: removes the selected ids from sections,
+  //    then from any track's blocks. Both data structures share the
+  //    id space (widget generates unique ids with Date.now()+random),
+  //    so a single pass with two filters is enough.
+  const deleteSelected = () => {
+    if (!multiSelectedIds || multiSelectedIds.size === 0) return;
+    const ids = multiSelectedIds;
+    const remainingSections = blocks.filter((b) => !ids.has(b.id));
+    const remainingTracks = tracks.map((t) => ({
+      ...t,
+      blocks: (t.blocks || []).filter((b) => !ids.has(b.id)),
+    }));
+    saveBlocks(remainingSections);
+    saveTracks(remainingTracks);
+    setMultiSelectedIds(new Set());
+    if (selectedBlockId && ids.has(selectedBlockId)) setSelectedBlockId(null);
+    if (selectedTrackBlock && ids.has(selectedTrackBlock.blockId)) {
+      setSelectedTrackBlock(null);
+    }
     if (saveNow) setTimeout(saveNow, 100);
   };
 
@@ -402,10 +432,20 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       if (e.code === 'Delete' && selectedTrackBlock && !readOnly) {
         deleteTrackBlock(selectedTrackBlock.trackId, selectedTrackBlock.blockId);
       }
+      if (e.code === 'Delete' && multiSelectedIds.size > 0 && !readOnly) {
+        e.preventDefault();
+        if (window.confirm(`Delete ${multiSelectedIds.size} selected block${multiSelectedIds.size === 1 ? '' : 's'}? This cannot be undone.`)) {
+          deleteSelected();
+        }
+      }
+      if (e.key === 'Escape' && multiSelectedIds.size > 0) {
+        setMultiSelectedIds(new Set());
+        lastClickedIdRef.current = null;
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedBlockId, sortedBlocks, readOnly, selectedTrackBlock, bpm, viewMode]);
+  }, [selectedBlockId, sortedBlocks, readOnly, selectedTrackBlock, bpm, viewMode, multiSelectedIds]);
 
   const hasContent = sortedBlocks.length > 0 || tracks.length > 0;
 
@@ -456,6 +496,74 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           >
             {playheadAnnouncement}
           </div>
+
+          {/* Multi-select bulk action — only visible when ≥1 block is
+              selected. Destructive action so the confirm dialog guards
+              against accidental clicks. */}
+          {multiSelectedIds.size > 0 && !readOnly && (
+            <div
+              role="group"
+              aria-label="Multi-select actions"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                background: 'rgba(251, 191, 36, 0.1)',
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                borderRadius: '3px',
+              }}
+            >
+              <span
+                style={{ fontSize: '10px', color: '#fbbf24', fontFamily: '"Roboto Mono", monospace', letterSpacing: '0.04em' }}
+                aria-live="polite"
+              >
+                {multiSelectedIds.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete ${multiSelectedIds.size} selected block${multiSelectedIds.size === 1 ? '' : 's'}? This cannot be undone.`)) {
+                    deleteSelected();
+                  }
+                }}
+                data-testid="bulk-delete-button"
+                style={{
+                  padding: '3px 10px',
+                  fontSize: '10px',
+                  background: 'rgba(244, 63, 94, 0.1)',
+                  color: '#f43f5e',
+                  border: '1px solid rgba(244, 63, 94, 0.4)',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  fontFamily: '"Roboto Mono", monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMultiSelectedIds(new Set()); lastClickedIdRef.current = null; }}
+                style={{
+                  padding: '3px 8px',
+                  fontSize: '10px',
+                  background: 'transparent',
+                  color: 'rgba(255,255,255,0.5)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  fontFamily: '"Roboto Mono", monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+                aria-label="Clear multi-selection"
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           {/* BPM input */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -722,6 +830,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                       const left    = (block.startTime || 0) * pxPerSec;
                       const width   = Math.max(80, (block.duration || 30) * pxPerSec);
                       const isSel   = block.id === selectedBlockId;
+                      const isMulti = multiSelectedIds.has(block.id);
                       const isCur   = activeBlock?.id === block.id;
                       const color   = TYPE_COLORS[block.type] || TYPE_COLORS.custom;
                       const prog    = isCur ? Math.min(100, Math.max(0, ((currentTime - (block.startTime || 0)) / (block.duration || 1)) * 100)) : 0;
@@ -729,13 +838,35 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                       return (
                         <div
                           key={block.id}
-                          onClick={() => !readOnly ? setSelectedBlockId(isSel ? null : block.id) : handleSeek(block.startTime || 0)}
+                          onClick={(e) => {
+                            if (readOnly) { handleSeek(block.startTime || 0); return; }
+                            const mod = detectModifier(e);
+                            // Modifier clicks drive multi-select only;
+                            // plain click keeps the existing single-
+                            // select inspector behavior.
+                            if (mod) {
+                              const order = sortedBlocks.map((b) => b.id);
+                              setMultiSelectedIds(applyBlockClick({
+                                selected: multiSelectedIds,
+                                order,
+                                clickedId: block.id,
+                                lastClickedId: lastClickedIdRef.current,
+                                modifier: mod,
+                              }));
+                              lastClickedIdRef.current = block.id;
+                            } else {
+                              setSelectedBlockId(isSel ? null : block.id);
+                              setMultiSelectedIds(new Set());
+                              lastClickedIdRef.current = block.id;
+                            }
+                          }}
                           title={block.notes ? `Observations: ${block.notes}` : `Click to ${readOnly ? 'seek' : 'edit'}`}
                           style={{
                             position: 'absolute', left, top: 8, bottom: 8, width,
-                            background: isSel ? `${color}40` : `${color}18`,
-                            border: `1px solid ${isSel ? '#ff6600' : color}`,
+                            background: isSel || isMulti ? `${color}40` : `${color}18`,
+                            border: `1px solid ${isSel ? '#ff6600' : isMulti ? '#fbbf24' : color}`,
                             borderLeft: `4px solid ${color}`,
+                            boxShadow: isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : undefined,
                             borderRadius: '3px', cursor: 'pointer',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             padding: '8px 10px',
@@ -828,22 +959,44 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                       const left  = (block.startTime || 0) * pxPerSec;
                       const width = Math.max(18, (block.duration || 8) * pxPerSec);
                       const isSel = selectedTrackBlock?.trackId === track.id && selectedTrackBlock?.blockId === block.id;
+                      const isMulti = multiSelectedIds.has(block.id);
 
                       return (
                         <div
                           key={block.id}
                           data-track-block="true"
-                          onClick={e => { e.stopPropagation(); setSelectedTrackBlock(isSel ? null : { trackId: track.id, blockId: block.id }); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            const mod = detectModifier(e);
+                            if (mod) {
+                              // Scope the order to this track's blocks so
+                              // shift+click range-selects within the same
+                              // track, not across the whole timeline.
+                              const order = (track.blocks || []).map((b) => b.id);
+                              setMultiSelectedIds(applyBlockClick({
+                                selected: multiSelectedIds,
+                                order,
+                                clickedId: block.id,
+                                lastClickedId: lastClickedIdRef.current,
+                                modifier: mod,
+                              }));
+                              lastClickedIdRef.current = block.id;
+                            } else {
+                              setSelectedTrackBlock(isSel ? null : { trackId: track.id, blockId: block.id });
+                              setMultiSelectedIds(new Set());
+                              lastClickedIdRef.current = block.id;
+                            }
+                          }}
                           onMouseDown={e => handleTrackBlockMove(e, track, block)}
                           style={{
                             position: 'absolute', left, top: 7, bottom: 7, width,
-                            background: isSel ? `${track.color}45` : `${track.color}28`,
-                            border: `1px solid ${isSel ? track.color : track.color + '70'}`,
+                            background: isSel || isMulti ? `${track.color}45` : `${track.color}28`,
+                            border: `1px solid ${isSel ? track.color : isMulti ? '#fbbf24' : track.color + '70'}`,
                             borderRadius: '3px',
                             cursor: 'grab',
                             display: 'flex', alignItems: 'center', paddingLeft: '6px',
-                            overflow: 'hidden', userSelect: 'none', zIndex: isSel ? 5 : 2,
-                            boxShadow: isSel ? `0 0 8px ${track.color}35` : 'none',
+                            overflow: 'hidden', userSelect: 'none', zIndex: isSel || isMulti ? 5 : 2,
+                            boxShadow: isSel ? `0 0 8px ${track.color}35` : isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : 'none',
                             transition: 'background 0.1s, box-shadow 0.1s',
                           }}
                         >
