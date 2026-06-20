@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-19T22:26:00.237Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:15:55.673Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -24,23 +24,29 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ## deps
 ```
 server/__tests__/unit/SketchService.test.js ← ../services/SketchService, ../adapters/InMemoryRepository
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
-client/src/components/ComparePlayer.jsx ← context/AudioContext
+client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
-client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
+client/src/context/AudioContext.jsx ← BackendContext
 client/src/hooks/useSketches.js ← context/BackendContext
-client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
-analysis_service/analyzer.py ← requests
-analysis_service/app.py ← fastapi, pydantic, analyzer
+client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
-.github/context-cold.md                       +ErrorBoundary  +useAudit  +useAuditAutosave  +useAnalysisPolling
-.github/copilot-instructions.md               ~ErrorBoundary  ~useAudit  ~useAuditAutosave  ~useAnalysisPolling
-.github/gemini-context.md                     ~ErrorBoundary  ~useAudit  ~useAuditAutosave  ~useAnalysisPolling
+server/routes/songs.js                        +createSongRoutes  ~createSongRoutes  ~extractYouTubeId
+server/services/SketchService.js              ~SketchService
+server/services/ytDlpService.js               +IYtDlpService  +YtDlpMockAdapter  +YtDlpSubprocessAdapter
+client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
+client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
+client/src/components/ComparePlayer.jsx       +getOrCreateAudioGraph  +releaseAudioGraph  +SampleDeltaCanvas  +paint
+client/src/hooks/useSketches.js               +probeAudioDuration  ~useSketches
+client/src/pdf/AuditReport.jsx                ~CoverPage  ~LensPages  ~TechniquesPage  ~PageFooter
+client/src/pdf/theme.js                       +isHex  +mergeColors  +mergeFonts  +applyBranding
+client/src/ports/IBackendService.js           ~IBackendService
+client/src/utils/audioDelta.js                +clamp01  +envelopeFromAudioBuffer  +envelopeFromReferenceCurve  +deltaEnvelope
+client/src/utils/shareAnalytics.js            +safeRead  +safeWrite  +pruneOldEvents  +recordLinkOpen
 ```
 
 ## .github
@@ -50,15 +56,19 @@ analysis_service/app.py ← fastapi, pydantic, analyzer
 h1 Code signatures
 h2 SigMap commands
 h2 deps
+h2 analysis_service
+h3 analysis_service/analyzer.py
+h3 analysis_service/app.py
 h2 client
 h3 client/UI/AC_AUDIT.md
 h3 client/index.html
 h3 client/public/index.html
+h3 client/src/App.jsx
 h3 client/src/components/ErrorBoundary.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
-h3 client/src/context/AudioContext.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
+h3 client/src/hooks/__tests__/useSketches.test.jsx
 h3 client/src/hooks/useAudit.js
 h3 client/src/hooks/useAuditAutosave.js
 h3 client/src/hooks/useAuditShortcuts.js
@@ -68,10 +78,6 @@ h3 client/src/hooks/useCurricula.js
 h3 client/src/hooks/useDeepLinkParams.js
 h3 client/src/hooks/useSong.js
 h3 client/src/hooks/useStudyProgress.js
-h3 client/src/hooks/useTasteProfiles.js
-h3 client/src/hooks/useTechniques.js
-h3 client/src/utils/deepLinks.js
-h2 server
 ```
 
 ### .github/copilot-instructions.md
@@ -80,27 +86,27 @@ h2 Auto-generated signatures
 h1 Code signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
-h2 analysis_service
-h3 analysis_service/analyzer.py
-h3 analysis_service/app.py
 h2 client
-h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/hooks/__tests__/useSketches.test.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/useSketches.js
-h3 client/src/pages/SketchCompare.jsx
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
-h3 client/src/utils/pdfData.js
+h3 client/src/utils/audioDelta.js
+h3 client/src/utils/shareAnalytics.js
+h2 server
+h3 server/__tests__/unit/SketchService.test.js
+h3 server/routes/sketches.js
+h3 server/routes/songs.js
 ```
 
 ### .github/gemini-context.md
@@ -109,60 +115,30 @@ h2 Auto-generated signatures
 h2 Code Signatures
 h2 SigMap commands
 h2 deps
-h2 changes (last 5 commits — 0 seconds ago)
+h2 changes (last 5 commits — 1 second ago)
 h2 .github
 h3 .github/context-cold.md
 h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
-h2 analysis_service
-h3 analysis_service/analyzer.py
-h3 analysis_service/app.py
 h2 client
-h3 client/src/App.jsx
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
 h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/hooks/__tests__/useSketches.test.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/useSketches.js
-h3 client/src/pages/SketchCompare.jsx
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
-h3 client/src/utils/pdfData.js
-```
-
-## analysis_service
-
-### analysis_service/analyzer.py
-```
-class ClapAnalyzer  :44-112
-  def __init__(model_name)
-  def analyze_features(file_path, tags)
-def get_clap_analyzer()  :117-124
-def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
-def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
-def analyze_sketch_file(file_path, sketch_id, callback_url)  :435-469  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
-```
-
-### analysis_service/app.py
-```
-class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
-class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :39-42
-def health()  :45-46
-def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :49-70  # Triggers an asynchronous audio analysis job
-def trigger_sketch_analysis(request: SketchAnalysisRequest)  :73-100  # Synchronously analyze an uploaded DAW sketch from a local fi
-GET /health  →  health()  :45-46
-POST /analyze  →  trigger_analysis()  :49-70
-POST /analyze-sketch  →  trigger_sketch_analysis()  :73-100
+h3 client/src/utils/audioDelta.js
+h3 client/src/utils/shareAnalytics.js
+h2 server
+h3 server/__tests__/unit/SketchService.test.js
+h3 server/routes/sketches.js
+h3 server/routes/songs.js
 ```
 
 ## client
-
-### client/src/App.jsx
-```
-function App()  :736-748
-```
 
 ### client/src/adapters/HttpBackendAdapter.js
 ```
@@ -185,15 +161,19 @@ export class InMemoryBackendAdapter  :7-32
 
 ### client/src/components/ComparePlayer.jsx
 ```
-function formatTime(seconds)  :15-21
-function readMeta(analysis)  :23-31
-function MetaRow({ label, ref, sk })  :33-43
-function DeltaBar({ delta })  :45-66
-function DeltaPanel({ refMeta, skMeta })  :68-91
-function SketchEnergyCanvas({ audioRef })  :93-159
-function PlayIcon()  :161-163
-function PauseIcon()  :164-166
-function Panel({ color, label, sublabel, time, duration, onScrub })  :343-367
+function formatTime(seconds)  :19-25
+function readMeta(analysis)  :27-35
+function MetaRow({ label, ref, sk })  :37-47
+function DeltaBar({ delta })  :49-70
+function DeltaPanel({ refMeta, skMeta })  :72-95
+function getOrCreateAudioGraph(audio)  :103-124
+function releaseAudioGraph(audio)  :126-137
+function SketchEnergyCanvas({ audioRef })  :139-193
+function PlayIcon()  :195-197
+function PauseIcon()  :198-200
+function SampleDeltaCanvas({ sketch, song })  :207-255
+function paint(canvas, delta)  :257-277
+function Panel({ color, label, sublabel, time, duration, onScrub })  :515-539
 ```
 
 ### client/src/components/__tests__/ComparePlayer.test.jsx
@@ -202,25 +182,40 @@ function StubAudioProvider({ children })  :12-15
 function makeWrapper(backend)  :17-25
 ```
 
-### client/src/hooks/__tests__/useSketches.test.jsx
+### client/src/context/AudioContext.jsx
 ```
-function makeWrapper(backend)  :8-12
-function makeFile(name = 'sketch.wav', size = 2048, type = 'audio/wav')  :14-16
+export const AudioProvider = ({ children }) =>  :8-149
+export const useAudio = () =>  :459-465
 ```
 
 ### client/src/hooks/useSketches.js
 ```
-export function useSketches(songId = null)  :15-99
+export function useSketches(songId = null)  :53-152
+function probeAudioDuration(url)  :4-40
 ```
 
-### client/src/pages/SketchCompare.jsx
+### client/src/pdf/AuditReport.jsx
 ```
-function Centered({ children })  :202-208
+function CoverPage({ data })  :292-367
+function LensPages({ data })  :369-439
+function BookmarksPage({ data })  :441-467
+function TechniquesPage({ data })  :469-500
+function PageFooter({ pageNumber, totalPages })  :502-514
+```
+
+### client/src/pdf/theme.js
+```
+export function registerArraFonts()  :18-48
+export function applyBranding(overrides)  :118-137
+export function getActiveBrand()  :139-141
+function isHex(s)  :80-82
+function mergeColors(overrides)  :84-91
+function mergeFonts(overrides)  :93-102
 ```
 
 ### client/src/ports/IBackendService.js
 ```
-export class IBackendService  :7-70
+export class IBackendService  :7-75
   async login(email, password)  :9-9
   async register(email, password, name)  :10-10
   async getUserProfile()  :11-11
@@ -229,6 +224,27 @@ export class IBackendService  :7-70
   async changePassword(oldPassword, newPassword)  :14-14
   async deleteAccount()  :15-15
   async getSongs(filters)  :18-18
+```
+
+### client/src/utils/audioDelta.js
+```
+export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
+export function referenceEnvelope(song, { bars = DEFAULT_BARS } = {})  :122-128
+export function computeDelta(sketchEnv, refEnv)  :130-132
+function clamp01(v)  :18-23
+function envelopeFromAudioBuffer(audioBuffer, bars)  :25-51
+function envelopeFromReferenceCurve(curve, bars)  :53-67
+function deltaEnvelope(sketchEnv, refEnv)  :69-84
+function getAudioContext()  :87-98
+```
+
+### client/src/utils/shareAnalytics.js
+```
+export function recordLinkOpen({ auditId, bookmarkId = null, source = 'unknown' })  :38-61
+export function getLinkOpenStats()  :67-76
+function safeRead()  :14-24
+function safeWrite(events)  :26-31
+function pruneOldEvents(events)  :33-36
 ```
 
 ## server
@@ -240,18 +256,55 @@ function mockFile({ originalname = 'sketch.wav', mimetype = 'audio/wav', size = 
 
 ### server/routes/sketches.js
 ```
-function _sanitizeSketch(s)  :37-58
+function _sanitizeSketch(s)  :40-61
+```
+
+### server/routes/songs.js
+```
+function extractYouTubeId(url)  :13-25
+function _sanitizeSong(song)  :288-314
 ```
 
 ### server/services/SketchService.js
 ```
-export class SketchService  :11-131
+export class SketchService  :11-132
   constructor(sketchRepository, songRepository, { analysisServiceUrl, logger = console } = {})  :12-18
   async assertSongOwned(songId, userId)  :20-33
   if(!song)  :23-27
   async createSketch({ userId, songId, file, title = '', notes = '' })  :35-69
   if(file.size > DEFAULT_LIMITS.maxFileBytes)  :48-52
   async getSketchesForSong(songId, userId)  :71-78
-  async getSketch(id, userId)  :80-93
-  if(!sketch || sketch.deletedAt)  :82-86
+  async updateSketch(id, userId, updates)  :80-111
+  if(!updates || typeof updates !== 'object')  :82-86
+```
+
+### server/services/songService.js
+```
+export class SongService  :11-118
+  constructor(songRepository, searchService, aiService)  :12-17
+  async importSong(songData, research) → Promise<Object>  :31-118
+  if(!title || !resolvedSourceId || !userId)  :55-57
+  if(existing)  :67-72
+  if(research && research.results?.length > 0 && this.aiService)  :75-116
+  if(aiSummary && aiSummary.overview)  :100-112
+```
+
+### server/services/ytDlpService.js
+```
+export class IYtDlpService  :24-27
+  async extractAudioUrl(_opts)  :25-25
+  async isAvailable()  :26-26
+export class YtDlpMockAdapter  :34-61
+  constructor({ available = true } = {})  :35-38
+  async isAvailable()  :39-39
+  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :40-60
+  if(!this.available)  :41-45
+  if(!youtubeId)  :46-50
+export class YtDlpSubprocessAdapter  :68-158
+  constructor({ binaryPath, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console } = {})  :69-74
+  async isAvailable()  :76-89
+  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :91-157
+  if(!youtubeId)  :92-96
+  if(code !== 0)  :136-142
+  if(!url)  :144-149
 ```

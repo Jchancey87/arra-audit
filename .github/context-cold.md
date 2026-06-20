@@ -29,9 +29,10 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
-client/src/context/AudioContext.jsx ← BackendContext
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
+client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
@@ -41,8 +42,35 @@ client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
 client/src/hooks/useTechniques.js ← context/BackendContext
-client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
+client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/utils/pdfData.js ← pdf/theme
+analysis_service/analyzer.py ← requests
+analysis_service/app.py ← fastapi, pydantic, analyzer
+```
+
+## analysis_service
+
+### analysis_service/analyzer.py
+```
+class ClapAnalyzer  :44-112
+  def __init__(model_name)
+  def analyze_features(file_path, tags)
+def get_clap_analyzer()  :117-124
+def analyze_audio_file(file_path, yt_id)  :127-337  # Runs the audio analysis on the downloaded file
+def download_and_analyze(youtube_url, yt_id, callback_url)  :340-432  # Downloads audio via yt-dlp to a temporary directory, analyze
+def analyze_sketch_file(file_path, sketch_id, callback_url)  :435-469  # Analyze a user-uploaded DAW sketch (local file path, no yt-d
+```
+
+### analysis_service/app.py
+```
+class AnalysisRequest(BaseModel) {song_id*, youtube_url*, yt_id*, callback_url?}  :33-37
+class SketchAnalysisRequest(BaseModel) {sketch_id*, file_path*, callback_url?}  :39-42
+def health()  :45-46
+def trigger_analysis(request: AnalysisRequest, background_tasks: BackgroundTasks)  :49-70  # Triggers an asynchronous audio analysis job
+def trigger_sketch_analysis(request: SketchAnalysisRequest)  :73-100  # Synchronously analyze an uploaded DAW sketch from a local fi
+GET /health  →  health()  :45-46
+POST /analyze  →  trigger_analysis()  :49-70
+POST /analyze-sketch  →  trigger_sketch_analysis()  :73-100
 ```
 
 ## client
@@ -80,6 +108,11 @@ title: Arra Audit
 div#root
 ```
 
+### client/src/App.jsx
+```
+function App()  :736-748
+```
+
 ### client/src/components/ErrorBoundary.jsx
 ```
 class ErrorBoundary  :3-106
@@ -97,12 +130,6 @@ class ErrorBoundary  :3-106
 export const parseSummaryText = (text) =>  :49-90
 ```
 
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :8-150
-export const useAudio = () =>  :375-381
-```
-
 ### client/src/context/AuthContext.jsx
 ```
 export const AuthProvider = ({ children }) =>  :6-114
@@ -113,6 +140,12 @@ export const useAuth = () =>  :116-122
 ```
 export const BackendProvider = ({ children, adapter }) =>  :6-17
 export const useBackend = () =>  :19-25
+```
+
+### client/src/hooks/__tests__/useSketches.test.jsx
+```
+function makeWrapper(backend)  :8-12
+function makeFile(name = 'sketch.wav', size = 2048, type = 'audio/wav')  :14-16
 ```
 
 ### client/src/hooks/useAudit.js
@@ -172,18 +205,9 @@ export function useTasteProfiles()  :12-58
 export function useTechniques(filters = {}, { skip = false } = {})  :14-87
 ```
 
-### client/src/pdf/AuditReport.jsx
+### client/src/pages/SketchCompare.jsx
 ```
-function CoverPage({ data })  :280-351
-function LensPages({ data })  :353-408
-function BookmarksPage({ data })  :410-436
-function TechniquesPage({ data })  :438-466
-function PageFooter({ pageNumber, totalPages })  :468-480
-```
-
-### client/src/pdf/theme.js
-```
-export function registerArraFonts()  :18-48
+function Centered({ children })  :202-208
 ```
 
 ### client/src/utils/deepLinks.js
@@ -362,12 +386,6 @@ export class IUserRepository  :14-36
 function formatLabel(key)  :4-14
 ```
 
-### server/routes/songs.js
-```
-function extractYouTubeId(url)  :13-25
-function _sanitizeSong(song)  :256-282
-```
-
 ### server/services/auditGenerator.js
 ```
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
@@ -409,17 +427,6 @@ export class CurriculumService  :1-101
   if(!this.aiAdapter)  :20-22
   async saveCustomCurriculum(userId, curriculumData)  :79-88
   async getPopulatedStudyProgress(id)  :93-98
-```
-
-### server/services/songService.js
-```
-export class SongService  :11-118
-  constructor(songRepository, searchService, aiService)  :12-17
-  async importSong(songData, research) → Promise<Object>  :31-118
-  if(!title || !resolvedSourceId || !userId)  :55-57
-  if(existing)  :67-72
-  if(research && research.results?.length > 0 && this.aiService)  :75-116
-  if(aiSummary && aiSummary.overview)  :100-112
 ```
 
 ### server/services/tasteService.js
