@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
@@ -10,6 +10,8 @@ import ExportPdfButton from '../components/ExportPdfButton';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
 import { useTechniques } from '../hooks/useTechniques.js';
 import { recordLinkOpen } from '../utils/shareAnalytics';
+import { normalizeResponse, isTaggedResponse, formatTimestampLabel } from '../utils/responseShape';
+import { useScrollytellingSeek, useMostVisible } from '../utils/scrollytelling';
 
 
 const AuditDetail = () => {
@@ -32,6 +34,9 @@ const AuditDetail = () => {
   } = useAudio();
 
   const deepLinkAppliedRef = useRef(false);
+
+  const [scrollytellingEnabled, setScrollytellingEnabled] = useState(false);
+  const answerCardRefs = useRef(new Map());
 
   const [audit, setAudit] = useState(null);
   const [song, setSong] = useState(null);
@@ -125,6 +130,41 @@ const AuditDetail = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Phase 2.2: build scrollytelling items from responses that have a tagged
+  // timestamp. Each answer card mounts with a ref; the hook observes them and
+  // reports which is most visible. `useScrollytellingSeek` debounces a seek
+  // to the active card's timestamp when scrollytelling is enabled.
+  const scrollytellingItems = useMemo(() => {
+    if (!audit?.responses) return [];
+    const items = [];
+    for (const [key, value] of Object.entries(audit.responses)) {
+      const { text, timestampSeconds } = normalizeResponse(value);
+      if (!Number.isFinite(timestampSeconds)) continue;
+      if (!text || text.trim().length === 0) continue;
+      items.push({
+        id: `answer-${key}`,
+        key,
+        timestampSeconds,
+        ref: {
+          get current() { return answerCardRefs.current.get(key) || null; },
+          dataset: { id: `answer-${key}` },
+        },
+      });
+    }
+    items.sort((a, b) => a.timestampSeconds - b.timestampSeconds);
+    return items;
+  }, [audit?.responses]);
+
+  useScrollytellingSeek(scrollytellingItems, {
+    seek: seekTo,
+    currentTime,
+    enabled: scrollytellingEnabled,
+    debounceMs: 350,
+    minJumpSeconds: 6,
+  });
+
+  const { activeId: activeAnswerId } = useMostVisible(scrollytellingItems);
+
   if (loading) return <div className="loading">Loading audit schematic...</div>;
   if (error || !audit) return <div className="error">{error || 'Audit not found'}</div>;
 
@@ -160,6 +200,24 @@ const AuditDetail = () => {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
+            {scrollytellingItems.length > 0 && (
+              <button
+                onClick={() => setScrollytellingEnabled((v) => !v)}
+                className={scrollytellingEnabled ? 'primary' : 'secondary'}
+                title={scrollytellingEnabled ? 'Scrollytelling on — scrolling scrubs audio' : 'Turn on scrollytelling — scrolling scrubs audio'}
+                style={{
+                  fontFamily: 'Roboto Mono',
+                  fontSize: '11px',
+                  padding: '8px 12px',
+                  background: scrollytellingEnabled ? '#ff6600' : undefined,
+                  color: scrollytellingEnabled ? '#0c0c0e' : undefined,
+                  border: scrollytellingEnabled ? 'none' : undefined,
+                  fontWeight: scrollytellingEnabled ? 'bold' : undefined,
+                }}
+              >
+                {scrollytellingEnabled ? '⏵ Scrollytelling' : '⏸ Scrollytelling'}
+              </button>
+            )}
             <button
               onClick={() => navigate(`/audit/form/${audit._id}`)}
               style={{
@@ -661,24 +719,49 @@ const AuditDetail = () => {
                             </div>
                           )}
                           {questions.map((question, idx) => {
-                            const answer = audit.responses[`${lens}-q${idx}`];
+                            const key = `${lens}-q${idx}`;
+                            const answer = audit.responses[key];
                             if (!answer) return null;
+                            const { text, timestampSeconds } = normalizeResponse(answer);
+                            const tagged = Number.isFinite(timestampSeconds);
                             return (
-                              <div 
-                                key={idx} 
-                                style={{ 
-                                  marginBottom: '15px', 
-                                  backgroundColor: '#0c0c0e', 
-                                  padding: '15px', 
-                                  borderRadius: '2px', 
-                                  border: '1px solid rgba(255,255,255,0.04)' 
+                              <div
+                                key={idx}
+                                style={{
+                                  marginBottom: '15px',
+                                  backgroundColor: '#0c0c0e',
+                                  padding: '15px',
+                                  borderRadius: '2px',
+                                  border: '1px solid rgba(255,255,255,0.04)',
                                 }}
                               >
-                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Roboto Mono', marginBottom: '6px' }}>
-                                  Q: {question}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', fontFamily: 'Roboto Mono' }}>
+                                    Q: {question}
+                                  </div>
+                                  {tagged && (
+                                    <button
+                                      type="button"
+                                      onClick={() => seekTo(timestampSeconds)}
+                                      title={`Seek to ${formatTimestampLabel(timestampSeconds)}`}
+                                      style={{
+                                        fontFamily: 'Roboto Mono',
+                                        fontSize: '10px',
+                                        color: '#0c0c0e',
+                                        background: '#ff6600',
+                                        border: 'none',
+                                        padding: '2px 8px',
+                                        borderRadius: '2px',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      ⏱ {formatTimestampLabel(timestampSeconds)}
+                                    </button>
+                                  )}
                                 </div>
                                 <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
-                                  {answer}
+                                  {text}
                                 </div>
                               </div>
                             );
@@ -693,27 +776,61 @@ const AuditDetail = () => {
                 Object.entries(audit.responses).map(([key, value]) => {
                   if (!value || key === 'recreation') return null;
                   const [lens, qRef] = key.split('-');
+                  const { text, timestampSeconds } = normalizeResponse(value);
+                  const tagged = Number.isFinite(timestampSeconds);
+                  const isActive = tagged && activeAnswerId === `answer-${key}`;
                   return (
-                    <div 
-                      key={key} 
-                      style={{ 
-                        marginBottom: '20px', 
-                        backgroundColor: '#0c0c0e', 
-                        padding: '15px', 
-                        borderRadius: '2px', 
+                    <div
+                      key={key}
+                      ref={(el) => {
+                        if (el) answerCardRefs.current.set(key, el);
+                        else answerCardRefs.current.delete(key);
+                      }}
+                      data-scrolly-id={`answer-${key}`}
+                      onClick={() => tagged && seekTo(timestampSeconds)}
+                      style={{
+                        marginBottom: '20px',
+                        backgroundColor: '#0c0c0e',
+                        padding: '15px',
+                        borderRadius: '2px',
                         borderTop: '1px solid rgba(255,255,255,0.05)',
                         borderRight: '1px solid rgba(255,255,255,0.05)',
                         borderBottom: '1px solid rgba(255,255,255,0.05)',
-                        borderLeft: '4px solid #ff6600'
+                        borderLeft: `4px solid ${isActive ? '#00e5ff' : '#ff6600'}`,
+                        cursor: tagged ? 'pointer' : 'default',
+                        boxShadow: isActive
+                          ? '0 0 0 1px rgba(0,229,255,0.4), 0 0 12px rgba(0,229,255,0.18)'
+                          : 'none',
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
                         <strong style={{ color: '#ff6600', textTransform: 'uppercase', fontSize: '11px', fontFamily: 'Roboto Mono' }}>
                           {lens} Lens // {qRef?.toUpperCase() || ''}
                         </strong>
+                        {tagged && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); seekTo(timestampSeconds); }}
+                            title={`Seek to ${formatTimestampLabel(timestampSeconds)}`}
+                            style={{
+                              fontFamily: 'Roboto Mono',
+                              fontSize: '10px',
+                              color: '#0c0c0e',
+                              background: isActive ? '#00e5ff' : '#ff6600',
+                              border: 'none',
+                              padding: '2px 8px',
+                              borderRadius: '2px',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            ⏱ {formatTimestampLabel(timestampSeconds)}
+                          </button>
+                        )}
                       </div>
                       <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', margin: 0 }}>
-                        {value}
+                        {text}
                       </p>
                     </div>
                   );
@@ -739,7 +856,7 @@ const AuditDetail = () => {
                     Recreate / Transcription Lens
                   </strong>
                   <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap', color: 'rgba(255, 255, 255, 0.65)', fontSize: '12px', marginTop: '8px', marginBottom: 0 }}>
-                    {audit.responses.recreation}
+                    {normalizeResponse(audit.responses.recreation).text}
                   </p>
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { LENS_PROMPTS } from '../components/audit/lensConstants';
+import { normalizeResponse } from '../utils/responseShape';
 
 /**
  * useCompletionCheck - Computes whether an audit can be completed (AC-08).
@@ -18,7 +19,7 @@ export function useCompletionCheck(audit, responses, activeLens, sessionTechniqu
     const prompts = (Array.isArray(customPrompts) && customPrompts.length > 0)
       ? customPrompts
       : (LENS_PROMPTS[activeLens] || []);
-    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
+    return prompts.filter((_, i) => normalizeResponse(responses[`lens-${activeLens}-${i}`]).text.trim().length >= 10).length;
   }, [activeLens, responses, audit?.templateQuestions]);
 
   const hasAnyResponse = useMemo(() => {
@@ -26,7 +27,10 @@ export function useCompletionCheck(audit, responses, activeLens, sessionTechniqu
       if (v == null) return false;
       if (typeof v === 'string') return v.trim().length > 0;
       if (Array.isArray(v)) return v.length > 0;
-      if (typeof v === 'object') return Object.keys(v).length > 0;
+      if (typeof v === 'object') {
+        const { text, timestampSeconds } = normalizeResponse(v);
+        return text.trim().length > 0 || Number.isFinite(timestampSeconds);
+      }
       return true;
     });
   }, [responses]);

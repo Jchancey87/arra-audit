@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LENS_PROMPTS, LENS_LABEL } from './lensConstants';
+import { normalizeResponse, extractText, extractTimestamp, formatTimestampLabel } from '../../utils/responseShape';
 
 const KEY_TO_SCALE_DEGREES = {
   major: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
@@ -72,12 +73,15 @@ const ListeningFocus = ({ text }) => (
 const LensPrompt = ({ index, prompt, value, onChange, currentTime, onSaved }) => {
   const [showSaved, setShowSaved] = useState(false);
   const debounceRef = useRef(null);
-  const lastValueRef = useRef(value || '');
+  const lastSerializedRef = useRef(JSON.stringify(normalizeResponse(value)));
+
+  const { text, timestampSeconds } = normalizeResponse(value);
 
   // Debounced auto-save on typing
   useEffect(() => {
-    if (value === lastValueRef.current) return;
-    lastValueRef.current = value;
+    const serialized = JSON.stringify(normalizeResponse(value));
+    if (serialized === lastSerializedRef.current) return;
+    lastSerializedRef.current = serialized;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       onSaved && onSaved();
@@ -92,19 +96,38 @@ const LensPrompt = ({ index, prompt, value, onChange, currentTime, onSaved }) =>
     onSaved && onSaved();
   };
 
+  const handleTextChange = (newText) => {
+    onChange({ text: newText, timestampSeconds });
+  };
+
   const insertStamp = (e) => {
     const stamp = `[${formatTime(currentTime)}] `;
     const target = e.currentTarget;
     const start = target.selectionStart || 0;
     const end = target.selectionEnd || 0;
-    const newVal = (value || '').slice(0, start) + stamp + (value || '').slice(end);
-    onChange(newVal);
+    const newVal = (text || '').slice(0, start) + stamp + (text || '').slice(end);
+    handleTextChange(newVal);
     requestAnimationFrame(() => {
       target.focus();
       const pos = start + stamp.length;
       target.setSelectionRange(pos, pos);
     });
   };
+
+  const handleTagTime = () => {
+    const ts = Math.max(0, Math.floor(Number(currentTime) || 0));
+    onChange({ text, timestampSeconds: ts });
+    setShowSaved(false);
+    if (onSaved) setTimeout(onSaved, 0);
+  };
+
+  const handleClearTag = (e) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    onChange({ text, timestampSeconds: null });
+    if (onSaved) setTimeout(onSaved, 0);
+  };
+
+  const isTagged = Number.isFinite(timestampSeconds);
 
   return (
     <div
@@ -153,8 +176,8 @@ const LensPrompt = ({ index, prompt, value, onChange, currentTime, onSaved }) =>
       </p>
       <div style={{ paddingLeft: '24px' }}>
         <textarea
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={text || ''}
+          onChange={(e) => handleTextChange(e.target.value)}
           onBlur={handleBlur}
           placeholder="Type your observations…"
           style={{
@@ -178,17 +201,63 @@ const LensPrompt = ({ index, prompt, value, onChange, currentTime, onSaved }) =>
             marginTop: '6px',
             fontSize: '10px',
             fontFamily: 'JetBrains Mono, monospace',
+            gap: '8px',
+            flexWrap: 'wrap',
           }}
         >
-          <button
-            type="button"
-            onClick={insertStamp}
-            className="ghost"
-            style={{ fontSize: '10px', color: 'var(--text-tertiary)', padding: '2px 6px' }}
-            title="Insert current playback time"
-          >
-            Stamp {formatTime(currentTime)}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              onClick={insertStamp}
+              className="ghost"
+              style={{ fontSize: '10px', color: 'var(--text-tertiary)', padding: '2px 6px' }}
+              title="Insert current playback time as text"
+            >
+              Stamp {formatTime(currentTime)}
+            </button>
+            {isTagged ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleTagTime}
+                  className="ghost"
+                  data-testid="tag-time-button"
+                  style={{
+                    fontSize: '10px',
+                    color: 'var(--accent-primary)',
+                    padding: '2px 6px',
+                    border: '1px solid rgba(255, 102, 0, 0.35)',
+                    background: 'rgba(255, 102, 0, 0.08)',
+                  }}
+                  title={`Re-tag with current playback time (${formatTime(currentTime)})`}
+                >
+                  ⏱ Tagged {formatTimestampLabel(timestampSeconds)}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearTag}
+                  className="ghost"
+                  data-testid="tag-time-clear"
+                  style={{ fontSize: '10px', color: 'var(--text-tertiary)', padding: '2px 4px' }}
+                  title="Clear tagged timestamp"
+                  aria-label="Clear tagged timestamp"
+                >
+                  ×
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleTagTime}
+                className="ghost"
+                data-testid="tag-time-button"
+                style={{ fontSize: '10px', color: 'var(--text-tertiary)', padding: '2px 6px' }}
+                title="Tag this answer with the current playback time"
+              >
+                ⏱ Tag {formatTime(currentTime)}
+              </button>
+            )}
+          </div>
           {showSaved && (
             <span style={{ color: 'var(--text-tertiary)' }}>Saved</span>
           )}
@@ -219,7 +288,7 @@ const LensPanel = ({
   const scaleRow = useMemo(() => buildScaleDegreeRow(keyRoot, scale), [keyRoot, scale]);
   const answeredCount = useMemo(() => {
     if (!Array.isArray(prompts)) return 0;
-    return prompts.filter((_, i) => (responses[`lens-${activeLens}-${i}`] || '').trim().length >= 10).length;
+    return prompts.filter((_, i) => extractText(responses[`lens-${activeLens}-${i}`]).trim().length >= 10).length;
   }, [prompts, activeLens, responses]);
   const focusText = useMemo(() => {
     const raw = listeningFocus || lensDescription || '';
