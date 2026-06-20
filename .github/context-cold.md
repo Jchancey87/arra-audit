@@ -40,7 +40,6 @@ client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
-client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
 client/src/hooks/useCurricula.js ← context/BackendContext
 client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
 client/src/hooks/useSketches.js ← context/BackendContext
@@ -212,11 +211,6 @@ export function useAuditShortcuts({ togglePlay, hasArrangementLens, currentTime,
 ### client/src/hooks/useAudits.js
 ```
 export function useAudits(filters = {})  :15-101
-```
-
-### client/src/hooks/useCompletionCheck.js
-```
-export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :14-48
 ```
 
 ### client/src/hooks/useCurricula.js

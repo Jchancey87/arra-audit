@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:39:51.058Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T11:56:07.195Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -26,15 +26,19 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
 client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
 client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
+client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants, utils/responseShape
 client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/utils/__tests__/lensGuess.test.js ← lensGuess
+client/src/utils/__tests__/scrollytelling.test.js ← scrollytelling
 ```
 
 ## changes (last 5 commits — 1 second ago)
 ```
-.github/context-cold.md                       +useSketches  +probeAudioDuration  +CoverPage  +LensPages
-.github/copilot-instructions.md               +App  ~App  ~useSketches  ~probeAudioDuration
-.github/gemini-context.md                     +App  ~App  ~useSketches  ~probeAudioDuration
+client/src/hooks/useCompletionCheck.js        ~useCompletionCheck
+client/src/utils/__tests__/scrollytelling.test.js +MockIntersectionObserver
+.github/context-cold.md                       +HttpBackendAdapter  +InMemoryBackendAdapter  +formatTime  +readMeta
+.github/copilot-instructions.md               +App  ~App  ~HttpBackendAdapter  ~InMemoryBackendAdapter
+.github/gemini-context.md                     +App  ~App  ~HttpBackendAdapter  ~InMemoryBackendAdapter
 ```
 
 ## .github
@@ -51,7 +55,12 @@ h2 client
 h3 client/UI/AC_AUDIT.md
 h3 client/index.html
 h3 client/public/index.html
+h3 client/src/adapters/HttpBackendAdapter.js
+h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/ErrorBoundary.jsx
+h3 client/src/components/__tests__/ComparePlayer.test.jsx
+h3 client/src/context/AudioContext.jsx
 h3 client/src/context/AuthContext.jsx
 h3 client/src/context/BackendContext.jsx
 h3 client/src/hooks/__tests__/useSketches.test.jsx
@@ -61,11 +70,6 @@ h3 client/src/hooks/useAuditShortcuts.js
 h3 client/src/hooks/useAudits.js
 h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useCurricula.js
-h3 client/src/hooks/useDeepLinkParams.js
-h3 client/src/hooks/useSketches.js
-h3 client/src/hooks/useSong.js
-h3 client/src/hooks/useStudyProgress.js
-h3 client/src/hooks/useTasteProfiles.js
 ```
 
 ### .github/copilot-instructions.md
@@ -81,20 +85,13 @@ h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
 h2 client
 h3 client/src/App.jsx
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
-h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
 h3 client/src/hooks/useTechniques.js
-h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
-h3 client/src/utils/audioDelta.js
 h3 client/src/utils/lensGuess.js
 h3 client/src/utils/splitSentences.js
-h2 server
+code-fence plain
 ```
 
 ### .github/gemini-context.md
@@ -110,20 +107,13 @@ h3 .github/copilot-instructions.md
 h3 .github/gemini-context.md
 h2 client
 h3 client/src/App.jsx
-h3 client/src/adapters/HttpBackendAdapter.js
-h3 client/src/adapters/InMemoryBackendAdapter.js
-h3 client/src/components/ComparePlayer.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
-h3 client/src/components/__tests__/ComparePlayer.test.jsx
-h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
 h3 client/src/hooks/useTechniques.js
-h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
-h3 client/src/utils/audioDelta.js
 h3 client/src/utils/lensGuess.js
 h3 client/src/utils/splitSentences.js
-h2 server
+code-fence plain
 ```
 
 ## client
@@ -143,6 +133,11 @@ export const parseSummaryText = (text) =>  :57-98
 function makeWrapper(backend)  :8-12
 ```
 
+### client/src/hooks/useCompletionCheck.js
+```
+export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :15-52
+```
+
 ### client/src/hooks/useTechniques.js
 ```
 export function useTechniques(filters = {}, { skip = false } = {})  :15-110
@@ -153,10 +148,38 @@ export function useTechniques(filters = {}, { skip = false } = {})  :15-110
 function countAll(text)  :50-62
 ```
 
+### client/src/utils/__tests__/scrollytelling.test.js
+```
+class MockIntersectionObserver  :5-23
+  constructor(cb)  :6-10
+  observe(el)  :11-13
+  unobserve(el)  :14-16
+  disconnect()  :17-19
+  trigger(entries)  :20-22
+```
+
 ### client/src/utils/lensGuess.js
 ```
 export function guessLens(text, { minScore = 1 } = {})  :36-61
 function escapeRegex(s)  :63-65
+```
+
+### client/src/utils/responseShape.js
+```
+export const normalizeResponse = (value) =>  :20-34
+export const extractText = (value) =>  :36-43
+export const extractTimestamp = (value) =>  :38-43
+export const isTaggedResponse = (value) =>  :40-43
+export const isEmptyResponse = (value) =>  :45-48
+export const withTimestamp = (value, timestampSeconds) =>  :50-59
+export const withText = (value, text) =>  :61-64
+export const formatTimestampLabel = (seconds) =>  :66-72
+```
+
+### client/src/utils/scrollytelling.js
+```
+export const useMostVisible = (items, options = {}) =>  :31-106
+export const useScrollytellingSeek = (items, { seek, currentTime = 0, enabled = true, debounceMs = DEFAULTS.debounceMs, minJumpSeconds = DEFAULTS.minJumpSeconds } = {}) =>  :108-147
 ```
 
 ### client/src/utils/splitSentences.js
