@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:17:23.952Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T12:18:12.989Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -30,25 +30,19 @@ analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
-server/adapters/CLAPSegmentAdapter.js         +CLAPSegmentAdapter
-server/adapters/MockBookmarkAnalysisAdapter.js +MockBookmarkAnalysisAdapter
 server/adapters/MockRecommendationAdapter.js  +MockRecommendationAdapter
 server/adapters/TFIDFAdapter.js               +TFIDFAdapter
-server/ports/IBookmarkAnalysisService.js      +IBookmarkAnalysisService
 server/ports/IRecommendationService.js        +IRecommendationService
-server/services/BookmarkAnalysisService.js    +BookmarkAnalysisService
 server/services/RecommendationService.js      +RecommendationService
 client/src/adapters/HttpBackendAdapter.js     ~HttpBackendAdapter
 client/src/adapters/InMemoryBackendAdapter.js ~InMemoryBackendAdapter
 client/src/hooks/useRecommendations.js        +useRecommendations
 client/src/ports/IBackendService.js           ~IBackendService
-analysis_service/analyzer.py                  +analyze_features_from_array  +_deterministic_seed  +_load_segment_audio  +_fallback_segment_analysis
-analysis_service/app.py                       +SegmentAnalysisRequest  +_ensure_cached_audio  +trigger_segment_analysis  ~SketchAnalysisRequest
-.github/context-cold.md                       +App  ~ClapAnalyzer  ~__init__  ~analyze_features
-.github/copilot-instructions.md               +ClapAnalyzer  +__init__  +analyze_features  +analyze_features_from_array
-.github/gemini-context.md                     +ClapAnalyzer  +__init__  +analyze_features  +analyze_features_from_array
+.github/context-cold.md                       +useCompletionCheck  +MockIntersectionObserver  ~useAuditShortcuts  ~mergeFonts
+.github/copilot-instructions.md               +useRecommendations  +IBackendService  +MockRecommendationAdapter  +TFIDFAdapter
+.github/gemini-context.md                     +useRecommendations  +IBackendService  +MockRecommendationAdapter  +TFIDFAdapter
 ```
 
 ## .github
@@ -99,13 +93,16 @@ h3 analysis_service/app.py
 h2 client
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/hooks/useRecommendations.js
 h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/CLAPSegmentAdapter.js
 h3 server/adapters/MockBookmarkAnalysisAdapter.js
+h3 server/adapters/MockRecommendationAdapter.js
+h3 server/adapters/TFIDFAdapter.js
 h3 server/ports/IBookmarkAnalysisService.js
+h3 server/ports/IRecommendationService.js
 h3 server/services/BookmarkAnalysisService.js
-code-fence plain
 ```
 
 ### .github/gemini-context.md
@@ -125,13 +122,16 @@ h3 analysis_service/app.py
 h2 client
 h3 client/src/adapters/HttpBackendAdapter.js
 h3 client/src/adapters/InMemoryBackendAdapter.js
+h3 client/src/hooks/useRecommendations.js
 h3 client/src/ports/IBackendService.js
 h2 server
 h3 server/adapters/CLAPSegmentAdapter.js
 h3 server/adapters/MockBookmarkAnalysisAdapter.js
+h3 server/adapters/MockRecommendationAdapter.js
+h3 server/adapters/TFIDFAdapter.js
 h3 server/ports/IBookmarkAnalysisService.js
+h3 server/ports/IRecommendationService.js
 h3 server/services/BookmarkAnalysisService.js
-code-fence plain
 ```
 
 ## analysis_service
