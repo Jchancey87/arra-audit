@@ -138,9 +138,28 @@ const bookmarkAnalysisService = new BookmarkAnalysisService({
 });
 
 // ── Phase 2.4: liked-by-artist discovery (TF-IDF cosine sim) ─────────────────
-const tfidfAdapter = new TFIDFAdapter();
+// Default to local TF-IDF (zero API cost, sub-ms for typical notebooks).
+// Set RECOMMENDATION_ADAPTER=openai in .env to swap in the OpenAI embeddings
+// adapter (requires OPENAI_API_KEY). Adapter choice is logged at startup.
+const recommendationBackend = (process.env.RECOMMENDATION_ADAPTER || 'tfidf').toLowerCase();
+let recommendationAdapter;
+if (recommendationBackend === 'openai') {
+  const { OpenAIEmbeddingAdapter } = await import('./adapters/OpenAIEmbeddingAdapter.js');
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('[Recommendation] RECOMMENDATION_ADAPTER=openai but OPENAI_API_KEY is not set. Falling back to TF-IDF.');
+    recommendationAdapter = new TFIDFAdapter();
+  } else {
+    recommendationAdapter = new OpenAIEmbeddingAdapter({
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
+    });
+    console.log(`[Recommendation] Using OpenAI embeddings (model=${process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small'})`);
+  }
+} else {
+  recommendationAdapter = new TFIDFAdapter();
+}
 const recommendationService = new RecommendationService({
-  adapter: tfidfAdapter,
+  adapter: recommendationAdapter,
   techniqueRepository,
 });
 
