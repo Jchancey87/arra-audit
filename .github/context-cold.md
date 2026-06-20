@@ -43,6 +43,7 @@ client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
+client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 client/src/utils/pdfData.js ← pdf/theme
 analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
@@ -201,6 +202,25 @@ export function useTasteProfiles()  :12-58
 function Centered({ children })  :202-208
 ```
 
+### client/src/pdf/AuditReport.jsx
+```
+function CoverPage({ data })  :292-367
+function LensPages({ data })  :369-439
+function BookmarksPage({ data })  :441-467
+function TechniquesPage({ data })  :469-500
+function PageFooter({ pageNumber, totalPages })  :502-514
+```
+
+### client/src/pdf/theme.js
+```
+export function registerArraFonts()  :18-48
+export function applyBranding(overrides)  :118-137
+export function getActiveBrand()  :139-141
+function isHex(s)  :80-82
+function mergeColors(overrides)  :84-91
+function mergeFonts(overrides)  :93-102
+```
+
 ### client/src/utils/deepLinks.js
 ```
 export const buildAuditLink = (auditId, { timestampSeconds, bookmarkId } = {}) =>  :22-33
@@ -226,6 +246,15 @@ export async function loadPdfRenderer()  :6-20
 export async function renderAuditToBlob(audit, song)  :22-37
 export function downloadBlob(blob, filename)  :39-50
 export function buildAuditFilename(audit, song)  :52-57
+```
+
+### client/src/utils/shareAnalytics.js
+```
+export function recordLinkOpen({ auditId, bookmarkId = null, source = 'unknown' })  :38-61
+export function getLinkOpenStats()  :67-76
+function safeRead()  :14-24
+function safeWrite(events)  :26-31
+function pruneOldEvents(events)  :33-36
 ```
 
 ## server

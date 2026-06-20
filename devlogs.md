@@ -1535,3 +1535,64 @@ All green: 91/91 client vitest. Vite build clean. `react-pdf` lazy chunk still 1
 - 🆕 "Extract `TechniqueDetailModal` into its own chunk" — added to open TODOs
 - 🆕 "Refine `react-youtube` lazy split" — not added; keep as-is for player stability
 
+## 2026-06-20 — Session Wrap-Up (start here next session)
+
+**Goal**: ship a Phase 2 feature + knock out a carry-over, end with clean resume state.
+
+### What landed this session (7 commits, 1 push)
+
+| # | Hash | Subject | Type |
+|---|---|---|---|
+| 1 | `965bd21` | docs: sigmap regen (post-Phase 1 v2 sweep) | noise |
+| 2 | `3f3102f` | Phase 2.1: promote-to-technique — hover sentence, modal pre-fill, lens heuristic | feature |
+| 3 | `3c47768` | docs: Phase 2.1 wrap-up + sigmap regen | docs |
+| 4 | `b8e6128` | docs: sigmap regen (final) | noise |
+| 5 | `2f991ae` | perf: code-split App.jsx routes — main bundle 1069→613KB (-43%) | feature |
+| 6 | `c58fc98` | docs: code-split wrap-up — 1069→613KB main, page chunk inventory | docs |
+| 7 | `94d9844` | docs: sigmap regen (post-code-split) | noise |
+
+### Test + bundle totals
+
+| Metric | Pre-session | Post-session | Delta |
+|---|---|---|---|
+| Server Jest | 67/67 | 67/67 | — (no backend changes) |
+| Client vitest | 89/89 | **91/91** | +2 (PageFallback) |
+| Playwright e2e | 2/2 (skip) | 2/2 (skip) | — |
+| **Main bundle** | **1047 KB** | **613 KB** | **-434 KB (-41%)** |
+| **Main bundle (gzip)** | **250 KB** | **178 KB** | **-72 KB (-29%)** |
+| Lazy chunks | 11 + react-pdf 1.6MB | 22 (11 page + 11 audit) + react-pdf | +11 page chunks |
+
+### Phase 2 status
+
+- ✅ 2.1 promote-to-technique (S/1d) shipped — smallest feature, biggest UX win per hour
+- ⏭️ 2.2 timestamped answers + scrollytelling (M/3d) — **recommended next**: no schema change, `Audit.responses` is already `Mixed`, pure UX
+- ⏭️ 2.3 per-bookmark CLAP analysis (M-L/5d) — biggest educational-value feature, needs Python + GPU concurrent limit 2
+- ⏭️ 2.4 liked-by-artist discovery (M/3d) — TF-IDF cosine sim on techniques
+- ⏭️ 2.5 stem separation (L/1.5w) — Demucs dep, per-stem lanes
+
+### Stale technical debt (tackle first thing next session if a 30-min slot opens)
+
+- **Sigmap regen noise** (4-6 commits per feature, this session produced 3 noise commits). Fix: `rm .git/hooks/post-commit` + add `client/package.json` script `"sigmap": "node gen-context.js"`. Run manually when needed.
+- **Extract `TechniqueDetailModal`** from `TechniqueNotebook` chunk (~10-15 KB on notebook open; modal only needed when a technique is clicked).
+- **`ArrangementTimelineWidget` is already a shared chunk** (56.5 KB) — no action needed; Vite split it automatically between AuditDetail + StudySessionWorkspace.
+
+### Resume recipe for next session
+
+1. Read `agent_memory.md` Resume Point + Red Lines sections (token-efficient overview)
+2. Skim `devlogs.md` "## 2026-06-20 — Phase 2.1" + "## Carry-Over Code-Split" + "## Session Wrap-Up" (this entry) for full context
+3. Pick a Phase 2 feature; if 2.2 — no schema change, smallest lift; if 2.3 — biggest payoff, plan the Python side first
+4. Optionally sweep sigmap noise first (1 trivial commit) before starting the feature
+
+### Full commit graph (this session only, newest first)
+
+```
+94d9844 docs: sigmap regen (post-code-split)
+c58fc98 docs: code-split wrap-up — 1069→613KB main, page chunk inventory, remaining opportunities
+2f991ae perf: code-split App.jsx routes — main bundle 1069→613KB (-43%)
+b8e6128 docs: sigmap regen (final)
+3c47768 docs: Phase 2.1 wrap-up + sigmap regen
+3f3102f Phase 2.1: promote-to-technique — hover sentence, modal pre-fill, lens heuristic
+965bd21 docs: sigmap regen (post-Phase 1 v2 sweep)
+```
+
+

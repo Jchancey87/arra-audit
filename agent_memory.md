@@ -1,14 +1,27 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value — 2.1 promote-to-technique (S/1d) shipped; carry-over: code-split App.jsx routes (done — main 1069→613 KB).
-- **Status**: ✅ Phase 2.1 shipped (`3f3102f`). ✅ Route code-split shipped (`2f991ae`). 89/89 + 2 PageFallback vitest green. Main 1047→1069→613 KB (gzip 250→178 KB). All 11 pages lazy.
+- **Goal**: Phase 2 educational value — 2.1 promote-to-technique ✅ shipped; code-split carry-over ✅ shipped. Ready for next Phase 2 feature.
+- **Status**: Session wrap-up. 2 feature commits + 3 doc commits + 4 sigmap regens shipped this session. 91/91 client vitest + Vite build clean. Main 1047→613 KB (gzip 250→178 KB).
 
-## ⏸️ Resume Point (checkpoint 2026-06-20, post-Phase 2.1 + code-split)
-- **Done**: Phase 2.1 + carry-over code-split in one session. 2 feature commits (`3f3102f`, `2f991ae`) + 2 doc commits + 2 sigmap regens. 89/89 vitest green, Vite build clean.
-- **Phase 2.1 details**: see `devlogs.md` "## 2026-06-20 — Phase 2.1 Promote-to-Technique"
-- **Code-split details**: see `devlogs.md` "## 2026-06-20 — Carry-Over Code-Split: App.jsx Routes"
-- **Next**: Phase 2.2 (timestamped answers + scrollytelling, M/3d) or 2.3 (per-bookmark CLAP, M-L/5d). User undecided.
+## ⏸️ Resume Point (checkpoint 2026-06-20, SESSION END)
+- **Done this session (4 sessions of work in this turn):**
+  1. **Stale sigmap regen sweep** (`965bd21`) — 2 unstaged sigmap regens committed
+  2. **Phase 2.1 promote-to-technique** (`3f3102f` + `3c47768` + `b8e6128`) — lensGuess + splitSentences utils, useTechniques.addFromSentence, PromoteToTechniqueModal, ResearchSummaryRenderer sentence-hover wired in 3 call sites. 34 new tests. Main 1047→1069 KB (+22 KB).
+  3. **Carry-over: code-split App.jsx routes** (`2f991ae` + `c58fc98` + `94d9844`) — 11 pages via React.lazy + Suspense(PageFallback). 2 new tests. Main 1069→613 KB (-43%, gzip 250→178 KB).
+- **Test totals**: client vitest 89→91 (all green). Server still 67/67 (no backend changes this session). Playwright 2/2 (unchanged).
+- **Detailed inventories**: see `devlogs.md` sections:
+  - "## 2026-06-20 — Phase 2.1 Promote-to-Technique"
+  - "## 2026-06-20 — Carry-Over Code-Split: App.jsx Routes"
+- **Next (start here next session)**: pick one of these and follow the **Changes** sub-list in `HANDOFF_P0_P4.md`:
+  - **Phase 2.2** timestamped answers + scrollytelling (M/3d) — natural follow-up; no schema change, `Audit.responses` already `Mixed`
+  - **Phase 2.3** per-bookmark CLAP analysis (M-L/5d) — biggest educational-value win; Python `analyze_segment` + `IBookmarkAnalysisService` port + GPU concurrent limit 2
+  - **Phase 2.4** liked-by-artist discovery (M/3d) — TF-IDF cosine sim on techniques
+  - **Phase 2.5** stem separation (L/1.5w) — Demucs, per-stem lanes (largest scope, new dep)
+- **Stale for next session (technical debt)**:
+  - Sigmap regen noise (4-6 commits/feature); recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script as first cleanup task before next feature
+  - Extract `TechniqueDetailModal` from `TechniqueNotebook` chunk (~10-15 KB win)
+  - `ArrangementTimelineWidget` (56.5 KB) is already a shared chunk — good
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -55,9 +68,9 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-20 | Phase 1 v2 sweep (1.2): sample-level delta waveform, yt-dlp fallback harness, Playwright e2e smoke — audioDelta.js + 10 tests, YtDlpService (mock+subprocess) + 8 tests, Playwright config + 2 e2e tests, AudioContext fallback state, PATCH /:id route. 67/67 + 54/54 + 2/2. | `9715e6f` |
-| 2026-06-20 | Phase 2.1 promote-to-technique: lensGuess + splitSentences utils, useTechniques.addFromSentence, PromoteToTechniqueModal, ResearchSummaryRenderer sentence-hover + 4 call-site wirings. 34 new tests (9+7+5+8+5). 89/89 client. Main 1047→1069KB. | `3f3102f` |
 | 2026-06-20 | Carry-over: code-split App.jsx routes — 11 pages via React.lazy + Suspense(PageFallback). Main 1069→613KB (-43%, gzip 250→178KB). 2 PageFallback tests. 89/89 client. | `2f991ae` |
+| 2026-06-20 | Phase 2.1 promote-to-technique: lensGuess + splitSentences utils, useTechniques.addFromSentence, PromoteToTechniqueModal, ResearchSummaryRenderer sentence-hover + 4 call-site wirings. 34 new tests (9+7+5+8+5). 89/89 client. Main 1047→1069KB. | `3f3102f` |
+| 2026-06-20 | Phase 1 v2 sweep (1.2): sample-level delta waveform, yt-dlp fallback harness, Playwright e2e smoke — audioDelta.js + 10 tests, YtDlpService (mock+subprocess) + 8 tests, Playwright config + 2 e2e tests, AudioContext fallback state, PATCH /:id route. 67/67 + 54/54 + 2/2. | `9715e6f` |
 | 2026-06-20 | Phase 1 v2 (1.1 + 1.3): player-ready poll, click-through analytics, PDF polish (4 fixes) — waitForPlayerReady, shareAnalytics (4 tests), lens-empty badge, cover page numbers, long-description wrap, applyBranding (6 tests). | `1667686` |
 | 2026-06-20 | Phase 1 v2 (1.2): client ComparePlayer — playback rate slider 0.5x-1.5x, drift polling 500→100ms, Web Audio WeakMap cache (fixes per-mount context leak), SampleDeltaCanvas placeholder. | `61025f2` |
 | 2026-06-20 | Phase 1 v2 (1.2): backend fixes — anchored MIME regex, sketch soft-delete cascade on song delete, updateSketch (whitelisted metadata) + auto-probe durationSeconds via <audio>. +14 server tests. | `156efac` |
