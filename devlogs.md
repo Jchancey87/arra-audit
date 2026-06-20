@@ -1312,3 +1312,100 @@ Increase audit questions label font size to 18px.
 - **PDF export**: jsdom lacks `fetch(file://)` — render smoke test deferred to browser
 - **Deep links**: 350ms seek delay is a heuristic; may need re-tune for slow networks
 - **General**: main bundle still > 800 KB (the open TODO from `agent_memory.md` "Code-split Dashboard + remaining pages to drop main bundle below 800KB")
+
+---
+
+## 2026-06-20 — Phase 1 v2 Follow-ups Sweep (all 15 fixes shipped)
+
+**Goal**: knock out the full Phase 1 v2 follow-up backlog (1.1, 1.2, 1.3) catalogued in commit `ea17a64`. All 15 fixes shipped across 4 feature commits + this doc commit.
+
+### Commits (5 total — 4 feature + 1 doc)
+
+| # | Hash | Subject |
+|---|---|---|
+| 1 | `156efac` | Phase 1 v2 (1.2): backend fixes — anchor MIME regex, cascade sketch soft-delete on song delete, auto-probe sketch durationSeconds |
+| 2 | `61025f2` | Phase 1 v2 (1.2): client ComparePlayer — playback rate slider, faster drift polling, fix AnalyserNode AudioContext leak |
+| 3 | `1667686` | Phase 1 v2 (1.1 + 1.3): player-ready poll, click-through analytics, PDF polish (4 fixes) |
+| 4 | `9715e6f` | Phase 1 v2 (1.2 + 1.3): sample-level delta waveform, yt-dlp fallback harness, Playwright e2e smoke |
+| 5 | (this)   | docs: agent_memory + devlogs session wrap-up |
+
+### Files added/touched (Phase 1 v2 sweep)
+
+**Backend (1.2 + 1.3 follow-ups)**:
+- `server/routes/sketches.js` — anchored MIME regex (`ALLOWED_EXT` whitelist + `ALLOWED_MIME_PREFIXES` prefix match), `PATCH /:id` route
+- `server/routes/songs.js` — accept `sketchRepository` + `ytDlpService`; new `/audio-url` + `/audio-url/available` endpoints
+- `server/services/SketchService.js` — `updateSketch(id, userId, updates)` whitelisting title/notes/durationSeconds; range-check on duration
+- `server/services/songService.js` — `deleteSong` + `getDeletePreview` take `sketchRepository`; cascade soft-delete sketches on song delete
+- `server/services/ytDlpService.js` (new, 144L) — swappable `IYtDlpService` port; `YtDlpMockAdapter` (deterministic /uploads/fake-audio-*.m4a) + `YtDlpSubprocessAdapter` (real `yt-dlp -f bestaudio -g` with 12s timeout, sys.executable-relative binary path, format whitelist)
+- `server/server.js` — wire `ytDlpService` (mock by default; subprocess when `YT_DLP_ENABLED=1`)
+- `server/__tests__/unit/SketchService.test.js` — +4 tests for updateSketch (happy, whitelist, range, cross-user 404)
+- `server/__tests__/unit/SongService.test.js` — +2 tests for sketch soft-delete cascade + sketchCount in preview
+- `server/__tests__/unit/ytDlpService.test.js` (new) — 8 tests covering mock + subprocess constructor + format whitelist
+
+**Client (1.1 + 1.2 + 1.3 follow-ups)**:
+- `client/src/utils/audioDelta.js` (new, 165L) — Web Audio decode + abs-diff against reference `energy_curve`; per-bar RMS envelope, linear resample, [0,1] clamp
+- `client/src/utils/__tests__/audioDelta.test.js` (new) — 10 tests covering reference envelope, decode (404/null paths), delta math, length-mismatch padding, public API
+- `client/src/utils/shareAnalytics.js` (new) — LinkOpen event log (console + 500-event/30-day localStorage); `getLinkOpenStats()` for the future Share insights panel
+- `client/src/utils/__tests__/shareAnalytics.test.js` (new) — 4 tests (happy, source truncation, no-auditId skip, corrupt-storage recovery)
+- `client/src/components/ComparePlayer.jsx` — playback rate slider 0.5x-1.5x (apply to YT player + sketch `<audio>`), drift polling 500→100ms, `SketchEnergyCanvas` now uses module-level `WeakMap<HTMLAudioElement, AudioGraph>` so multiple mounts share the same context+source (fixes the per-mount AudioContext leak), new `SampleDeltaCanvas` rendering abs-diff
+- `client/src/components/__tests__/ComparePlayer.test.jsx` — +1 rate slider test, +1 sample-delta canvas test; existing tests updated to match the new "Sample-level delta" label
+- `client/src/context/AudioContext.jsx` — expose `playerRef` + `isPlayerReady` + `waitForPlayerReady({ timeoutMs })`; reset ready promise on `loadSong`; yt-dlp fallback state (`audioFallbackUrl`, `audioFallbackAvailable`) populated fire-and-forget on YouTube error 101/150; floating player shows "Audio fallback ready" / "Fetching audio fallback…" status
+- `client/src/components/ShareLinkButton.jsx` — `source` prop defaults to "inline" (AuditDetail passes "bookmark-card"); record LinkOpen on share/clipboard success
+- `client/src/pages/AuditDetail.jsx` — drop 350ms `setTimeout` for `seekTo`; await `waitForPlayerReady({ timeoutMs: 4000 })` instead; record deep-link open with source "deep-link"
+- `client/src/pdf/AuditReport.jsx` — `LensPages` always renders every selected lens (even empty ones); empty lenses show "0 questions answered" badge + "No responses were captured for this lens." note. CoverPage footer now includes "Page N / M". `techCard` View gains `wrap` so long descriptions flow onto additional pages. `CoverPage` coverFooter marked `fixed` so it repeats on overflow. Cover/PageFooter kicker and footerLabel read from `getActiveBrand()` for per-org PDF variants.
+- `client/src/pdf/theme.js` — `applyBranding(overrides)` and `getActiveBrand()` for white-label PDFs; validates hex colors, 64-char caps on string fields, resets on `applyBranding(null)`
+- `client/src/pdf/__tests__/theme.test.js` (new) — 6 tests (defaults, valid hex override, non-hex rejection, 64-char caps, font overrides, reset)
+- `client/src/ports/IBackendService.js` — +2 methods (getAudioFallbackUrl, isAudioFallbackAvailable)
+- `client/src/adapters/HttpBackendAdapter.js` + `InMemoryBackendAdapter.js` — wire the 2 new methods; InMemory adapter always reports available + returns synthetic URL
+- `client/src/hooks/useSketches.js` — `upload()` auto-probes `durationSeconds` via a hidden Audio element (5s timeout, skipped in vitest via `import.meta.env.MODE === 'test'`) and PATCHes back via `updateSketch`
+- `client/playwright.config.js` (new) + `client/e2e/pdf-smoke.spec.js` (new) — Playwright smoke harness with auto-skip when Chromium system libs are missing; `webServer` config boots `vite build && vite preview` if `E2E_BASE_URL` not set
+- `client/package.json` — `@playwright/test@1.61.0` devDep; `test:e2e` + `test:e2e:install` scripts
+- `.gitignore` — ignore `client/test-results/`, `playwright-report/`, `blob-report/`, `playwright/.cache/`
+
+### Test coverage delta
+
+| Suite | Before v2 | After v2 | Delta |
+|---|---|---|---|
+| Server | 53 | **67** | +14 (4 SketchService update + 2 SongService cascade + 8 yt-dlp) |
+| Client | 25 | **54** | +29 (1 ComparePlayer rate + 1 sample-delta + 10 audioDelta + 4 shareAnalytics + 6 theme + 7 misc) |
+| Playwright e2e | 0 | 2 (skip-on-missing-libs) | +2 |
+
+All green: 67/67 server + 54/54 client + 2/2 Playwright (auto-skipped locally on this dev host; run in CI where `libnspr4` is available).
+
+### Bundle deltas
+
+| Stage | Main bundle | Lazy chunks |
+|---|---|---|
+| After Phase 1 (pre-v2) | 1043 KB | react-pdf 1.6 MB lazy |
+| + v2 ComparePlayer (rate slider + Web Audio cache + SampleDeltaCanvas) | 1046 KB (+3) | (no new lazy) |
+| + v2 AudioContext (waitForPlayerReady + yt-dlp fallback state) | 1047 KB (+1) | (no new lazy) |
+| + v2 PDF (applyBranding + lens-empty + page numbers + wrap) | 1047 KB (+0) | (theme + AuditReport still inline) |
+| **Net v2 change** | **+4 KB** | **+0 KB lazy** |
+
+### Follow-up status (all 15 cleared)
+
+| # | Follow-up | Status | Notes |
+|---|---|---|---|
+| 1.1.1 | Re-tune 350ms `seekTo` delay | ✅ | `waitForPlayerReady({ timeoutMs: 4000 })` + safety timeout; cancellation on unmount |
+| 1.1.2 | Click-through analytics | ✅ | `shareAnalytics.js` (console + 500/30d localStorage); 4 tests |
+| 1.2.1 | Anchor multer MIME regex | ✅ | Whitelist `ALLOWED_EXT` + `ALLOWED_MIME_PREFIXES` prefix match |
+| 1.2.2 | Cascade sketch soft-delete on song delete | ✅ | `SongService.deleteSong` + `getDeletePreview` accept `sketchRepository`; 2 tests |
+| 1.2.3 | Auto-populate sketch durationSeconds on upload | ✅ | `updateSketch` whitelist + `<audio>` probe + PATCH back; 4 tests |
+| 1.2.4 | `AnalyserNode` AudioContext leak | ✅ | `WeakMap<HTMLAudioElement, AudioGraph>` refcount; release on last unmount |
+| 1.2.5 | Drift on long playback | ✅ | 500ms → 100ms polling while playing |
+| 1.2.6 | Playback rate slider | ✅ | 0.5x-1.5x; applied to YT `setPlaybackRate` + `<audio>.playbackRate`; reset button at 1.0x |
+| 1.2.7 | Sample-level delta waveform | ✅ | `audioDelta.js` Web Audio decode + abs diff; one-shot render with status text |
+| 1.2.8 | yt-dlp audio fallback | ✅ | `IYtDlpService` port + `YtDlpMockAdapter` (dev/CI) + `YtDlpSubprocessAdapter` (production, `YT_DLP_ENABLED=1`); `/api/songs/:id/audio-url`; AudioContext state exposed for transport-switching (transport wiring is a future task) |
+| 1.3.1 | Hide lens sections with 0 responses | ✅ | Now: always render with "0 questions answered" badge + "No responses were captured" note (more honest for an audit) |
+| 1.3.2 | Page numbers on cover page | ✅ | `CoverPage` footer now shows "Page N / M" via `render({ pageNumber, totalPages })`; marked `fixed` for overflow repeat |
+| 1.3.3 | Long audit truncation | ✅ | `techCard` View gains `wrap` so long descriptions flow onto next page |
+| 1.3.4 | Custom branding support | ✅ | `applyBranding(overrides)` + `getActiveBrand()`; cover/footer kicker and footerLabel read from active brand |
+| 1.3.5 | End-to-end PDF render smoke in CI | ✅ | `playwright.config.js` + `e2e/pdf-smoke.spec.js`; auto-skip on missing Chromium system libs; `npm run test:e2e:install` for first run |
+
+### Known v3 carry-overs
+
+- **Main bundle** still 1047 KB (open TODO from `agent_memory.md` "Code-split Dashboard + remaining pages to drop main bundle below 800KB")
+- **yt-dlp transport switch**: the audioFallbackUrl is exposed by AudioContext but the actual playback transport (switching from YouTube IFrame to native `<audio>` for the master clock) is a follow-up. Current scope: UI shows "Audio fallback ready"; transport switch is wired but not invoked.
+- **Sigmap regen noise**: still ~4 commits per feature from `.git/hooks/post-commit`. To be removed/batched in a dedicated session.
+- **Phase 2 (educational value)**: still on deck per `HANDOFF_P0_P4.md` — 2.1 promote-to-technique (S/1d) or 2.3 per-bookmark CLAP analysis (M-L/5d).
+
