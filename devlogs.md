@@ -1472,3 +1472,66 @@ All green: 89/89 client vitest. Vite build clean.
 - Phase 2.3 (per-bookmark CLAP analysis, M-L/5d) — biggest educational-value feature; needs Python `analyze_segment` + `IBookmarkAnalysisService` port + GPU concurrent limit
 - User undecided. See `HANDOFF_P0_P4.md` for full Phase 2 scope.
 
+## 2026-06-20 — Carry-Over Code-Split: App.jsx Routes
+
+**Goal**: knock out the "Code-split Dashboard + remaining pages to drop main bundle below 800KB" carry-over from `agent_memory.md` open TODOs. Hit target with 11 pages split via `React.lazy` + `Suspense`.
+
+**Commit**: `2f991ae` — `perf: code-split App.jsx routes — main bundle 1069→613KB (-43%)`
+
+### Files
+
+- `client/src/App.jsx` — convert 11 page imports to `React.lazy(() => import('./pages/...'))`; wrap each `<Route>` in `<Suspense fallback={<PageFallback />}>`; `Login` stays eager (small, public, first-paint); the 13 routes become 13 declarative Route + Suspense nests inside `<PrivateRoute>` (or directly for `/` and `/login`)
+- `client/src/components/PageFallback.jsx` (new, 38L) — bitwig-styled spinner with `role="status" aria-live="polite"` + inline `@keyframes` (no global CSS injection needed); centered in viewport with `Loading…` label in Roboto Mono + 10px uppercase orange
+- `client/src/components/__tests__/PageFallback.test.jsx` (new) — 2 tests (renders with role + label, no-throw)
+
+### Bundle deltas (Vite build before vs after)
+
+| Stage | Main bundle (gzip) | Lazy chunks | Status |
+|---|---|---|---|
+| After Phase 2.1 | **1069 KB** (250 KB) | 11 audit subcomponents + react-pdf 1.6 MB | over target |
+| After route code-split | **613 KB** (178 KB) | 11 page chunks + 11 audit subcomponents + react-pdf | **under 800 KB** |
+
+Net change: main **-456 KB (-43%)**, gzip **-72 KB (-29%)**. The 11 pages are now separate chunks loaded on demand:
+
+| Page chunk | Size (gzip) | Notes |
+|---|---|---|
+| `TechniqueNotebook` | 65 KB (10 KB) | includes `TechniqueDetailModal` |
+| `ArrangementTimelineWidget` | 56.5 KB (9.5 KB) | extracted as a shared chunk between AuditDetail + StudySessionWorkspace |
+| `Dashboard` | 47 KB (7 KB) | |
+| `AuditDetail` | 47 KB (10 KB) | includes ArrangementTimelineWidget + ResearchSummaryRenderer + ExportPdfButton |
+| `StudyPlannerDashboard` | 44 KB (7 KB) | |
+| `Settings` | 40 KB (6 KB) | |
+| `AuditForm` | 38 KB (9 KB) | + lazy audit subcomponents (8 chunks 2-20 KB) |
+| `StudySessionWorkspace` | 38 KB (6 KB) | includes ArrangementTimelineWidget |
+| `SketchCompare` | 31 KB (7 KB) | includes `ComparePlayer` |
+| `Trash` | 30 KB (4 KB) | |
+| `AuditCreate` | 16 KB (3 KB) | |
+
+### Test coverage delta
+
+| Suite | Before | After | Delta |
+|---|---|---|---|
+| Client vitest | 89 | **91** | +2 (PageFallback role + label) |
+
+All green: 91/91 client vitest. Vite build clean. `react-pdf` lazy chunk still 1.6 MB (unchanged — loaded on PDF export only).
+
+### UX impact
+
+- First-paint after login: 613 KB main + lazy Dashboard 47 KB (gzip total ~185 KB) — significantly faster than the prior 1069 KB
+- Route transitions: each page loads its own chunk; the spinner appears for ~1 frame on fast networks, longer on slow ones
+- SEO: N/A (SPA, no SSR); no impact on crawlers
+- The fallback spinner is `role="status" aria-live="polite"` so screen readers announce "Loading…"
+
+### Remaining bundle opportunities (logged for future)
+
+- **`TechniqueDetailModal` extraction** (in `TechniqueNotebook` chunk, 65 KB): currently loaded on notebook open; could be split so it only loads when a technique is clicked. Saves ~10-15 KB on initial TechniqueNotebook open
+- **`ArrangementTimelineWidget` shared chunk**: already extracted by Vite as 56.5 KB shared chunk between AuditDetail + StudySessionWorkspace — good
+- **`react-youtube` extraction**: `react-youtube` is statically imported in `AudioContext` (the floating player) so it stays in the main bundle. Could be split by wrapping `<AudioPlayer>` in its own lazy boundary, but that risks player-load UX regressions
+- **PDF export**: `@react-pdf/renderer` 1.6 MB is already lazy (only loads on Export click). Optimal as-is
+
+### Carry-overs updated in `agent_memory.md`
+
+- ✅ "Code-split Dashboard + remaining pages" — completed
+- 🆕 "Extract `TechniqueDetailModal` into its own chunk" — added to open TODOs
+- 🆕 "Refine `react-youtube` lazy split" — not added; keep as-is for player stability
+
