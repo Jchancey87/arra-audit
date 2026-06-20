@@ -33,11 +33,13 @@ server/services/auditService.js ← models/Audit
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
+client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
+client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useAudit.js ← context/BackendContext
 client/src/hooks/useAudits.js ← context/BackendContext
 client/src/hooks/useCurricula.js ← context/BackendContext
@@ -46,8 +48,10 @@ client/src/hooks/useSketches.js ← context/BackendContext
 client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
+client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/pages/SketchCompare.jsx ← context/BackendContext, context/AudioContext, hooks/useSketches, components/ComparePlayer
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
+client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 client/src/utils/pdfData.js ← pdf/theme
 analysis_service/analyzer.py ← requests
 analysis_service/app.py ← fastapi, pydantic, analyzer
@@ -161,6 +165,11 @@ class ErrorBoundary  :3-106
   if(this.state.error)  :27-103
 ```
 
+### client/src/components/ResearchSummaryRenderer.jsx
+```
+export const parseSummaryText = (text) =>  :57-98
+```
+
 ### client/src/components/__tests__/ComparePlayer.test.jsx
 ```
 function StubAudioProvider({ children })  :12-15
@@ -189,6 +198,11 @@ export const useBackend = () =>  :19-25
 ```
 function makeWrapper(backend)  :8-12
 function makeFile(name = 'sketch.wav', size = 2048, type = 'audio/wav')  :14-16
+```
+
+### client/src/hooks/__tests__/useTechniques.test.jsx
+```
+function makeWrapper(backend)  :8-12
 ```
 
 ### client/src/hooks/useAudit.js
@@ -244,6 +258,11 @@ export function useStudyProgress()  :14-131
 export function useTasteProfiles()  :12-58
 ```
 
+### client/src/hooks/useTechniques.js
+```
+export function useTechniques(filters = {}, { skip = false } = {})  :15-110
+```
+
 ### client/src/pages/SketchCompare.jsx
 ```
 function Centered({ children })  :202-208
@@ -281,6 +300,11 @@ export class IBackendService  :7-75
   async getSongs(filters)  :18-18
 ```
 
+### client/src/utils/__tests__/lensGuess.test.js
+```
+function countAll(text)  :50-62
+```
+
 ### client/src/utils/audioDelta.js
 ```
 export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
@@ -297,6 +321,12 @@ function getAudioContext()  :87-98
 ```
 export const buildAuditLink = (auditId, { timestampSeconds, bookmarkId } = {}) =>  :22-33
 export const parseDeepLinkParams = (searchString) =>  :35-44
+```
+
+### client/src/utils/lensGuess.js
+```
+export function guessLens(text, { minScore = 1 } = {})  :36-61
+function escapeRegex(s)  :63-65
 ```
 
 ### client/src/utils/pdfData.js
@@ -327,6 +357,11 @@ export function getLinkOpenStats()  :67-76
 function safeRead()  :14-24
 function safeWrite(events)  :26-31
 function pruneOldEvents(events)  :33-36
+```
+
+### client/src/utils/splitSentences.js
+```
+export function splitSentences(text)  :1-18
 ```
 
 ## server

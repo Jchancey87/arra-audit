@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T11:56:07.195Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T11:57:14.130Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -24,11 +24,7 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ## deps
 ```
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
-client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
-client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants, utils/responseShape
-client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
-client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 client/src/utils/__tests__/scrollytelling.test.js ← scrollytelling
 ```
 
@@ -37,8 +33,8 @@ client/src/utils/__tests__/scrollytelling.test.js ← scrollytelling
 client/src/hooks/useCompletionCheck.js        ~useCompletionCheck
 client/src/utils/__tests__/scrollytelling.test.js +MockIntersectionObserver
 .github/context-cold.md                       +HttpBackendAdapter  +InMemoryBackendAdapter  +formatTime  +readMeta
-.github/copilot-instructions.md               +App  ~App  ~HttpBackendAdapter  ~InMemoryBackendAdapter
-.github/gemini-context.md                     +App  ~App  ~HttpBackendAdapter  ~InMemoryBackendAdapter
+.github/copilot-instructions.md               +useCompletionCheck  +useTechniques  +MockIntersectionObserver  +splitSentences
+.github/gemini-context.md                     +useCompletionCheck  +useTechniques  +MockIntersectionObserver  +splitSentences
 ```
 
 ## .github
@@ -68,8 +64,8 @@ h3 client/src/hooks/useAudit.js
 h3 client/src/hooks/useAuditAutosave.js
 h3 client/src/hooks/useAuditShortcuts.js
 h3 client/src/hooks/useAudits.js
-h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useCurricula.js
+h3 client/src/hooks/useDeepLinkParams.js
 ```
 
 ### .github/copilot-instructions.md
@@ -87,9 +83,13 @@ h2 client
 h3 client/src/App.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
+h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useTechniques.js
 h3 client/src/utils/__tests__/lensGuess.test.js
+h3 client/src/utils/__tests__/scrollytelling.test.js
 h3 client/src/utils/lensGuess.js
+h3 client/src/utils/responseShape.js
+h3 client/src/utils/scrollytelling.js
 h3 client/src/utils/splitSentences.js
 code-fence plain
 ```
@@ -109,9 +109,13 @@ h2 client
 h3 client/src/App.jsx
 h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
+h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useTechniques.js
 h3 client/src/utils/__tests__/lensGuess.test.js
+h3 client/src/utils/__tests__/scrollytelling.test.js
 h3 client/src/utils/lensGuess.js
+h3 client/src/utils/responseShape.js
+h3 client/src/utils/scrollytelling.js
 h3 client/src/utils/splitSentences.js
 code-fence plain
 ```
@@ -123,29 +127,9 @@ code-fence plain
 function App()  :865-877
 ```
 
-### client/src/components/ResearchSummaryRenderer.jsx
-```
-export const parseSummaryText = (text) =>  :57-98
-```
-
-### client/src/hooks/__tests__/useTechniques.test.jsx
-```
-function makeWrapper(backend)  :8-12
-```
-
 ### client/src/hooks/useCompletionCheck.js
 ```
 export function useCompletionCheck(audit, responses, activeLens, sessionTechniques) → { canComplete: boolean, c  :15-52
-```
-
-### client/src/hooks/useTechniques.js
-```
-export function useTechniques(filters = {}, { skip = false } = {})  :15-110
-```
-
-### client/src/utils/__tests__/lensGuess.test.js
-```
-function countAll(text)  :50-62
 ```
 
 ### client/src/utils/__tests__/scrollytelling.test.js
@@ -156,12 +140,6 @@ class MockIntersectionObserver  :5-23
   unobserve(el)  :14-16
   disconnect()  :17-19
   trigger(entries)  :20-22
-```
-
-### client/src/utils/lensGuess.js
-```
-export function guessLens(text, { minScore = 1 } = {})  :36-61
-function escapeRegex(s)  :63-65
 ```
 
 ### client/src/utils/responseShape.js
@@ -180,9 +158,4 @@ export const formatTimestampLabel = (seconds) =>  :66-72
 ```
 export const useMostVisible = (items, options = {}) =>  :31-106
 export const useScrollytellingSeek = (items, { seek, currentTime = 0, enabled = true, debounceMs = DEFAULTS.debounceMs, minJumpSeconds = DEFAULTS.minJumpSeconds } = {}) =>  :108-147
-```
-
-### client/src/utils/splitSentences.js
-```
-export function splitSentences(text)  :1-18
 ```
