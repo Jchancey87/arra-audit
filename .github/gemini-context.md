@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:34:18.906Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:39:51.058Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -24,22 +24,17 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 ## deps
 ```
 client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
-client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
-client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
-client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
 client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, utils/lensGuess, PromoteToTechniqueModal
-client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
-client/src/context/AudioContext.jsx ← BackendContext
 client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 ```
 
-## changes (last 5 commits — 0 seconds ago)
+## changes (last 5 commits — 1 second ago)
 ```
-.github/context-cold.md                       +useSketches  +probeAudioDuration  +mockFile  +_sanitizeSketch
-.github/copilot-instructions.md               +App  +makeWrapper  +useTechniques  +countAll
-.github/gemini-context.md                     +App  +makeWrapper  +useTechniques  +countAll
+.github/context-cold.md                       +useSketches  +probeAudioDuration  +CoverPage  +LensPages
+.github/copilot-instructions.md               +App  ~App  ~useSketches  ~probeAudioDuration
+.github/gemini-context.md                     +App  ~App  ~useSketches  ~probeAudioDuration
 ```
 
 ## .github
@@ -94,12 +89,12 @@ h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
 h3 client/src/hooks/useTechniques.js
-h3 client/src/pdf/AuditReport.jsx
-h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
 h3 client/src/utils/audioDelta.js
 h3 client/src/utils/lensGuess.js
+h3 client/src/utils/splitSentences.js
+h2 server
 ```
 
 ### .github/gemini-context.md
@@ -123,12 +118,12 @@ h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
 h3 client/src/hooks/useTechniques.js
-h3 client/src/pdf/AuditReport.jsx
-h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
 h3 client/src/utils/audioDelta.js
 h3 client/src/utils/lensGuess.js
+h3 client/src/utils/splitSentences.js
+h2 server
 ```
 
 ## client
@@ -138,57 +133,9 @@ h3 client/src/utils/lensGuess.js
 function App()  :865-877
 ```
 
-### client/src/adapters/HttpBackendAdapter.js
-```
-export class HttpBackendAdapter  :8-172
-  constructor(baseURL)  :9-22
-  async login(email, password)  :25-28
-  async register(email, password, name)  :30-33
-  async getUserProfile()  :35-38
-  async updatePreferences(preferences)  :40-43
-  async updateProfile(profileData)  :45-48
-  async changePassword(oldPassword, newPassword)  :50-53
-  async deleteAccount()  :55-58
-```
-
-### client/src/adapters/InMemoryBackendAdapter.js
-```
-export class InMemoryBackendAdapter  :7-32
-  constructor()  :8-32
-```
-
-### client/src/components/ComparePlayer.jsx
-```
-function formatTime(seconds)  :19-25
-function readMeta(analysis)  :27-35
-function MetaRow({ label, ref, sk })  :37-47
-function DeltaBar({ delta })  :49-70
-function DeltaPanel({ refMeta, skMeta })  :72-95
-function getOrCreateAudioGraph(audio)  :103-124
-function releaseAudioGraph(audio)  :126-137
-function SketchEnergyCanvas({ audioRef })  :139-193
-function PlayIcon()  :195-197
-function PauseIcon()  :198-200
-function SampleDeltaCanvas({ sketch, song })  :207-255
-function paint(canvas, delta)  :257-277
-function Panel({ color, label, sublabel, time, duration, onScrub })  :515-539
-```
-
 ### client/src/components/ResearchSummaryRenderer.jsx
 ```
 export const parseSummaryText = (text) =>  :57-98
-```
-
-### client/src/components/__tests__/ComparePlayer.test.jsx
-```
-function StubAudioProvider({ children })  :12-15
-function makeWrapper(backend)  :17-25
-```
-
-### client/src/context/AudioContext.jsx
-```
-export const AudioProvider = ({ children }) =>  :8-149
-export const useAudio = () =>  :459-465
 ```
 
 ### client/src/hooks/__tests__/useTechniques.test.jsx
@@ -201,34 +148,9 @@ function makeWrapper(backend)  :8-12
 export function useTechniques(filters = {}, { skip = false } = {})  :15-110
 ```
 
-### client/src/ports/IBackendService.js
-```
-export class IBackendService  :7-75
-  async login(email, password)  :9-9
-  async register(email, password, name)  :10-10
-  async getUserProfile()  :11-11
-  async updatePreferences(preferences)  :12-12
-  async updateProfile(profileData)  :13-13
-  async changePassword(oldPassword, newPassword)  :14-14
-  async deleteAccount()  :15-15
-  async getSongs(filters)  :18-18
-```
-
 ### client/src/utils/__tests__/lensGuess.test.js
 ```
 function countAll(text)  :50-62
-```
-
-### client/src/utils/audioDelta.js
-```
-export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
-export function referenceEnvelope(song, { bars = DEFAULT_BARS } = {})  :122-128
-export function computeDelta(sketchEnv, refEnv)  :130-132
-function clamp01(v)  :18-23
-function envelopeFromAudioBuffer(audioBuffer, bars)  :25-51
-function envelopeFromReferenceCurve(curve, bars)  :53-67
-function deltaEnvelope(sketchEnv, refEnv)  :69-84
-function getAudioContext()  :87-98
 ```
 
 ### client/src/utils/lensGuess.js
@@ -240,32 +162,4 @@ function escapeRegex(s)  :63-65
 ### client/src/utils/splitSentences.js
 ```
 export function splitSentences(text)  :1-18
-```
-
-## server
-
-### server/routes/songs.js
-```
-function extractYouTubeId(url)  :13-25
-function _sanitizeSong(song)  :288-314
-```
-
-### server/services/ytDlpService.js
-```
-export class IYtDlpService  :24-27
-  async extractAudioUrl(_opts)  :25-25
-  async isAvailable()  :26-26
-export class YtDlpMockAdapter  :34-61
-  constructor({ available = true } = {})  :35-38
-  async isAvailable()  :39-39
-  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :40-60
-  if(!this.available)  :41-45
-  if(!youtubeId)  :46-50
-export class YtDlpSubprocessAdapter  :68-158
-  constructor({ binaryPath, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console } = {})  :69-74
-  async isAvailable()  :76-89
-  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :91-157
-  if(!youtubeId)  :92-96
-  if(code !== 0)  :136-142
-  if(!url)  :144-149
 ```

@@ -30,6 +30,11 @@ server/ports/IAIModelService.js ← ICompletionService
 server/ports/IUserRepository.js ← IRepository
 server/routes/curricula.js ← models/Curriculum
 server/services/auditService.js ← models/Audit
+client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
+client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
+client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
+client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
+client/src/context/AudioContext.jsx ← BackendContext
 client/src/context/AuthContext.jsx ← BackendContext
 client/src/context/BackendContext.jsx ← adapters/HttpBackendAdapter
 client/src/hooks/__tests__/useSketches.test.jsx ← useSketches, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
@@ -109,6 +114,42 @@ title: Arra Audit
 div#root
 ```
 
+### client/src/adapters/HttpBackendAdapter.js
+```
+export class HttpBackendAdapter  :8-172
+  constructor(baseURL)  :9-22
+  async login(email, password)  :25-28
+  async register(email, password, name)  :30-33
+  async getUserProfile()  :35-38
+  async updatePreferences(preferences)  :40-43
+  async updateProfile(profileData)  :45-48
+  async changePassword(oldPassword, newPassword)  :50-53
+  async deleteAccount()  :55-58
+```
+
+### client/src/adapters/InMemoryBackendAdapter.js
+```
+export class InMemoryBackendAdapter  :7-32
+  constructor()  :8-32
+```
+
+### client/src/components/ComparePlayer.jsx
+```
+function formatTime(seconds)  :19-25
+function readMeta(analysis)  :27-35
+function MetaRow({ label, ref, sk })  :37-47
+function DeltaBar({ delta })  :49-70
+function DeltaPanel({ refMeta, skMeta })  :72-95
+function getOrCreateAudioGraph(audio)  :103-124
+function releaseAudioGraph(audio)  :126-137
+function SketchEnergyCanvas({ audioRef })  :139-193
+function PlayIcon()  :195-197
+function PauseIcon()  :198-200
+function SampleDeltaCanvas({ sketch, song })  :207-255
+function paint(canvas, delta)  :257-277
+function Panel({ color, label, sublabel, time, duration, onScrub })  :515-539
+```
+
 ### client/src/components/ErrorBoundary.jsx
 ```
 class ErrorBoundary  :3-106
@@ -119,6 +160,18 @@ class ErrorBoundary  :3-106
   if(typeof window !== 'undefined')  :21-23
   render()  :26-105
   if(this.state.error)  :27-103
+```
+
+### client/src/components/__tests__/ComparePlayer.test.jsx
+```
+function StubAudioProvider({ children })  :12-15
+function makeWrapper(backend)  :17-25
+```
+
+### client/src/context/AudioContext.jsx
+```
+export const AudioProvider = ({ children }) =>  :8-149
+export const useAudio = () =>  :459-465
 ```
 
 ### client/src/context/AuthContext.jsx
@@ -219,6 +272,31 @@ export function getActiveBrand()  :139-141
 function isHex(s)  :80-82
 function mergeColors(overrides)  :84-91
 function mergeFonts(overrides)  :93-102
+```
+
+### client/src/ports/IBackendService.js
+```
+export class IBackendService  :7-75
+  async login(email, password)  :9-9
+  async register(email, password, name)  :10-10
+  async getUserProfile()  :11-11
+  async updatePreferences(preferences)  :12-12
+  async updateProfile(profileData)  :13-13
+  async changePassword(oldPassword, newPassword)  :14-14
+  async deleteAccount()  :15-15
+  async getSongs(filters)  :18-18
+```
+
+### client/src/utils/audioDelta.js
+```
+export async function decodeSketchEnvelope(url, { bars = DEFAULT_BARS, signal } = {})  :100-120
+export function referenceEnvelope(song, { bars = DEFAULT_BARS } = {})  :122-128
+export function computeDelta(sketchEnv, refEnv)  :130-132
+function clamp01(v)  :18-23
+function envelopeFromAudioBuffer(audioBuffer, bars)  :25-51
+function envelopeFromReferenceCurve(curve, bars)  :53-67
+function deltaEnvelope(sketchEnv, refEnv)  :69-84
+function getAudioContext()  :87-98
 ```
 
 ### client/src/utils/deepLinks.js
@@ -416,6 +494,12 @@ function formatLabel(key)  :4-14
 function _sanitizeSketch(s)  :40-61
 ```
 
+### server/routes/songs.js
+```
+function extractYouTubeId(url)  :13-25
+function _sanitizeSong(song)  :288-314
+```
+
 ### server/services/SketchService.js
 ```
 export class SketchService  :11-132
@@ -526,6 +610,26 @@ export class TemplateComposer  :24-121
   if(tastes)  :80-95
   if(taste && typeof taste === 'object')  :84-86
   if(entries)  :91-94
+```
+
+### server/services/ytDlpService.js
+```
+export class IYtDlpService  :24-27
+  async extractAudioUrl(_opts)  :25-25
+  async isAvailable()  :26-26
+export class YtDlpMockAdapter  :34-61
+  constructor({ available = true } = {})  :35-38
+  async isAvailable()  :39-39
+  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :40-60
+  if(!this.available)  :41-45
+  if(!youtubeId)  :46-50
+export class YtDlpSubprocessAdapter  :68-158
+  constructor({ binaryPath, timeoutMs = DEFAULT_TIMEOUT_MS, logger = console } = {})  :69-74
+  async isAvailable()  :76-89
+  async extractAudioUrl({ youtubeId, format = 'bestaudio' })  :91-157
+  if(!youtubeId)  :92-96
+  if(code !== 0)  :136-142
+  if(!url)  :144-149
 ```
 
 ## skills
