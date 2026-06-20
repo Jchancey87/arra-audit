@@ -1,32 +1,32 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3, 2.4 ✅ shipped. Quick-win key-mismatch fix ✅ shipped. Stem separation deferred (Demucs heavy dep). Ready for Phase 3 or 2.5.
-- **Status**: Session wrap-up. Phase 2.4 shipped (41 new tests, TechniqueNotebook +9.1 KB). 168/168 client + 104/104 server + Vite build clean. Main 613 KB.
-- **Post-wrap fixes**: webhook 401 hotfix + CLAP idle-evict + bigger-CLAP-model-on-sm_61 (all shipped 2026-06-20).
+- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3, 2.4 ✅ shipped. Carry-over sweep — 3 of 8 closed (sigmap hook, lazy modal, AC-06 live-region). 5 carry-overs still open.
+- **Status**: Carry-over sweep wrap. 179/179 client + 104/104 server + Vite clean. TechniqueNotebook 74→49 KB. Main 614 KB.
+- **Next**: 5 carry-overs remain (multi-select track blocks, arrangement export, Lighthouse CI, venv cleanup, Phase 2.3 v2 follow-ups). Phase 3 untouched.
 
-## ⏸️ Resume Point (checkpoint 2026-06-20, SESSION END)
-- **Done this session (4 features + 3 post-wrap fixes):**
-  1. **Quick-win: AuditDetail key-mismatch fix** (`0988f3b`)
-  2. **Phase 2.2 timestamped answers + scrollytelling** (`05a5dc6`)
-  3. **Phase 2.3 per-bookmark CLAP analysis** (`7c93e15`)
-  4. **Phase 2.4 liked-by-artist discovery** (`fb75fd8`)
-  5. **Hotfix: Analysis webhook 401** (covered in `fbfb892`) — stdlib `_load_repo_dotenv()` + `_callback_headers()` helper, all 4 callback `requests.post` sites updated. Unstuck song `6a3683c1a5b03c11405b4b09` ("Everything In Its Right Place") via direct Mongo write.
-  6. **feat: CLAP idle-evict** (`fbfb892`) — reaper thread + gc.collect + malloc_trim(0) + cuda.empty_cache, 60s default timeout, env-tunable `CLAP_IDLE_EVICT_SECONDS` + `CLAP_MODEL`. Also fixed pre-existing `return _clap_analyzer` orphan in `analyze_segment`.
-  7. **feat: `laion/larger_clap_music` on sm_61** (`166b147`) — checkpoint is in transformers `ClapModel` format (no laion-clap dep). Two Pascal workarounds: (a) `torch.backends.cudnn.enabled = False` (sm_61 missing from torch 2.6 cuDNN 9.x caps), (b) skip `.half()` (FP16 convs hang on cuDNN-disabled path). FP32 inference at ~0.4s/10s clip.
-- **Test totals**: client vitest 91→168 (+77). Server jest 67→104 (+37). Vite clean.
-- **Service state**: `arra-server` (25h uptime), `arra-client` (25h), `arra-analysis` (7m — restarted for the bigger-model work; `716.9mb` RSS at idle after eviction, GPU memory 0 MiB).
-- **Working tree noise**: `.github/copilot-instructions.md` + `.github/gemini-context.md` modified by sigmap regen hook (per Phase 2.4 tech debt — batch or disable the hook).
-- **Next (start here next session) — Phase 3 options**:
-  - **3.1 Daily "1 technique to remember" digest** (M-L/5d) — push notification + SM-2 spaced repetition. Adds `node-cron` + `web-push` deps, new `PushSubscription` model, new `INotificationService` port (`WebPushAdapter` + `SmtpAdapter`).
-  - **3.2 Offline-first audit drafts** (L/1.5w) — full PWA setup with `vite-plugin-pwa` + IndexedDB + sync queue. Big surface, high retention impact.
-  - **3.3 Mobile listening mode** (M/3d) — depends on 3.2. Stripped-down `/m/:songId` page with big play/bookmark/lens buttons.
-  - **Venv cleanup** (low pri): investigation installed laion-clap 1.1.4 + h5py/ftfy/braceexpand/webdataset/wandb/wget/torchlibrosa/pandas — all inert on the production path, can `pip uninstall` after verifying nothing else uses them. `torchvision` shim at `venv/lib/.../torchvision/` is the production safety net (real torchvision 0.21+ has C++ ABI breakage with torch 2.6).
-- **Stale tech debt**:
-  - Sigmap regen noise (4-6 commits/feature); recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script as first cleanup task before next feature
-  - Extract `TechniqueDetailModal` from `TechniqueNotebook` chunk (~10-15 KB win; TechniqueNotebook now 74 KB after 2.4)
-  - Extract `ArrangementTimelineWidget` (56.5 KB) into shared chunk via `manualChunks` — currently duplicated in AuditDetail + StudySessionWorkspace page chunks
+## ⏸️ Resume Point (checkpoint 2026-06-20, CARRY-OVER SWEEP)
+- **Done this carry-over session (3 commits):**
+  1. **chore: remove sigmap regen hook** (`2be1dd2`) — `rm .git/hooks/post-commit` + `npm run sigmap` script. Working tree now stays clean.
+  2. **perf(notebook): lazy-load TechniqueDetailModal** (`073cab0`) — TechniqueNotebook 74→49 KB (-25 KB, -34%). New 25.56 KB modal chunk on first click.
+  3. **feat(a11y): AC-06 live-region for playhead** (`7a2ed5f`) — `playheadAnnouncer.js` (hook + format helper + sr-only style) wired into `AuditTimeline.jsx` + `ArrangementTimelineWidget.jsx`. `AC_AUDIT.md` AC-06 promoted from "partial" to "fully implemented".
+- **Stale TODO discovered**: `ArrangementTimelineWidget` was already a shared chunk (route-level lazy in `2f991ae` shared it across `AuditDetail` + `StudySessionWorkspace`). Memory TODO was stale.
+- **Test totals**: client vitest 168→179 (+11 playheadAnnouncer). Server jest 104 (unchanged). Vite clean.
+- **Service state**: `arra-server` (running), `arra-client` (running), `arra-analysis` (running, idle-evicted). No restarts needed this session.
+- **Next (start here next session) — 5 carry-overs remain**:
+  - **Multi-select and bulk-delete track blocks** in `ArrangementTimelineWidget` (medium feature)
+  - **Export arrangement as image/PDF** in `ArrangementTimelineWidget` (medium feature)
+  - **Lighthouse CI gate + a11y/manual walkthrough** (Phase 4.1; AC_AUDIT.md AC-09 still 🟡)
+  - **Venv cleanup** (low pri): laion-clap 1.1.4 + h5py/ftfy/braceexpand/webdataset/wandb/wget/torchlibrosa/pandas all inert on production path. `torchvision` shim at `venv/lib/.../torchvision/` is the production safety net (real torchvision 0.21+ has C++ ABI breakage with torch 2.6).
   - **Phase 2.3 v2 follow-ups** (cheap, deferred): SSE push for bookmark-analysis status, segment TTL on `/tmp` cache, OpenAI embeddings for 2.4 (if results poor)
+- **Phase 3 options** (still untouched):
+  - **3.1 Daily "1 technique to remember" digest** (M-L/5d) — push notification + SM-2 spaced repetition. Adds `node-cron` + `web-push` deps, new `PushSubscription` model, new `INotificationService` port.
+  - **3.2 Offline-first audit drafts** (L/1.5w) — full PWA setup with `vite-plugin-pwa` + IndexedDB + sync queue.
+  - **3.3 Mobile listening mode** (M/3d) — depends on 3.2. Stripped-down `/m/:songId` page.
+- **Stale tech debt** (cleared this session):
+  - ~~Sigmap regen noise~~ — removed hook, tree stays clean
+  - ~~Extract `TechniqueDetailModal` from `TechniqueNotebook`~~ — done via React.lazy
+  - ~~Extract `ArrangementTimelineWidget` shared chunk~~ — already done via route-level lazy in `2f991ae` (memory was stale)
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -48,6 +48,9 @@
 - **Service encapsulation**: Routes never touch `.searchService`, `.songRepository`, or `_`-prefixed methods. All ad-hoc repo/search access moved behind public service methods (`AuditService.getSongContext`, `SongService.researchSong`, `templateComposer.fallbackTemplate`).
 - **IUserRepository split**: `verifyPassword`/`setPassword` live on `IUserRepository extends IRepository`, not on the generic `IRepository`. Production: `UserRepository(User)` in `MongooseRepository.js`. Tests: `InMemoryUserRepository` in `InMemoryRepository.js`. `server.js` uses `new UserRepository(User)`.
 - **ICompletionService port**: Replaces `IAIModelService` (kept as deprecated shim, removed in Phase 2). Two clean methods: `completeText(prompt) → string` and `completeJson(prompt) → object` (adapters parse JSON internally). Production: `OpenAIAdapter`. Tests: `MockAIAdapter`. Migrated consumers: `TemplateComposer`, `SongService`, `CurriculumService`, `TasteService`. **v2.1 update**: old shim removed in this commit. `server/ports/IAIModelService.js` deleted; all consumers are on `ICompletionService` directly.
+- **Playhead live-region (AC-06)**: `client/src/utils/playheadAnnouncer.js` — `usePlayheadAnnouncer(currentTime, duration, { intervalMs=5000 })` returns a throttled verbose string ("Playhead at 1 minute 23 seconds of 3 minutes 20 seconds", singular/plural aware via `formatPlayheadAnnouncement`). Hook uses refs + single `setInterval`; `setState` skipped when text identical (no re-render spam). `playheadSrOnlyStyle` is the standard clip-rect sr-only object (position absolute, 1×1, overflow hidden, clip rect, white-space nowrap, border 0) — no global CSS pollution. Wired into `AuditTimeline.jsx` (sr-only div with `role="status" aria-live="polite" aria-atomic="true"` after the visible time readout) and `ArrangementTimelineWidget.jsx` (new visible playhead pill in toolbar with `aria-hidden="true"` + sr-only live region). **Tests**: 6 format + 4 hook (initial, throttle-skip, tick-update, identical-tick-skip) + 1 style-shape = 11 vitest in `playheadAnnouncer.test.js`. AC_AUDIT.md AC-06 promoted from "partial — see notes" to "fully implemented". Only AC-09 (Lighthouse) remains outstanding. Throttle default 5s — for active-scrub announcements, add a `seekAnnouncement` separate state fired from `onSeek` callback if user complaints arise.
+- **Sigmap hook removal (2026-06-20)**: `rm .git/hooks/post-commit` (was running `npx sigmap --generate` post-commit, producing 4-6 noise commits per feature on `.github/context-cold.md` + `copilot-instructions.md` + `gemini-context.md`). Added `npm run sigmap` to root `package.json` for on-demand regen. Working tree now stays clean. Committed as `2be1dd2`.
+- **Lazy TechniqueDetailModal (2026-06-20)**: `client/src/pages/TechniqueNotebook.jsx` now uses `React.lazy(() => import('../components/TechniqueDetailModal'))` + `<Suspense fallback={null}>`. The modal itself returns `null` when `!isOpen || !tech`, so the null fallback is invisible until first click. Bundle impact: TechniqueNotebook 74.23→49.14 KB (**-25 KB, -34%**), new `TechniqueDetailModal` chunk 25.56 KB (4.9 KB gzipped) only loaded on first click. Committed as `073cab0`.
 - **Promote-to-technique (Phase 2.1)**: hover any sentence in `ResearchSummaryRenderer` → orange `+` button → `PromoteToTechniqueModal` pre-fills description + heuristic lens guess. `client/src/utils/lensGuess.js` — `LENS_KEYWORDS` map for rhythm/texture/harmony/arrangement, `guessLens(text, { minScore })` returns highest-scoring lens with deterministic tiebreak (rhythm < texture < harmony < arrangement) or `'arrangement'` fallback. `client/src/utils/splitSentences.js` — splits on `[.!?]\s+(?=[A-Z0-9"'(\[])` and `\n{2,}`; handles CRLF, decimal numbers, non-string input. `useTechniques(filters, opts)` exposes `addFromSentence(text, song, { lensHint, confidence=3, tags, notes })` — runs lens heuristic, builds payload `{ description, lens, songId, artist, confidence, tags?, notes? }`, delegates to `add()`. `client/src/components/PromoteToTechniqueModal.jsx` — sentence-pre-fill + 4-lens segmented control (rhythm `#f97316`, texture `#14b8a6`, harmony `#8b5cf6`, arrangement `#ec4899`) + 1–5 confidence slider + tags/notes + Escape/click-outside close + inline error. `ResearchSummaryRenderer` adds `song` + `onPromote` props (both optional, backward-compatible); internal modal opens on sentence click. Wired in `App.jsx` (player deck), `AuditCreate.jsx` (research preview), `AuditDetail.jsx` (review screen). **Tests**: 9 lensGuess + 7 splitSentences + 5 useTechniques (heuristic, lensHint override, tags/notes, empty throws, null song) + 8 PromoteToTechniqueModal (null-when-closed, pre-fill, lens toggle, save calls onPromote, error path, Escape, Cancel, validation) + 5 ResearchSummaryRenderer (no-promo fallback, button-per-sentence, modal-opens, save, null on empty). 89/89 client vitest. Main 1047→1069 KB (+22 KB).
 - **Route code-split (carry-over `2f991ae`)**: all 11 authenticated page components in `App.jsx` wrapped in `React.lazy` + `<Suspense fallback={<PageFallback />}>`: `Dashboard`, `ImportSong`, `AuditCreate`, `AuditForm`, `AuditDetail`, `SketchCompare`, `TechniqueNotebook`, `StudyPlannerDashboard`, `StudySessionWorkspace`, `Trash`, `Settings`. `Login` stays eager (small, public, first-paint). `client/src/components/PageFallback.jsx` — bitwig-styled spinner with `role="status" aria-live="polite"` + inline `@keyframes` (no global CSS); 2 tests. **Result**: main 1069→613 KB (-43%, gzip 250→178 KB); page chunks: `TechniqueNotebook` 65 KB, `ArrangementTimelineWidget` 56.5 KB, `Dashboard` 47 KB, `AuditDetail` 47 KB, `StudyPlannerDashboard` 44 KB, `Settings` 40 KB, `AuditForm` 38 KB, `StudySessionWorkspace` 38 KB, `SketchCompare` 31 KB, `Trash` 30 KB, `AuditCreate` 16 KB. Vite build clean, 89/89 vitest pass.
 - **Client data hooks (Phase 0.4)**: `client/src/hooks/` holds 7 deep-module hooks wrapping `IBackendService`: `useSong`, `useAudits`, `useAudit`, `useTechniques`, `useStudyProgress`, `useCurricula`, `useTasteProfiles`. Each provides `{ state, loading, error, refetch, action… }`. All use `useBackend()` to access the adapter (which works with both `HttpBackendAdapter` prod and `InMemoryBackendAdapter` test). AuditForm/TechniqueNotebook refactor to use the hooks is a follow-up task — the layer is now in place.
@@ -59,13 +62,13 @@
 - [x] Time signature selector (3/4, 6/8) in ArrangementTimelineWidget.
 - [x] Horizontal zoom control (PX_PER_SEC slider) in timeline.
 - [x] Code-split Dashboard + remaining pages to drop main bundle below 800KB. **Done (`2f991ae`)**: main 1069→613 KB (-43%), 11 lazy page chunks, PageFallback skeleton + 2 tests.
+- [x] Remove `.git/hooks/post-commit` sigmap regen. **Done (`2be1dd2`)**: hook removed, `npm run sigmap` added.
+- [x] Extract `TechniqueDetailModal` from TechniqueNotebook via React.lazy. **Done (`073cab0`)**: TechniqueNotebook 74→49 KB, modal 25.56 KB lazy chunk.
+- [x] Live-region for playhead time updates (AC-06 follow-up). **Done (`7a2ed5f`)**: `playheadAnnouncer.js` + wired in `AuditTimeline.jsx` + `ArrangementTimelineWidget.jsx`. AC-06 promoted in AC_AUDIT.md.
+- [x] Extract `ArrangementTimelineWidget` (56.5 KB chunk) into shared chunk via `manualChunks` — **STALE TODO**: Vite already auto-shares it across AuditDetail + StudySessionWorkspace via route-level lazy in `2f991ae`. No `manualChunks` change needed.
 - [ ] Multi-select and bulk-delete track blocks.
 - [ ] Export arrangement as image/PDF.
-- [ ] Lighthouse CI gate + a11y/manual walkthrough (Phase 4.1 follow-up; AC_AUDIT.md created).
-- [ ] Live-region for playhead time updates (AC-06 follow-up).
-- [ ] Remove `.git/hooks/post-commit` sigmap regen (causes 4-6 noise commits per feature; batch or disable).
-- [ ] Extract `ArrangementTimelineWidget` (56.5 KB chunk) into shared chunk via `manualChunks` — only loaded by AuditDetail + StudySessionWorkspace, currently duplicated in their page chunks.
-- [ ] Extract `TechniqueDetailModal` (in TechniqueNotebook chunk, 65 KB) so it's only loaded when a technique is clicked, not on the notebook open.
+- [ ] Lighthouse CI gate + a11y/manual walkthrough (Phase 4.1 follow-up; AC_AUDIT.md created; AC-09 still 🟡).
 
 ## 🚧 Phase 1 v2 follow-ups (1.1 / 1.2 / 1.3)
 **Status (2026-06-20)**: ✅ All 15 v2 follow-ups shipped. See `devlogs.md` "## 2026-06-20 — Phase 1 v2 Follow-ups Sweep" for the full inventory and per-fix status.
@@ -76,7 +79,7 @@
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-20 | Carry-over: code-split App.jsx routes — 11 pages via React.lazy + Suspense(PageFallback). Main 1069→613KB (-43%, gzip 250→178KB). 2 PageFallback tests. 89/89 client. | `2f991ae` |
+| 2026-06-20 | Carry-over sweep: 3 of 8 carry-overs closed — sigmap hook removal (2be1dd2), lazy-load TechniqueDetailModal (073cab0, TechniqueNotebook 74→49KB -34%), AC-06 live-region for playhead (7a2ed5f, playheadAnnouncer.js + 11 tests). 5 carry-overs remain. 179/179 client + 104/104 server. Stale TODO discovered: ArrangementTimelineWidget was already a shared chunk. | `7a2ed5f` |
 | 2026-06-20 | Phase 2.2: timestamped answers + scrollytelling — responseShape normalizer, useMostVisible+useScrollytellingSeek hooks, LensPanel tag button + clear ×, AuditDetail click-to-seek pills + scrollytelling toggle (debounced 350ms, minJump 6s). 51 new tests. 142/142 client, AuditDetail 47→51.8 KB. | `05a5dc6` |
 | 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — AuditDetail.jsx reads lens-${lens}-${idx} (matches LensPanel write side); 4 regression tests. 146/146 client. | `0988f3b` |
 | 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python analyze_segment + ClapAnalyzer.analyze_features_from_array + POST /analyze-segment (GPU semaphore 2) + Audit bookmarkSchema.analysis + IBookmarkAnalysisService port + CLAPSegmentAdapter + MockBookmarkAnalysisAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes (auto-enqueue on add, POST analyze, GET analysis) + IBackendService port + Http/InMemory adapters + BookmarkAnalysisTags component on AuditDetail bookmark cards. 22 new tests (10+8 + 4 contract). 154/154 client, 77/77 server, AuditDetail 51.8→58.1 KB. | `7c93e15` |

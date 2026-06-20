@@ -1918,3 +1918,23 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
 
 
 
+
+## 2026-06-20 — Carry-Over Sweep: Sigmap Hook + Lazy Modal + AC-06 Live-Region
+
+- **Context**: User asked to tackle carry-over to-dos. Selected: tech-debt sweep (3 quick wins) + live-region for playhead. Cleared 3 of 8 open carry-overs from `agent_memory.md` lines 58-68.
+- **Three shipped commits**:
+  1. **chore: remove sigmap regen hook** (`2be1dd2`) — `rm .git/hooks/post-commit` (was running `npx sigmap --generate` on every commit, producing 4-6 noise commits/feature). Added `npm run sigmap` to root `package.json` so regen is on-demand. Cleaned 3 dirty `.github/*.md` files (the regen noise).
+  2. **perf(notebook): lazy-load TechniqueDetailModal** (`073cab0`) — `TechniqueNotebook.jsx` was statically importing the 449-line modal, inflating the page chunk to 74 KB. Replaced with `React.lazy(() => import(...))` + `<Suspense fallback={null}>` (modal returns null when `isOpen=false`, so the null fallback is invisible until the user actually clicks a technique). New 25.56 KB chunk loaded on first click. Page chunk: 74.23→49.14 KB (**-25 KB, -34%**).
+  3. **feat(a11y): AC-06 live-region for playhead** (`7a2ed5f`) — playhead was visible to sighted users but invisible to AT. Added `client/src/utils/playheadAnnouncer.js` with `usePlayheadAnnouncer(currentTime, duration, { intervalMs=5000 })` hook (refs + single setInterval, skips setState on identical text) + `formatPlayheadAnnouncement(t, d)` helper ("Playhead at 1 minute 23 seconds of 3 minutes 20 seconds", singular/plural aware) + exported `playheadSrOnlyStyle` (clip-rect trick, no global CSS pollution). Wired into `AuditTimeline.jsx` (sr-only div after existing visible readout) and `ArrangementTimelineWidget.jsx` (new visible playhead pill in toolbar + sr-only live region). `AC_AUDIT.md` updated: AC-06 promoted from "partial" to "fully implemented" (only AC-09 Lighthouse now outstanding).
+- **Stale TODO discovery**: while bundling, checked `ArrangementTimelineWidget` chunk — Vite already shares it between `AuditDetail` + `StudySessionWorkspace` automatically (one `ArrangementTimelineWidget-*.js` chunk, 56.5 KB, not duplicated). Memory's "extract ArrangementTimelineWidget into shared chunk" TODO was already done by the route-level lazy work in `2f991ae`. Marked stale in `agent_memory.md`.
+- **State at wrap**:
+  - 179/179 client vitest (was 168, +11 new in `playheadAnnouncer.test.js`).
+  - 104/104 server jest (unchanged).
+  - Vite build clean. Main 614 KB unchanged (the announcer util is tiny and tree-shakeable).
+  - Working tree clean (no sigmap regen noise since the hook is gone).
+- **Files modified**: `package.json`, `client/src/pages/TechniqueNotebook.jsx`, `client/src/utils/playheadAnnouncer.js` (new), `client/src/utils/__tests__/playheadAnnouncer.test.js` (new), `client/src/components/audit/AuditTimeline.jsx`, `client/src/components/ArrangementTimelineWidget.jsx`, `client/UI/AC_AUDIT.md`, `agent_memory.md`, `devlogs.md` (this entry).
+- **Risks + follow-ups**:
+  - **Throttled announcement vs. active seek**: if the user scrubs to a new position, the live region only re-announces at the next 5s tick. Acceptable for AC-06; if user complaints arise, add a `seekAnnouncement` separate state that fires once per seek via the existing `onSeek` callback in both timeline components.
+  - **Playhead pill in `ArrangementTimelineWidget`** is `aria-hidden` (the live region handles the AT announcement), so it's purely cosmetic. Removing it would lose zero a11y value; left in for parity with `AuditTimeline` visible readout.
+  - **Still-open carry-overs** (5 of 8 remain): multi-select track blocks, export arrangement as image/PDF, Lighthouse CI gate + a11y walkthrough (Phase 4.1), venv cleanup, Phase 2.3 v2 follow-ups (SSE push, segment TTL, OpenAI embeddings).
+  - **Sigmap context files** are now stale (no longer auto-regen on commit). Run `npm run sigmap` after any architecture-level change.
