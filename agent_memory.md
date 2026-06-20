@@ -1,14 +1,14 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value shipped (2.1, 2.2, 2.3, 2.4). 2.5 stem separation deferred. All carry-overs cleared. Next: Phase 3 or polish.
-- **Status**: 234/234 client + 137/137 server + Vite clean. Main 614 KB. All 3 PM2 services online.
+- **Goal**: Refactored track analysis page to hide unconfident metrics (<95%), implemented Tavily cross-verification with AI metadata extraction, and made timeline lanes toggleable.
+- **Status**: 283/283 client + 139/139 server + Vite clean. Build clean.
 - **Next**: Phase 3 (3.1 daily digest / 3.2 offline-first PWA / 3.3 mobile listening) or polish (Lighthouse real scores, venv recreation, SSE→Redis pub/sub, PDF export perf).
 
-## Resume Point (checkpoint 2026-06-20 — CARRY-OVER SWEEP #2 COMPLETE, 0 open)
-- 5 commits closed all carry-overs: venv cleanup, TTL purge (`5cc91e3`), OpenAI embeddings (`017cc0e`), SSE push (`0fc8965`), multi-select+bulk-delete (`2ae313b`), export PNG+PDF (`9de48fe`), Lighthouse CI (`e6b0537`). Full per-commit detail in `devlogs.md`.
-- Test totals: client 179→234 (+55), server 104→137 (+33). Vite clean. Main 614 KB unchanged.
-- Service state: `arra-server` (SSE route wired), `arra-analysis` (576 MB RSS post-venv-cleanup), `arra-client` (26h+ uptime, no restart needed). All online.
+## Resume Point (checkpoint 2026-06-20 — TRACK ANALYSIS REFACTOR SHIPPED)
+- Commits closed all track analysis refactor needs: conditional modules display, verify API + hook, toggleable timeline lanes, and vertical grid beat overlay.
+- Test totals: client 283/283, server 139/139. Vite clean.
+- Service state: `arra-server` (verify-analysis endpoint active), `arra-analysis`, `arra-client`. All online.
 
 ## Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: `controls: 1` + `origin` in `playerVars`. Never `pointer-events: none` on iframe containers (blocks autoplay unlock gesture).
@@ -43,7 +43,8 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-20 | Major AuditTimeline refactor: fixed playhead (px→%), replaced fake SVG waveform with energy_curve bar chart, removed redundant Downbeats lane, global playhead across all lanes, KeyRegions from sectional_key_candidates with beat-estimated timing, Sections now show user arrangement data via new `arrangementSections` prop, scrub tooltip offset fix. 48 new tests (282 total). Build clean. | `HEAD` |
+| 2026-06-20 | Refactored track analysis to conditionally hide unconfident metrics (<95%), added Tavily cross-verification with AI metadata extraction, and made timeline lanes toggleable. 1 new client test (283 total). All tests pass. | `573c1e0` |
+| 2026-06-20 | Major AuditTimeline refactor: fixed playhead (px→%), replaced fake SVG waveform with energy_curve bar chart, removed redundant Downbeats lane, global playhead across all lanes, KeyRegions from sectional_key_candidates with beat-estimated timing, Sections now show user arrangement data via new `arrangementSections` prop, scrub tooltip offset fix. 48 new tests (282 total). Build clean. | `4888e2f` |
 | 2026-06-20 | Phase 2.2: timestamped answers + scrollytelling — responseShape normalizer, useMostVisible+useScrollytellingSeek, LensPanel tag button, AuditDetail click-to-seek pills + toggle (debounced 350ms, minJump 6s). 51 new tests. AuditDetail 47→51.8 KB. | `05a5dc6` |
 | 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — `lens-${lens}-${idx}` read/write alignment; 4 regression tests. | `0988f3b` |
 | 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python `analyze_segment` + `analyze_features_from_array` + POST /analyze-segment (GPU sem 2) + bookmarkSchema.analysis + IBookmarkAnalysisService + CLAPSegmentAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes + BookmarkAnalysisTags component. 22 new tests. AuditDetail 51.8→58.1 KB. | `7c93e15` |

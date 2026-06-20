@@ -8,6 +8,21 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Refactor Track Analysis page, add Tavily cross-verification, and make timeline lanes toggleable
+
+- **Context**: Refactored the track analysis modules and the timeline lanes to address user request on visual distraction/regression and unconfident metrics.
+- **Track Analysis Modules**:
+  - Exposed a targeted Tavily search cross-verification pipeline (`crossVerifyAnalysis`) on the backend.
+  - When the GPU analysis completes, or manually requested via "Verify with Tavily", query Tavily for targeted musical metadata (BPM, key, scale, meter) and use the LLM to extract verified values.
+  - Cross-verify Tavily extraction with GPU analysis: promote confidence to 0.95 and mark as `cross_verified` if they agree, or override low-confidence values with Tavily's verified metadata.
+  - Hide BPM, Key, and Meter modules from the UI by default when their confidence is below 95% and not cross-verified or manually overridden, rendering a clear verification alert/action card instead.
+- **Audit Timeline**:
+  - Converted Beat Grid, Key Regions, and Energy lanes into toggleable overlays or optional lanes (hidden by default to avoid visual clutter and distraction).
+  - Added "Waveform", "Beats", and "Keys" quick toggles in the timeline header.
+  - Reinvented the Beat Grid UI: when "Beats" is checked, render faint vertical dashed/dotted grid lines spanning *behind* all timeline lanes (Sections/Markers) as a background reference, rather than a separate horizontal lane of ticks.
+  - Reinvented the Energy/Waveform UI: render a subtle waveform backdrop directly inside the top Playhead/Seek scrubber lane, preserving vertical space while offering visual cues.
+  - Defaulted all optional lanes to `false` in production, but enabled them in `baseProps` for tests to maintain backward compatibility. All 49 client unit tests and 139 server Jest tests pass successfully.
+
 ### 2026-06-19: Audit Panel Phase 3 + 4 — Polish, A11y, Perf, Tailwind Removal, Responsive
 
 - **Context**: Continue from `HANDOFF_AUDIT_PANEL_PHASE_3_4.md` (e814040). All 9 line items shipped in single session.
