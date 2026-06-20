@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { splitSentences } from '../utils/splitSentences.js';
+import { guessLens } from '../utils/lensGuess.js';
+import PromoteToTechniqueModal from './PromoteToTechniqueModal.jsx';
 
 // Clean SVG icons matching navigator/DAW system styling
 const ICONS = {
@@ -42,6 +45,11 @@ const ICONS = {
       <line x1="3" y1="15" x2="21" y2="15"></line>
       <line x1="9" y1="9" x2="9" y2="21"></line>
       <line x1="15" y1="9" x2="15" y2="21"></line>
+    </svg>
+  ),
+  plus: (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 5v14M5 12h14" />
     </svg>
   ),
 };
@@ -89,52 +97,152 @@ export const parseSummaryText = (text) => {
   return parsed;
 };
 
-const ResearchSummaryRenderer = ({ summary, compact = false }) => {
+const SentenceSpan = ({ sentence, compact, canPromote, onPromote, dataTestid }) => (
+  <span
+    data-testid={dataTestid}
+    data-sentence
+    style={{
+      position: 'relative',
+      transition: 'background 120ms ease',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.background = 'rgba(255, 102, 0, 0.08)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.background = 'transparent';
+    }}
+  >
+    {sentence}
+    {canPromote && (
+      <button
+        type="button"
+        aria-label="Promote sentence to technique"
+        data-testid="promote-sentence-button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPromote?.(sentence);
+        }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: compact ? '14px' : '16px',
+          height: compact ? '14px' : '16px',
+          marginLeft: '4px',
+          padding: 0,
+          background: '#ff6600',
+          color: '#0c0c0e',
+          border: 'none',
+          borderRadius: '2px',
+          cursor: 'pointer',
+          verticalAlign: 'middle',
+          opacity: 0.85,
+        }}
+      >
+        {ICONS.plus}
+      </button>
+    )}
+  </span>
+);
+
+const ResearchSummaryRenderer = ({
+  summary,
+  compact = false,
+  song = null,
+  onPromote = null,
+  onPromoted = null,
+}) => {
   const parsed = parseSummaryText(summary);
+  const [activeSentence, setActiveSentence] = useState(null);
 
   if (parsed.length === 0) return null;
 
+  const canPromote = Boolean(song && onPromote);
+  const handlePromoteClick = (sentence) => setActiveSentence(sentence);
+  const handleClose = () => setActiveSentence(null);
+  const handleSubmit = async (formData) => {
+    const created = await onPromote?.(formData);
+    if (created) {
+      onPromoted?.(created);
+    }
+    return created;
+  };
+  const initialLens = activeSentence ? guessLens(activeSentence) : 'arrangement';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '12px' : '15px' }}>
-      {parsed.map((section, idx) => (
-        <div
-          key={idx}
-          style={{
-            background: compact ? 'transparent' : '#0c0c0e',
-            border: compact ? 'none' : '1px solid rgba(255, 255, 255, 0.05)',
-            borderLeft: compact ? 'none' : '3px solid #ff6600',
-            padding: compact ? '0' : '15px',
-            borderRadius: '2px',
-          }}
-        >
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#ff6600',
-            fontFamily: 'Roboto Mono',
-            fontSize: compact ? '9px' : '11px',
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            marginBottom: compact ? '4px' : '8px'
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-              {ICONS[section.key] || ICONS.overview}
-            </span>
-            <span>{section.title}</span>
+      {parsed.map((section, idx) => {
+        const sentences = splitSentences(section.content);
+        return (
+          <div
+            key={idx}
+            style={{
+              background: compact ? 'transparent' : '#0c0c0e',
+              border: compact ? 'none' : '1px solid rgba(255, 255, 255, 0.05)',
+              borderLeft: compact ? 'none' : '3px solid #ff6600',
+              padding: compact ? '0' : '15px',
+              borderRadius: '2px',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#ff6600',
+              fontFamily: 'Roboto Mono',
+              fontSize: compact ? '9px' : '11px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              marginBottom: compact ? '4px' : '8px'
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {ICONS[section.key] || ICONS.overview}
+              </span>
+              <span>{section.title}</span>
+            </div>
+            <p
+              data-testid={`section-content-${section.key}`}
+              style={{
+                fontSize: compact ? '11px' : '12px',
+                lineHeight: '1.6',
+                color: compact ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.8)',
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {sentences.length > 0 ? (
+                sentences.map((sentence, sIdx) => (
+                  <React.Fragment key={sIdx}>
+                    {sIdx > 0 && ' '}
+                    <SentenceSpan
+                      sentence={sentence}
+                      compact={compact}
+                      canPromote={canPromote}
+                      onPromote={handlePromoteClick}
+                      dataTestid={`sentence-${section.key}-${sIdx}`}
+                    />
+                  </React.Fragment>
+                ))
+              ) : (
+                section.content
+              )}
+            </p>
           </div>
-          <p style={{
-            fontSize: compact ? '11px' : '12px',
-            lineHeight: '1.6',
-            color: compact ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.8)',
-            margin: 0,
-            whiteSpace: 'pre-wrap'
-          }}>
-            {section.content}
-          </p>
-        </div>
-      ))}
+        );
+      })}
+
+      {canPromote && (
+        <PromoteToTechniqueModal
+          isOpen={Boolean(activeSentence)}
+          onClose={handleClose}
+          sentence={activeSentence || ''}
+          song={song}
+          initialLens={initialLens}
+          lensSource="heuristic"
+          onPromote={handleSubmit}
+        />
+      )}
     </div>
   );
 };

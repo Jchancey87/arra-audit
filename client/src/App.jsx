@@ -17,6 +17,7 @@ import StudySessionWorkspace from './pages/StudySessionWorkspace';
 import SketchCompare from './pages/SketchCompare';
 import ResearchSummaryRenderer from './components/ResearchSummaryRenderer';
 import ErrorBoundary from './components/ErrorBoundary';
+import { useTechniques } from './hooks/useTechniques.js';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -76,6 +77,8 @@ const AppContent = () => {
   
   // Local state for bookmark notes inside bottom panel
   const [deckBookmarkNote, setDeckBookmarkNote] = useState('');
+
+  const { addFromSentence } = useTechniques();
 
   const handleScrub = (e) => {
     if (!duration) return;
@@ -482,7 +485,12 @@ const AppContent = () => {
                           <div style={{ fontFamily: 'Roboto Mono', fontSize: '9px', color: 'rgba(255,255,255,0.3)', marginBottom: '6px' }}>
                             PRODUCTION NOTE
                           </div>
-                          <ResearchSummaryRenderer summary={activeSong.researchSummary.summary} compact={true} />
+                          <ResearchSummaryRenderer
+                            summary={activeSong.researchSummary.summary}
+                            compact={true}
+                            song={activeSong}
+                            onPromote={addFromSentence}
+                          />
                         </div>
                       ) : (
                         <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginBottom: '15px' }}>

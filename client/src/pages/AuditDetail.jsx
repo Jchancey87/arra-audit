@@ -8,6 +8,7 @@ import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 import ShareLinkButton from '../components/ShareLinkButton';
 import ExportPdfButton from '../components/ExportPdfButton';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
+import { useTechniques } from '../hooks/useTechniques.js';
 import { recordLinkOpen } from '../utils/shareAnalytics';
 
 
@@ -16,6 +17,7 @@ const AuditDetail = () => {
   const navigate = useNavigate();
   const backend = useBackend();
   const { timestampSeconds: deepLinkTs, bookmarkId: deepLinkBookmarkId } = useDeepLinkParams();
+  const { addFromSentence } = useTechniques();
 
   const {
     loadSong,
@@ -524,7 +526,11 @@ const AuditDetail = () => {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
               Song Research Intelligence
             </h2>
-            <ResearchSummaryRenderer summary={song.researchSummary.summary} />
+            <ResearchSummaryRenderer
+              summary={song.researchSummary.summary}
+              song={song}
+              onPromote={addFromSentence}
+            />
 
             {song.researchSummary.results && song.researchSummary.results.length > 0 && (
               <div style={{ marginTop: '12px' }}>

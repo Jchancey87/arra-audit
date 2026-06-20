@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBackend } from '../context/BackendContext.jsx';
+import { guessLens } from '../utils/lensGuess.js';
 
 /**
  * useTechniques(filters, { skip }) - List + CRUD hook for the technique notebook.
@@ -64,6 +65,28 @@ export function useTechniques(filters = {}, { skip = false } = {}) {
     [backend, refetch]
   );
 
+  const addFromSentence = useCallback(
+    async (text, song, { lensHint, confidence = 3, tags, notes } = {}) => {
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        throw new Error('Cannot promote an empty sentence to a technique.');
+      }
+      const lens = lensHint || guessLens(text);
+      const songId = song?._id || song?.id || song?.songId;
+      const artist = song?.artist || song?.artistName || song?.channelTitle;
+      const payload = {
+        description: text.trim(),
+        lens,
+        songId,
+        artist,
+        confidence,
+      };
+      if (tags && tags.length) payload.tags = tags;
+      if (notes && notes.trim()) payload.notes = notes.trim();
+      return add(payload);
+    },
+    [add]
+  );
+
   const update = useCallback(
     async (id, updates) => {
       const updated = await backend.updateTechnique(id, updates);
@@ -83,5 +106,5 @@ export function useTechniques(filters = {}, { skip = false } = {}) {
     [backend]
   );
 
-  return { techniques, grouped, loading, error, refetch, add, update, remove };
+  return { techniques, grouped, loading, error, refetch, add, addFromSentence, update, remove };
 }
