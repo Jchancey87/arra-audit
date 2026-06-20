@@ -108,6 +108,11 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async verifySongAnalysis(songId) {
+    const res = await this.api.post(`/songs/${songId}/verify-analysis`);
+    return res.data;
+  }
+
   async saveAudioOverrides(songId, overrides) {
     const res = await this.api.put(`/songs/${songId}/audio-overrides`, overrides);
     return res.data;

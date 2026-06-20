@@ -398,13 +398,10 @@ const styles = `
     }
   }
 
-  /* Timeline lane height — reduce on mobile (28px from 40px) */
-  .audit-lane-waveform { height: 40px; border-bottom: 1px solid var(--border-subtle); }
-  .audit-lane-beat { height: 16px; border-bottom: 1px solid var(--border-subtle); }
-  .audit-lane-section { border-bottom: 1px solid var(--border-subtle); }
-  .audit-lane-marker { height: 12px; position: relative; }
-  @media (max-width: 767px) {
-    .audit-lane-waveform { height: 28px; }
+  /* Timeline lane container — ensure no unwanted overflow clips the global playhead */
+  .audit-timeline-lanes {
+    position: relative;
+    overflow: hidden;
   }
 
   /* Tab bar — scrollable on overflow */

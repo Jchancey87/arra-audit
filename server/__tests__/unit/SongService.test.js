@@ -154,4 +154,82 @@ describe('SongService Unit Tests', () => {
       expect(preview.techniqueCount).toBe(0);
     });
   });
+
+  describe('crossVerifyAnalysis', () => {
+    let mockAiService;
+    let localSongService;
+
+    beforeEach(() => {
+      mockSearchService = {
+        search: jest.fn().mockResolvedValue({
+          results: [{ title: 'Web Page', content: 'The tempo is 120 bpm in the key of G minor with 4/4 meter.' }]
+        })
+      };
+      mockAiService = {
+        completeJson: jest.fn().mockResolvedValue({
+          tempo_bpm: 120,
+          key: 'G',
+          scale: 'minor',
+          estimated_meter: '4/4'
+        })
+      };
+      localSongService = new SongService(songRepository, mockSearchService, mockAiService);
+    });
+
+    test('should agree on same values and promote confidence to 0.95 and mark cross_verified', async () => {
+      const song = await songRepository.create({
+        title: 'Song',
+        artistName: 'Artist',
+        userId: 'user-1',
+        audioAnalysisStatus: 'success',
+        audioAnalysis: {
+          tempo_bpm: 120.2,
+          tempo_confidence: 0.7,
+          key: 'G',
+          scale: 'minor',
+          key_confidence: 0.6,
+          estimated_meter: '4/4',
+          meter_confidence: 0.8
+        }
+      });
+
+      const updated = await localSongService.crossVerifyAnalysis(song._id, 'user-1');
+      expect(updated.audioAnalysis.tempo_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.tempo_cross_verified).toBe(true);
+      expect(updated.audioAnalysis.key_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.key_cross_verified).toBe(true);
+      expect(updated.audioAnalysis.meter_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.meter_cross_verified).toBe(true);
+    });
+
+    test('should override low confidence values with Tavily values and mark cross_verified', async () => {
+      const song = await songRepository.create({
+        title: 'Song',
+        artistName: 'Artist',
+        userId: 'user-1',
+        audioAnalysisStatus: 'success',
+        audioAnalysis: {
+          tempo_bpm: 80,
+          tempo_confidence: 0.4,
+          key: 'C',
+          scale: 'major',
+          key_confidence: 0.3,
+          estimated_meter: '3/4',
+          meter_confidence: 0.5
+        }
+      });
+
+      const updated = await localSongService.crossVerifyAnalysis(song._id, 'user-1');
+      expect(updated.audioAnalysis.tempo_bpm).toBe(120);
+      expect(updated.audioAnalysis.tempo_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.tempo_cross_verified).toBe(true);
+      expect(updated.audioAnalysis.key).toBe('G');
+      expect(updated.audioAnalysis.scale).toBe('minor');
+      expect(updated.audioAnalysis.key_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.key_cross_verified).toBe(true);
+      expect(updated.audioAnalysis.estimated_meter).toBe('4/4');
+      expect(updated.audioAnalysis.meter_confidence).toBe(0.95);
+      expect(updated.audioAnalysis.meter_cross_verified).toBe(true);
+    });
+  });
 });

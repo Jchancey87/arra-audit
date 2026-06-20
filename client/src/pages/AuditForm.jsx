@@ -68,7 +68,7 @@ const AuditForm = () => {
 
   const songId = audit?.songId?._id ?? audit?.songId;
   const {
-    song, refetch: refetchSong, triggerAnalysis, saveOverrides,
+    song, refetch: refetchSong, triggerAnalysis, verifyAnalysis, saveOverrides,
   } = useSong(songId, { skip: !songId });
 
   const {
@@ -201,6 +201,14 @@ const AuditForm = () => {
     }
   }, [audit?.lensSelection]);
 
+  // Parse user-created arrangement timeline sections for the timeline display
+  const arrangementSections = useMemo(() => {
+    const raw = responses['arrangement-timeline'];
+    if (!raw) return [];
+    try { return typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+    catch { return []; }
+  }, [responses]);
+
   // Arrangement lens availability (gates the M key shortcut)
   const hasArrangementLens = useMemo(() => {
     if (!audit) return false;
@@ -321,6 +329,17 @@ const AuditForm = () => {
     }
   }, [songId, triggerAnalysis, flash]);
 
+  // ── Trigger Tavily cross-verification ────────────────────────────────────
+  const handleVerifyAnalysis = useCallback(async () => {
+    if (!songId) return;
+    try {
+      await verifyAnalysis();
+      flash('✓ Tavily cross-verification completed');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to cross-verify analysis');
+    }
+  }, [songId, verifyAnalysis, flash]);
+
   // ── Global keyboard shortcuts + completion check (extracted custom hooks) ─
   useAuditShortcuts({ togglePlay, hasArrangementLens, currentTime, onAddMarker: handleAddMarker });
   const { canComplete, completionReason } = useCompletionCheck(audit, responses, activeLens, sessionTechniques);
@@ -388,6 +407,7 @@ const AuditForm = () => {
             currentTime={currentTime}
             duration={duration}
             globalBookmarks={globalBookmarks}
+            arrangementSections={arrangementSections}
             onChangeOverride={handleAnalysisChangeOverride}
             onAddMarker={handleAddMarker}
             onUpdateMarker={handleUpdateMarker}
@@ -399,6 +419,7 @@ const AuditForm = () => {
             onAdvance={handleAdvanceStep}
             onComplete={saveAudit}
             onTriggerAnalysis={handleTriggerAnalysis}
+            onVerifyAnalysis={handleVerifyAnalysis}
             analysisProgress={analysisProgress}
             analysisStage={analysisStage}
           />

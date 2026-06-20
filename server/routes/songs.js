@@ -240,6 +240,17 @@ export default function createSongRoutes(songService, auditRepository, technique
     }
   });
 
+  // ── Trigger Tavily cross-verification ──────────────────────────────────────
+  router.post('/:id/verify-analysis', async (req, res) => {
+    try {
+      const song = await songService.crossVerifyAnalysis(req.params.id, req.userId);
+      res.json({ song: _sanitizeSong(song) });
+    } catch (error) {
+      console.error('Cross-verify analysis error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ── Save audio overrides ──────────────────────────────────────────────────
   router.put('/:id/audio-overrides', async (req, res) => {
     try {

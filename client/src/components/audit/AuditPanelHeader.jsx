@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 const formatTimeShort = (s) => {
   if (!s || isNaN(s)) return '0:00';
@@ -12,6 +12,33 @@ const stripTopic = (name) => (name || '')
   .replace(/\s*\(Official.*?\)/gi, '')
   .replace(/\s*\[Official.*?\]/gi, '')
   .trim();
+
+const StaticMetaChips = React.memo(({ year, duration, songKey, scale, bpm }) => (
+  <>
+    {year && <span>{year}</span>}
+    {duration ? <span>{formatTimeShort(duration)}</span> : null}
+    {songKey && (
+      <span>
+        {songKey}
+        {scale === 'minor' ? ' minor' : ' major'}
+      </span>
+    )}
+    {bpm && <span>{Math.round(bpm)} BPM</span>}
+  </>
+));
+
+StaticMetaChips.displayName = 'StaticMetaChips';
+
+const CurrentTimeDisplay = React.memo(({ currentTime }) => {
+  if (!currentTime || currentTime <= 0) return null;
+  return (
+    <span style={{ color: 'var(--accent-primary)' }}>
+      ▸ {formatTimeShort(currentTime)}
+    </span>
+  );
+});
+
+CurrentTimeDisplay.displayName = 'CurrentTimeDisplay';
 
 const AuditPanelHeader = ({
   song,
@@ -27,14 +54,14 @@ const AuditPanelHeader = ({
   const isAudioLinked = !!song;
   const isSynced = isAudioLinked && audioContext?.isPlaying;
 
-  const meta = song ? {
+  const meta = useMemo(() => (song ? {
     artist: stripTopic(song.artistName || song.artist || ''),
     year: song.year || song.releaseYear || null,
     duration: song.durationSeconds,
     key: song.audioAnalysis?.key || song.audioOverrides?.key || null,
     scale: song.audioAnalysis?.scale || song.audioOverrides?.scale || null,
     bpm: song.audioOverrides?.tempo_bpm || song.audioAnalysis?.tempo_bpm || null,
-  } : null;
+  } : null), [song]);
 
   return (
     <header
@@ -215,20 +242,14 @@ const AuditPanelHeader = ({
       {/* Metadata chips row */}
       {meta && (
         <div className="audit-meta-chips">
-          {meta.year && <span>{meta.year}</span>}
-          {meta.duration ? <span>{formatTimeShort(meta.duration)}</span> : null}
-          {meta.key && (
-            <span>
-              {meta.key}
-              {meta.scale === 'minor' ? ' minor' : ' major'}
-            </span>
-          )}
-          {meta.bpm && <span>{Math.round(meta.bpm)} BPM</span>}
-          {audioContext?.currentTime > 0 && (
-            <span style={{ color: 'var(--accent-primary)' }}>
-              ▸ {formatTimeShort(audioContext.currentTime)}
-            </span>
-          )}
+          <StaticMetaChips
+            year={meta.year}
+            duration={meta.duration}
+            songKey={meta.key}
+            scale={meta.scale}
+            bpm={meta.bpm}
+          />
+          <CurrentTimeDisplay currentTime={audioContext?.currentTime} />
         </div>
       )}
     </header>

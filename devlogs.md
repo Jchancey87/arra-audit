@@ -1211,3 +1211,60 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
   - **Stale tech debt (cleared)**: sigmap hook, lazy modal, live
     region, multi-select, export, Lighthouse, venv cleanup, SSE
     push, OpenAI adapter, TTL purge — all closed.
+
+### 2026-06-20: AuditTimeline major refactor
+
+- **Context**: AuditTimeline on the Analysis tab was fundamentally broken:
+  playhead used pixel positioning (hardcoded to 1000px viewBox, wrong at
+  any other container width), waveform always fell back to synthetic data
+  because `waveform_peaks` was never produced by the Python analyzer,
+  sections derived from `sectional_key_candidates` with no timing data
+  (equal-proportion assumption), a redundant Downbeats lane duplicated
+  the Beat Grid, no playhead indicator on non-waveform lanes, and the
+  key center lane had no data source (the analyzer doesn't produce
+  `key_changes`).
+
+- **Changes**:
+  - **Playhead**: percentage-based (`left: ${pct}%`) instead of pixels.
+    A single global playhead overlays all lanes via `position:absolute`
+    spanning the lanes container. `useScrubState` now tracks
+    `scrubRatio` (0-1) instead of pixel-based `scrubX`.
+  - **Waveform → Energy Curve**: replaced the SVG `WaveformLane` with
+    `EnergyCurveLane` that renders `audioAnalysis.energy_curve` (40
+    floats) as vertical bars with opacity-scaled color. This data is
+    actually produced by the Python analyzer's deterministic fallback
+    and the CLAP pipeline.
+  - **Removed redundant Downbeats lane**: the Beat Grid lane already
+    highlights downbeats with taller/more-opaque tick marks.
+  - **Key Regions lane**: replaced `KeyCenterLane` (which read
+    `key_changes` — never produced) with `KeyRegionsLane` that uses
+    `sectional_key_candidates` + `beat_times` to estimate section
+    positions via a bar-count-based distribution algorithm
+    (`estimateSectionPositions`). Section types (intro/verse/chorus)
+    get weighted bar counts, scaled to match the total bar budget.
+  - **Sections lane**: now accepts an `arrangementSections` prop
+    (parsed from `responses['arrangement-timeline']` in AuditForm).
+    When user sections exist, they display with type-colored blocks
+    (intro=info, verse=primary, chorus=success, bridge=warning, etc.).
+    When no user sections exist, falls back to analytical key regions
+    as labeled sections.
+  - **Scrub tooltip**: offset now accounts for the lane label width
+    plus actual pixel position from the scrub ratio, fixing the
+    hardcoded 80px assumption.
+  - **Context menu close**: MarkersLane now uses a native document
+    click listener (with `setTimeout` guard) so outside clicks reliably
+    close the rename/delete context menu.
+  - **Props flow**: `AuditForm` parses `responses['arrangement-timeline']`
+    via `useMemo` and passes `arrangementSections` through
+    `AuditAnalysisTab` to `AuditTimeline`.
+
+- **CSS**: removed obsolete `.audit-lane-waveform`, `.audit-lane-beat`,
+  `.audit-lane-section`, `.audit-lane-marker` class rules (heights now
+  inline). Lane borders handled by the `Lane` wrapper component.
+
+- **Tests**: 48 new tests covering rendering, energy curve, beat grid,
+  key regions, sections (add form, cancel, submit, readOnly), markers
+  (context menu, rename, delete, keyboard, outside-click close),
+  scrubbing, arrangement sections priority, edge cases (missing data,
+  fallbacks). All 282 client tests pass. Vite build clean (main 614 KB
+  unchanged).

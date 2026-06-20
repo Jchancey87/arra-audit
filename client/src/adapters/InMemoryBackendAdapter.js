@@ -590,6 +590,20 @@ export class InMemoryBackendAdapter extends IBackendService {
     return { success: true };
   }
 
+  async verifySongAnalysis(songId) {
+    const song = this.songs.find((s) => s._id === songId);
+    if (!song) throw new Error('Song not found');
+    if (song.audioAnalysis) {
+      song.audioAnalysis.tempo_confidence = 0.95;
+      song.audioAnalysis.tempo_cross_verified = true;
+      song.audioAnalysis.key_confidence = 0.95;
+      song.audioAnalysis.key_cross_verified = true;
+      song.audioAnalysis.meter_confidence = 0.95;
+      song.audioAnalysis.meter_cross_verified = true;
+    }
+    return { song };
+  }
+
   async saveAudioOverrides(songId, overrides) {
     const song = this.songs.find((s) => s._id === songId);
     if (!song) throw new Error('Song not found');

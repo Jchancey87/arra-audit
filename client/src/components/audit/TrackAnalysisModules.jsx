@@ -53,7 +53,26 @@ const getConfidenceBucket = (conf) => {
   return 'low';
 };
 
-const ConfidenceDot = ({ conf, prefix = '●' }) => {
+const ConfidenceDot = ({ conf, isCrossVerified }) => {
+  if (isCrossVerified) {
+    return (
+      <span
+        title="Verified via web search (Tavily + AI)"
+        style={{
+          fontSize: '10px',
+          fontFamily: 'JetBrains Mono, monospace',
+          color: 'var(--status-success)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+        }}
+      >
+        <span style={{ fontSize: '9px', fontWeight: 'bold' }}>✓</span> VERIFIED
+      </span>
+    );
+  }
   const bucket = getConfidenceBucket(conf);
   const color =
     bucket === 'high'
@@ -212,10 +231,11 @@ const LoudnessMeter = ({ lufs }) => {
   );
 };
 
-const TrackAnalysisModules = ({ song, onChangeOverride }) => {
+const TrackAnalysisModules = ({ song, onChangeOverride, onVerifyAnalysis }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const [tapTimes, setTapTimes] = useState([]);
+  const [verifying, setVerifying] = useState(false);
 
   if (!song) return null;
   const analysis = song.audioAnalysis || {};
@@ -226,6 +246,12 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
   const scale = overrides.scale || analysis.scale;
   const meter = overrides.estimated_meter || analysis.estimated_meter;
   const lufs = analysis.loudness_integrated;
+
+  // Verification checks (requires manual override OR >= 95% confidence OR cross-verified)
+  const isTempoVerified = overrides.tempo_bpm != null || (analysis.tempo_confidence || 0) >= 0.95 || analysis.tempo_cross_verified;
+  const isKeyVerified = overrides.key != null || (analysis.key_confidence || 0) >= 0.95 || analysis.key_cross_verified;
+  const isMeterVerified = overrides.estimated_meter != null || (analysis.meter_confidence || 0) >= 0.95 || analysis.meter_cross_verified;
+  const hasUnverified = !isTempoVerified || !isKeyVerified || !isMeterVerified;
 
   // Phase 4.3: memoize scale-degree row — recomputes only when key/scale change
   const scaleRow = useMemo(() => buildScaleDegreeRow(key, scale), [key, scale]);
@@ -280,6 +306,16 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
     }
   };
 
+  const handleVerify = async () => {
+    if (!onVerifyAnalysis) return;
+    setVerifying(true);
+    try {
+      await onVerifyAnalysis();
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const cellEditingStyle = editing
     ? {
         outline: '1px solid var(--accent-primary)',
@@ -321,14 +357,27 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
             Scan Complete
           </span>
           {!editing ? (
-            <button
-              onClick={startEditing}
-              className="ghost audit-override-button"
-              style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
-              title="Manually correct detected values"
-            >
-              Override values
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {hasUnverified && onVerifyAnalysis && (
+                <button
+                  onClick={handleVerify}
+                  disabled={verifying}
+                  className="ghost"
+                  style={{ fontSize: '10px', color: 'var(--accent-primary)', borderBottom: '1px dashed var(--accent-primary)', borderRadius: 0, padding: '2px 0' }}
+                  title="Cross-verify detected metadata against Tavily web search results"
+                >
+                  {verifying ? 'Verifying...' : 'Verify with Tavily'}
+                </button>
+              )}
+              <button
+                onClick={startEditing}
+                className="ghost audit-override-button"
+                style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+                title="Manually correct detected values"
+              >
+                Override values
+              </button>
+            </div>
           ) : (
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               <button onClick={cancelEditing} className="ghost" style={{ fontSize: '10px' }}>Cancel</button>
@@ -349,216 +398,222 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
       {/* Module row */}
       <div className="audit-modules">
         {/* TEMPO */}
-        <div
-          className="audit-module-cell"
-          style={{ ...cellEditingStyle }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: '10px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Tempo
-            </span>
-            {editing && (
+        {(editing || isTempoVerified) && (
+          <div
+            className="audit-module-cell"
+            style={{ ...cellEditingStyle }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span
                 style={{
-                  fontSize: '8px',
+                  fontSize: '10px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  color: 'var(--accent-primary)',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
                   letterSpacing: '0.06em',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                EDITING
+                Tempo
               </span>
-            )}
-          </div>
-          {editing ? (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <input
-                type="number"
-                step="0.01"
-                value={draft.tempo_bpm}
-                onChange={(e) => setDraft({ ...draft, tempo_bpm: e.target.value })}
-                style={{ fontSize: '18px', padding: '4px 6px', flex: 1, minWidth: 0 }}
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={handleTapTempo}
-                className="ghost"
-                title="Tap to detect BPM (≥2 taps)"
-                style={{
-                  fontSize: '9px',
-                  padding: '4px 8px',
-                  color: 'var(--accent-primary)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                TAP{tapTimes.length > 0 ? ` (${tapTimes.length})` : ''}
-              </button>
-            </div>
-          ) : (
-            <div
-              style={{
-                fontSize: '22px',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 700,
-                letterSpacing: '-0.01em',
-                color: 'var(--text-primary)',
-                lineHeight: 1.1,
-              }}
-            >
-              {formatBpm(tempo)} <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400, fontFamily: 'JetBrains Mono, monospace' }}>BPM</span>
-              {overrides.tempo_bpm && (
-                <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+              {editing && (
+                <span
+                  style={{
+                    fontSize: '8px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent-primary)',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  EDITING
+                </span>
               )}
             </div>
-          )}
-          <ConfidenceDot conf={analysis.tempo_confidence} />
-        </div>
+            {editing ? (
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={draft.tempo_bpm}
+                  onChange={(e) => setDraft({ ...draft, tempo_bpm: e.target.value })}
+                  style={{ fontSize: '18px', padding: '4px 6px', flex: 1, minWidth: 0 }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleTapTempo}
+                  className="ghost"
+                  title="Tap to detect BPM (≥2 taps)"
+                  style={{
+                    fontSize: '9px',
+                    padding: '4px 8px',
+                    color: 'var(--accent-primary)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  TAP{tapTimes.length > 0 ? ` (${tapTimes.length})` : ''}
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.1,
+                }}
+              >
+                {formatBpm(tempo)} <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400, fontFamily: 'JetBrains Mono, monospace' }}>BPM</span>
+                {overrides.tempo_bpm && (
+                  <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+                )}
+              </div>
+            )}
+            <ConfidenceDot conf={analysis.tempo_confidence} isCrossVerified={analysis.tempo_cross_verified} />
+          </div>
+        )}
 
         {/* KEY */}
-        <div
-          className="audit-module-cell"
-          style={{ ...cellEditingStyle }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: '10px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Key
-            </span>
-            {editing && (
+        {(editing || isKeyVerified) && (
+          <div
+            className="audit-module-cell"
+            style={{ ...cellEditingStyle }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span
                 style={{
-                  fontSize: '8px',
+                  fontSize: '10px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  color: 'var(--accent-primary)',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
                   letterSpacing: '0.06em',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                EDITING
+                Key
               </span>
-            )}
-          </div>
-          {editing ? (
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <select
-                value={draft.key}
-                onChange={(e) => setDraft({ ...draft, key: e.target.value })}
-                style={{ flex: 1, fontSize: '14px' }}
-              >
-                <option value="">—</option>
-                {KEY_ROOTS.map((k) => (
-                  <option key={k} value={k}>{k}</option>
-                ))}
-              </select>
-              <select
-                value={draft.scale}
-                onChange={(e) => setDraft({ ...draft, scale: e.target.value })}
-                style={{ fontSize: '14px' }}
-              >
-                <option value="major">Major</option>
-                <option value="minor">Minor</option>
-              </select>
-            </div>
-          ) : (
-            <div
-              style={{
-                fontSize: '22px',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 700,
-                letterSpacing: '-0.01em',
-                color: 'var(--text-primary)',
-                lineHeight: 1.1,
-              }}
-            >
-              {formatKey(key, scale)}
-              {overrides.key && (
-                <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+              {editing && (
+                <span
+                  style={{
+                    fontSize: '8px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent-primary)',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  EDITING
+                </span>
               )}
             </div>
-          )}
-          <ConfidenceDot conf={analysis.key_confidence} />
-          <ScaleDegreeRow row={scaleRow} />
-        </div>
+            {editing ? (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <select
+                  value={draft.key}
+                  onChange={(e) => setDraft({ ...draft, key: e.target.value })}
+                  style={{ flex: 1, fontSize: '14px' }}
+                >
+                  <option value="">—</option>
+                  {KEY_ROOTS.map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+                <select
+                  value={draft.scale}
+                  onChange={(e) => setDraft({ ...draft, scale: e.target.value })}
+                  style={{ fontSize: '14px' }}
+                >
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                </select>
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.1,
+                }}
+              >
+                {formatKey(key, scale)}
+                {overrides.key && (
+                  <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+                )}
+              </div>
+            )}
+            <ConfidenceDot conf={analysis.key_confidence} isCrossVerified={analysis.key_cross_verified} />
+            <ScaleDegreeRow row={scaleRow} />
+          </div>
+        )}
 
         {/* METER */}
-        <div
-          className="audit-module-cell"
-          style={{ ...cellEditingStyle }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: '10px',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Meter
-            </span>
-            {editing && (
+        {(editing || isMeterVerified) && (
+          <div
+            className="audit-module-cell"
+            style={{ ...cellEditingStyle }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span
                 style={{
-                  fontSize: '8px',
+                  fontSize: '10px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  color: 'var(--accent-primary)',
+                  fontWeight: 500,
+                  textTransform: 'uppercase',
                   letterSpacing: '0.06em',
+                  color: 'var(--text-secondary)',
                 }}
               >
-                EDITING
+                Meter
               </span>
-            )}
-          </div>
-          {editing ? (
-            <select
-              value={draft.estimated_meter}
-              onChange={(e) => setDraft({ ...draft, estimated_meter: e.target.value })}
-              style={{ fontSize: '18px' }}
-            >
-              <option value="4/4">4/4</option>
-              <option value="3/4">3/4</option>
-              <option value="5/4">5/4</option>
-              <option value="6/8">6/8</option>
-              <option value="7/8">7/8</option>
-            </select>
-          ) : (
-            <div
-              style={{
-                fontSize: '22px',
-                fontFamily: 'Inter, sans-serif',
-                fontWeight: 700,
-                letterSpacing: '-0.01em',
-                color: 'var(--text-primary)',
-                lineHeight: 1.1,
-              }}
-            >
-              {meter || '—'}
-              {overrides.estimated_meter && (
-                <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+              {editing && (
+                <span
+                  style={{
+                    fontSize: '8px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    color: 'var(--accent-primary)',
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  EDITING
+                </span>
               )}
             </div>
-          )}
-          <ConfidenceDot conf={analysis.meter_confidence} />
-        </div>
+            {editing ? (
+              <select
+                value={draft.estimated_meter}
+                onChange={(e) => setDraft({ ...draft, estimated_meter: e.target.value })}
+                style={{ fontSize: '18px' }}
+              >
+                <option value="4/4">4/4</option>
+                <option value="3/4">3/4</option>
+                <option value="5/4">5/4</option>
+                <option value="6/8">6/8</option>
+                <option value="7/8">7/8</option>
+              </select>
+            ) : (
+              <div
+                style={{
+                  fontSize: '22px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.1,
+                }}
+              >
+                {meter || '—'}
+                {overrides.estimated_meter && (
+                  <span style={{ marginLeft: '6px', fontSize: '8px', color: 'var(--accent-primary)', fontFamily: 'JetBrains Mono, monospace' }}>MANUAL</span>
+                )}
+              </div>
+            )}
+            <ConfidenceDot conf={analysis.meter_confidence} isCrossVerified={analysis.meter_cross_verified} />
+          </div>
+        )}
 
         {/* LOUDNESS */}
         <div
@@ -603,6 +658,43 @@ const TrackAnalysisModules = ({ song, onChangeOverride }) => {
           <LoudnessMeter lufs={lufs} />
         </div>
       </div>
+
+      {!editing && !isTempoVerified && !isKeyVerified && !isMeterVerified && (
+        <div
+          style={{
+            padding: '16px',
+            background: 'var(--bg-surface-2)',
+            borderLeft: '1px solid var(--border-subtle)',
+            borderRight: '1px solid var(--border-subtle)',
+            borderBottom: '1px solid var(--border-subtle)',
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+            fontFamily: 'Inter, sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '14px' }}>⚠️</span>
+            <span>
+              Tempo, Key, and Meter analysis results are hidden because their detection confidence is below 95% and they have not been verified.
+            </span>
+          </div>
+          {onVerifyAnalysis && (
+            <div>
+              <button
+                onClick={handleVerify}
+                disabled={verifying}
+                className="primary"
+                style={{ fontSize: '10px', padding: '6px 12px' }}
+              >
+                {verifying ? 'Running web verification...' : 'Cross-Verify with Tavily Search'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 };

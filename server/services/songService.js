@@ -374,6 +374,131 @@ You MUST respond with a JSON object in this exact format (do not include markdow
     }
   }
 
+  async crossVerifyAnalysis(songId, userId = null) {
+    let song;
+    if (userId) {
+      song = await this.getSong(songId, userId);
+    } else {
+      song = await this.songRepository.findById(songId);
+    }
+    if (!song || song.deletedAt) throw new Error('Song not found');
+    if (!song.audioAnalysis || song.audioAnalysisStatus !== 'success') {
+      throw new Error('Song has not been successfully analyzed yet');
+    }
+
+    const { title, artistName } = song;
+    const analysis = { ...song.audioAnalysis };
+
+    // Set defaults for cross-verification flags
+    analysis.tempo_cross_verified = false;
+    analysis.key_cross_verified = false;
+    analysis.meter_cross_verified = false;
+
+    // Check if we need to search or if we can cross-verify
+    // Query Tavily search specifically for musical metadata
+    if (this.searchService && typeof this.searchService.search === 'function') {
+      const query = `"${title}" by "${artistName || 'Unknown Artist'}" BPM key signature meter tempo time signature`;
+      try {
+        console.log(`[SongService] Running cross-verification web search: "${query}"`);
+        const searchResult = await this.searchService.search(query, 5);
+        const results = searchResult.results || [];
+
+        if (results.length > 0 && this.aiService) {
+          const rawSearchData = results.map(r => `[Source: ${r.title}]: ${r.content}`).join('\n\n');
+          const prompt = `You are a music metadata extraction assistant.
+Based on the following web search results for the song "${title}" by "${artistName || 'Unknown Artist'}", extract:
+1. The tempo in beats per minute (BPM) as a number.
+2. The musical key signature root note (e.g. C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B).
+3. The scale mode ("major" or "minor").
+4. The meter / time signature (e.g. "4/4", "3/4", "6/8", "5/4", "7/8").
+
+Search results:
+${rawSearchData}
+
+Respond with a JSON object in this exact format (do not include markdown block syntax, just the raw JSON object):
+{
+  "tempo_bpm": 120,
+  "key": "G",
+  "scale": "minor",
+  "estimated_meter": "4/4"
+}`;
+
+          const verifiedMetadata = await this.aiService.completeJson(prompt);
+          console.log('[SongService] Extracted web metadata:', verifiedMetadata);
+
+          // 1. Cross-verify tempo
+          if (verifiedMetadata.tempo_bpm) {
+            const extTempo = parseFloat(verifiedMetadata.tempo_bpm);
+            const curTempo = parseFloat(analysis.tempo_bpm);
+            if (!isNaN(extTempo) && !isNaN(curTempo)) {
+              const diffRatio = Math.abs(curTempo - extTempo) / extTempo;
+              const isDoubleOrHalf = Math.abs(curTempo * 2 - extTempo) / extTempo < 0.05 || Math.abs(curTempo / 2 - extTempo) / extTempo < 0.05;
+              if (diffRatio < 0.05 || isDoubleOrHalf) {
+                analysis.tempo_confidence = Math.max(analysis.tempo_confidence || 0, 0.95);
+                analysis.tempo_cross_verified = true;
+              } else if (analysis.tempo_confidence < 0.95) {
+                analysis.tempo_bpm = extTempo;
+                analysis.tempo_confidence = 0.95;
+                analysis.tempo_cross_verified = true;
+              }
+            }
+          }
+
+          // 2. Cross-verify key
+          if (verifiedMetadata.key) {
+            const extKey = verifiedMetadata.key.trim().toUpperCase();
+            const curKey = (analysis.key || '').trim().toUpperCase();
+            const extScale = (verifiedMetadata.scale || '').toLowerCase();
+            const curScale = (analysis.scale || '').toLowerCase();
+
+            if (extKey === curKey && extScale === curScale) {
+              analysis.key_confidence = Math.max(analysis.key_confidence || 0, 0.95);
+              analysis.key_cross_verified = true;
+            } else if (analysis.key_confidence < 0.95) {
+              analysis.key = verifiedMetadata.key;
+              if (verifiedMetadata.scale) {
+                analysis.scale = verifiedMetadata.scale;
+              }
+              analysis.key_confidence = 0.95;
+              analysis.key_cross_verified = true;
+            }
+          }
+
+          // 3. Cross-verify meter
+          if (verifiedMetadata.estimated_meter) {
+            const extMeter = verifiedMetadata.estimated_meter.trim();
+            const curMeter = (analysis.estimated_meter || '').trim();
+
+            if (extMeter === curMeter) {
+              analysis.meter_confidence = Math.max(analysis.meter_confidence || 0, 0.95);
+              analysis.meter_cross_verified = true;
+            } else if (analysis.meter_confidence < 0.95) {
+              analysis.estimated_meter = extMeter;
+              analysis.meter_confidence = 0.95;
+              analysis.meter_cross_verified = true;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`[SongService] Cross-verification search/extraction failed: ${err.message}`);
+      }
+    }
+
+    // Fallback: If GPU confidence is already >= 0.95, mark it verified even without Tavily
+    if ((analysis.tempo_confidence || 0) >= 0.95) {
+      analysis.tempo_cross_verified = true;
+    }
+    if ((analysis.key_confidence || 0) >= 0.95) {
+      analysis.key_cross_verified = true;
+    }
+    if ((analysis.meter_confidence || 0) >= 0.95) {
+      analysis.meter_cross_verified = true;
+    }
+
+    await this.songRepository.updateById(songId, { audioAnalysis: analysis });
+    return userId ? this.getSong(songId, userId) : this.songRepository.findById(songId);
+  }
+
   async saveAudioOverrides(songId, userId, overrides) {
     const song = await this.getSong(songId, userId);
     if (!song) throw new Error('Song not found');

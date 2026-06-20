@@ -24,6 +24,7 @@ export class IBackendService {
   async purgeSong(id) { throw new Error('Not implemented'); }
   async purgeAllSongs() { throw new Error('Not implemented'); }
   async triggerSongAnalysis(songId) { throw new Error('Not implemented'); }
+  async verifySongAnalysis(songId) { throw new Error('Not implemented'); }
   async saveAudioOverrides(songId, overrides) { throw new Error('Not implemented'); }
   
   // Audits

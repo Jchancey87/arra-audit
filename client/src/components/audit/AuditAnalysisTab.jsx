@@ -41,9 +41,9 @@ const TabLoadingPanel = ({ label = 'Loading…' }) => (
 const AuditAnalysisTab = ({
   song, audit,
   isGuided, currentStep, stepIndex, totalSteps, fallbackNotice,
-  currentTime, duration, globalBookmarks,
+  currentTime, duration, globalBookmarks, arrangementSections,
   onChangeOverride, onAddMarker, onUpdateMarker, onDeleteMarker, onAddSection, onSeek,
-  onBack, onSkip, onAdvance, onComplete, onTriggerAnalysis,
+  onBack, onSkip, onAdvance, onComplete, onTriggerAnalysis, onVerifyAnalysis,
   analysisProgress, analysisStage,
 }) => (
   <div className="audit-form-main">
@@ -57,7 +57,7 @@ const AuditAnalysisTab = ({
     {song?.audioAnalysisStatus === 'success' && song.audioAnalysis && (
       <>
         <Suspense fallback={<TabLoadingPanel label="Loading analysis modules…" />}>
-          <TrackAnalysisModules song={song} onChangeOverride={onChangeOverride} />
+          <TrackAnalysisModules song={song} onChangeOverride={onChangeOverride} onVerifyAnalysis={onVerifyAnalysis} />
         </Suspense>
         <Suspense fallback={<TabLoadingPanel label="Loading timeline…" />}>
           <AuditTimeline
@@ -70,6 +70,7 @@ const AuditAnalysisTab = ({
             onDeleteMarker={onDeleteMarker}
             onAddSection={onAddSection}
             markers={globalBookmarks}
+            arrangementSections={arrangementSections || []}
           />
         </Suspense>
         {fallbackNotice && <FallbackTemplateNotice />}

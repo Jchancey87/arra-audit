@@ -43,7 +43,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
-| 2026-06-20 | Carry-over sweep #2: ALL 5 closed — venv cleanup (RSS 716→576 MB), TTL purge `5cc91e3`, OpenAI embeddings `017cc0e` (17 tests), SSE push `0fc8965` (26 tests), multi-select+bulk-delete `2ae313b` (20 tests), export PNG+PDF `9de48fe` (25 tests), Lighthouse CI `e6b0537`. 179→234 client, 104→137 server. Zero open. | `e6b0537` |
+| 2026-06-20 | Major AuditTimeline refactor: fixed playhead (px→%), replaced fake SVG waveform with energy_curve bar chart, removed redundant Downbeats lane, global playhead across all lanes, KeyRegions from sectional_key_candidates with beat-estimated timing, Sections now show user arrangement data via new `arrangementSections` prop, scrub tooltip offset fix. 48 new tests (282 total). Build clean. | `HEAD` |
 | 2026-06-20 | Phase 2.2: timestamped answers + scrollytelling — responseShape normalizer, useMostVisible+useScrollytellingSeek, LensPanel tag button, AuditDetail click-to-seek pills + toggle (debounced 350ms, minJump 6s). 51 new tests. AuditDetail 47→51.8 KB. | `05a5dc6` |
 | 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — `lens-${lens}-${idx}` read/write alignment; 4 regression tests. | `0988f3b` |
 | 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python `analyze_segment` + `analyze_features_from_array` + POST /analyze-segment (GPU sem 2) + bookmarkSchema.analysis + IBookmarkAnalysisService + CLAPSegmentAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes + BookmarkAnalysisTags component. 22 new tests. AuditDetail 51.8→58.1 KB. | `7c93e15` |

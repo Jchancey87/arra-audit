@@ -55,6 +55,13 @@ export function useSong(songId, { skip = false } = {}) {
     return fetch();
   }, [backend, songId, fetch]);
 
+  const verifyAnalysis = useCallback(async () => {
+    if (!songId) return null;
+    const updated = await backend.verifySongAnalysis(songId);
+    setSong(updated?.song || updated);
+    return updated;
+  }, [backend, songId]);
+
   const saveOverrides = useCallback(
     async (overrides) => {
       if (!songId) return null;
@@ -74,5 +81,5 @@ export function useSong(songId, { skip = false } = {}) {
     [fetch]
   );
 
-  return { song, loading, error, refetch, triggerAnalysis, saveOverrides, update };
+  return { song, loading, error, refetch, triggerAnalysis, verifyAnalysis, saveOverrides, update };
 }

@@ -194,13 +194,21 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
     if (status === 'success') {
       song.audioAnalysisStatus = 'success';
       song.audioAnalysis = analysis;
+      await song.save();
+
+      try {
+        console.log(`[Webhook] Starting cross-verification for song ${id}...`);
+        await songService.crossVerifyAnalysis(id);
+        console.log(`[Webhook] Cross-verification completed for song ${id}`);
+      } catch (verifyErr) {
+        console.error(`[Webhook] Cross-verification failed for song ${id}:`, verifyErr.message);
+      }
     } else {
       song.audioAnalysisStatus = 'failed';
       song.importErrors = song.importErrors || [];
       song.importErrors.push(`Audio analysis error: ${error || 'Unknown error'}`);
+      await song.save();
     }
-
-    await song.save();
     res.json({ success: true });
   } catch (err) {
     console.error('[Webhook] Analysis callback error:', err);
