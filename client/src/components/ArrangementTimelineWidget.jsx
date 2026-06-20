@@ -878,12 +878,11 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
                             background: isSel || isMulti ? `${color}40` : `${color}18`,
                             border: `1px solid ${isSel ? '#ff6600' : isMulti ? '#fbbf24' : color}`,
                             borderLeft: `4px solid ${color}`,
-                            boxShadow: isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : undefined,
+                            boxShadow: isSel ? '0 0 12px rgba(255,102,0,0.25)' : isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : isCur ? `0 0 8px ${color}30` : 'none',
                             borderRadius: '3px', cursor: 'pointer',
                             display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                             padding: '8px 10px',
                             transition: 'background-color 0.15s, border-color 0.15s, box-shadow 0.15s',
-                            boxShadow: isSel ? '0 0 12px rgba(255,102,0,0.25)' : isCur ? `0 0 8px ${color}30` : 'none',
                             overflow: 'hidden', userSelect: 'none', zIndex: isSel ? 3 : 1,
                           }}
                         >

@@ -420,12 +420,12 @@ function LensPages({ data }) {
               ) : (
                 entries.map((entry, idx) => (
                   <View key={`${lens}-${idx}`} style={styles.qaItem} wrap={false}>
-                    {entry.question && <Text style={styles.qaQuestion}>{entry.question}</Text>}
-                    {entry.answer && <Text style={styles.qaAnswer}>{entry.answer}</Text>}
+                    {entry.question ? <Text style={styles.qaQuestion}>{entry.question}</Text> : null}
+                    {entry.answer ? <Text style={styles.qaAnswer}>{entry.answer}</Text> : null}
                     {entry.timestamp != null && (
                       <Text style={styles.qaTimestamp}>▸ {formatTimestamp(entry.timestamp)}</Text>
                     )}
-                    {entry.note && <Text style={styles.qaAnswer}>{entry.note}</Text>}
+                    {entry.note ? <Text style={styles.qaAnswer}>{entry.note}</Text> : null}
                   </View>
                 ))
               )}
