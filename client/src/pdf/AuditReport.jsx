@@ -8,7 +8,7 @@ import {
 } from '@react-pdf/renderer';
 
 import {
-  COLORS, SPACING, RADII, PAGE, TYPE, LENS_LABELS, LENS_DESCRIPTIONS,
+  COLORS, SPACING, RADII, PAGE, TYPE, LENS_LABELS, LENS_DESCRIPTIONS, getActiveBrand,
 } from './theme.js';
 import { formatTimestamp, formatDuration } from '../utils/pdfData.js';
 
@@ -160,6 +160,11 @@ const styles = StyleSheet.create({
     ...TYPE.h2,
     color: COLORS.text,
   },
+  lensEmpty: {
+    ...TYPE.monoSmall,
+    color: COLORS.textDim,
+    marginLeft: SPACING.sm,
+  },
   lensDescription: {
     ...TYPE.bodySmall,
     color: COLORS.textDim,
@@ -252,6 +257,13 @@ const styles = StyleSheet.create({
   techDescription: {
     ...TYPE.body,
     color: COLORS.text,
+    // Enable word-wrap so long descriptions flow into multiple lines within
+    // the card width instead of overflowing off the page.
+  },
+  techDescriptionMuted: {
+    ...TYPE.bodySmall,
+    color: COLORS.textDim,
+    fontStyle: 'italic',
   },
   emptyState: {
     ...TYPE.bodySmall,
@@ -301,7 +313,7 @@ function CoverPage({ data }) {
   return (
     <Page size={PAGE.size} style={styles.page}>
       <View style={styles.cover}>
-        <Text style={styles.coverKicker}>Arra · Audit Report</Text>
+        <Text style={styles.coverKicker}>{getActiveBrand().reportKicker}</Text>
         <Text style={styles.coverTitle}>{song.title}</Text>
         <Text style={styles.coverArtist}>{song.artist}</Text>
         <View style={styles.coverDivider} />
@@ -340,8 +352,12 @@ function CoverPage({ data }) {
           )}
         </View>
       </View>
-      <View style={styles.coverFooter}>
-        <Text style={styles.coverFooterText}>arra.homma.casa</Text>
+      <View style={styles.coverFooter} fixed>
+        <Text style={styles.coverFooterText}>{getActiveBrand().footerLabel}</Text>
+        <Text
+          style={styles.coverFooterText}
+          render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`}
+        />
         <Text style={styles.coverFooterText}>
           {new Date().toLocaleDateString()}
         </Text>
@@ -352,7 +368,10 @@ function CoverPage({ data }) {
 
 function LensPages({ data }) {
   const { lensResponses, audit } = data;
-  const lenses = audit.lensSelection.filter((l) => lensResponses[l] && lensResponses[l].length > 0);
+  // Always include every selected lens, even with zero responses, so the
+  // reader sees which lenses were considered in this audit. Empty lenses
+  // render an "0 questions answered" note inside their block.
+  const lenses = audit.lensSelection;
   if (lenses.length === 0) {
     return (
       <Page size={PAGE.size} style={styles.page}>
@@ -382,25 +401,37 @@ function LensPages({ data }) {
           <Text style={styles.sectionHeaderKicker}>02</Text>
           <Text style={styles.sectionHeaderTitle}>Lens Analysis</Text>
         </View>
-        {pageLenses.map((lens) => (
-          <View key={lens} style={styles.lensBlock} wrap>
-            <View style={styles.lensHeading}>
-              <Text style={styles.lensBadge}>{LENS_LABELS[lens] || lens}</Text>
-              <Text style={styles.lensName}>· {LENS_LABELS[lens] || lens}</Text>
-            </View>
-            <Text style={styles.lensDescription}>{LENS_DESCRIPTIONS[lens] || ''}</Text>
-            {lensResponses[lens].map((entry, idx) => (
-              <View key={`${lens}-${idx}`} style={styles.qaItem} wrap={false}>
-                {entry.question && <Text style={styles.qaQuestion}>{entry.question}</Text>}
-                {entry.answer && <Text style={styles.qaAnswer}>{entry.answer}</Text>}
-                {entry.timestamp != null && (
-                  <Text style={styles.qaTimestamp}>▸ {formatTimestamp(entry.timestamp)}</Text>
-                )}
-                {entry.note && <Text style={styles.qaAnswer}>{entry.note}</Text>}
+        {pageLenses.map((lens) => {
+          const entries = lensResponses[lens] || [];
+          return (
+            <View key={lens} style={styles.lensBlock} wrap>
+              <View style={styles.lensHeading}>
+                <Text style={styles.lensBadge}>{LENS_LABELS[lens] || lens}</Text>
+                <Text style={styles.lensName}>· {LENS_LABELS[lens] || lens}</Text>
+                <Text style={styles.lensEmpty}>
+                  · {entries.length === 0 ? '0 questions answered' : `${entries.length} response${entries.length === 1 ? '' : 's'}`}
+                </Text>
               </View>
-            ))}
-          </View>
-        ))}
+              <Text style={styles.lensDescription}>{LENS_DESCRIPTIONS[lens] || ''}</Text>
+              {entries.length === 0 ? (
+                <Text style={styles.qaEmpty}>
+                  No responses were captured for this lens.
+                </Text>
+              ) : (
+                entries.map((entry, idx) => (
+                  <View key={`${lens}-${idx}`} style={styles.qaItem} wrap={false}>
+                    {entry.question && <Text style={styles.qaQuestion}>{entry.question}</Text>}
+                    {entry.answer && <Text style={styles.qaAnswer}>{entry.answer}</Text>}
+                    {entry.timestamp != null && (
+                      <Text style={styles.qaTimestamp}>▸ {formatTimestamp(entry.timestamp)}</Text>
+                    )}
+                    {entry.note && <Text style={styles.qaAnswer}>{entry.note}</Text>}
+                  </View>
+                ))
+              )}
+            </View>
+          );
+        })}
         <PageFooter pageNumber={pageNumber} totalPages={null} />
       </Page>
     );
@@ -446,19 +477,22 @@ function TechniquesPage({ data }) {
       {techniques.length === 0 ? (
         <Text style={styles.emptyState}>No techniques were captured.</Text>
       ) : (
-        techniques.map((t, idx) => (
-          <View key={t.id || idx} style={styles.techCard} wrap={false}>
-            <View style={styles.techHeader}>
-              <Text style={styles.techLens}>
-                {t.lens ? (LENS_LABELS[t.lens] || t.lens) : '—'}
-              </Text>
-              {t.exampleTimestamp != null && (
-                <Text style={styles.techTime}>▸ {formatTimestamp(t.exampleTimestamp)}</Text>
-              )}
+        techniques.map((t, idx) => {
+          const desc = t.description || '';
+          return (
+            <View key={t.id || idx} style={styles.techCard} wrap>
+              <View style={styles.techHeader}>
+                <Text style={styles.techLens}>
+                  {t.lens ? (LENS_LABELS[t.lens] || t.lens) : '—'}
+                </Text>
+                {t.exampleTimestamp != null && (
+                  <Text style={styles.techTime}>▸ {formatTimestamp(t.exampleTimestamp)}</Text>
+                )}
+              </View>
+              <Text style={styles.techDescription}>{desc}</Text>
             </View>
-            <Text style={styles.techDescription}>{t.description}</Text>
-          </View>
-        ))
+          );
+        })
       )}
       <PageFooter pageNumber={null} totalPages={null} />
     </Page>
@@ -468,7 +502,7 @@ function TechniquesPage({ data }) {
 function PageFooter({ pageNumber, totalPages }) {
   return (
     <View style={styles.pageFooter} fixed>
-      <Text style={styles.pageFooterText}>Arra · Audit Report</Text>
+      <Text style={styles.pageFooterText}>{getActiveBrand().reportKicker}</Text>
       <Text
         style={styles.pageFooterText}
         render={({ pageNumber: pn, totalPages: tp }) =>

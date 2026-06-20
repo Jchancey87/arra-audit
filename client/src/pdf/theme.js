@@ -65,6 +65,81 @@ export const COLORS = {
   warning: '#d8a737',
 };
 
+// Brandable theme tokens. Defaults match the Bitwig dark studio palette.
+// Pass an overrides object to applyBranding to produce a per-tenant theme
+// without forking the module-level constants.
+const DEFAULT_BRAND = {
+  colors: { ...COLORS },
+  fonts: { ...FONT_FAMILY },
+  footerLabel: 'arra.homma.casa',
+  reportKicker: 'Arra · Audit Report',
+};
+
+let activeBrand = { ...DEFAULT_BRAND };
+
+function isHex(s) {
+  return typeof s === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s);
+}
+
+function mergeColors(overrides) {
+  if (!overrides || typeof overrides !== 'object') return DEFAULT_BRAND.colors;
+  const out = { ...DEFAULT_BRAND.colors };
+  for (const [k, v] of Object.entries(overrides)) {
+    if (isHex(v) && k in out) out[k] = v;
+  }
+  return out;
+}
+
+function mergeFonts(overrides) {
+  if (!overrides || typeof overrides !== 'object') return DEFAULT_BRAND.fonts;
+  const out = { ...DEFAULT_BRAND.fonts };
+  for (const [k, v] of Object.entries(overrides)) {
+    if (typeof v === 'string' && v.length && v.length < 64 && k in out) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * applyBranding(overrides) — shallowly merge brand overrides into the
+ * currently active theme. Intended for white-label / per-org PDF variants.
+ * Pass null/undefined to reset to the Arra defaults.
+ *
+ * Recognized keys:
+ *   - colors:  { accent, accentHover, surface0..3, border, text, textMuted, textDim,
+ *                 cyan, gold, success, error, warning } (all values must be hex)
+ *   - fonts:   { body, bodyBold, mono, monoBold } (family names)
+ *   - footerLabel: string used in the cover/page footer
+ *   - reportKicker: string used in the cover kicker
+ *
+ * Returns the merged brand object.
+ */
+export function applyBranding(overrides) {
+  if (!overrides) {
+    activeBrand = { ...DEFAULT_BRAND, colors: { ...DEFAULT_BRAND.colors }, fonts: { ...DEFAULT_BRAND.fonts } };
+    Object.assign(COLORS, activeBrand.colors);
+    Object.assign(FONT_FAMILY, activeBrand.fonts);
+    return activeBrand;
+  }
+  const colors = mergeColors(overrides.colors);
+  const fonts = mergeFonts(overrides.fonts);
+  const footerLabel = typeof overrides.footerLabel === 'string' && overrides.footerLabel.length
+    ? overrides.footerLabel.slice(0, 64)
+    : DEFAULT_BRAND.footerLabel;
+  const reportKicker = typeof overrides.reportKicker === 'string' && overrides.reportKicker.length
+    ? overrides.reportKicker.slice(0, 64)
+    : DEFAULT_BRAND.reportKicker;
+  activeBrand = { colors, fonts, footerLabel, reportKicker };
+  Object.assign(COLORS, colors);
+  Object.assign(FONT_FAMILY, fonts);
+  return activeBrand;
+}
+
+export function getActiveBrand() {
+  return { ...activeBrand, colors: { ...activeBrand.colors }, fonts: { ...activeBrand.fonts } };
+}
+
 export const SPACING = {
   xs: 4,
   sm: 8,

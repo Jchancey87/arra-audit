@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import YouTube from 'react-youtube';
 import { useBackend } from './BackendContext';
@@ -34,6 +34,11 @@ export const AudioProvider = ({ children }) => {
 
   const playerRef = useRef(null);
   const timerRef = useRef(null);
+  // Exposed for deep-link consumers: a promise that resolves the next time the
+  // YouTube IFrame API is ready. Resets on each new song load so callers can
+  // await player mount without guessing a delay.
+  const playerReadyResolversRef = useRef([]);
+  const playerReadyPromiseRef = useRef(Promise.resolve());
 
   // Poll current time when playing
   useEffect(() => {
@@ -96,6 +101,11 @@ export const AudioProvider = ({ children }) => {
     setCurrentTime(0);
     setDuration(song.durationSeconds || 0);
     setEmbedError(false); // reset error on new song load
+    // Reset the player-ready promise: previous resolvers will never fire
+    // (we'd have lost their context anyway) and a fresh chain starts.
+    playerReadyPromiseRef.current = new Promise((resolve) => {
+      playerReadyResolversRef.current.push(resolve);
+    });
   };
 
   const play = () => {
@@ -183,7 +193,34 @@ export const AudioProvider = ({ children }) => {
     else playerRef.current.unMute();
     setDuration(playerRef.current.getDuration() || (activeSong ? activeSong.durationSeconds : 0));
     setIsAudioLoading(false);
+    // Resolve any pending waitForPlayerReady() calls.
+    const resolvers = playerReadyResolversRef.current;
+    playerReadyResolversRef.current = [];
+    for (const r of resolvers) {
+      try { r(playerRef.current); } catch (_) { /* swallow */ }
+    }
   };
+
+  const waitForPlayerReady = useCallback(
+    ({ timeoutMs = 3000 } = {}) => {
+      if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+        return Promise.resolve(playerRef.current);
+      }
+      const ready = playerReadyPromiseRef.current;
+      if (!ready) return Promise.resolve(playerRef.current);
+      return new Promise((resolve) => {
+        const t = setTimeout(() => resolve(playerRef.current), timeoutMs);
+        ready.then((player) => {
+          clearTimeout(t);
+          resolve(player);
+        }).catch(() => {
+          clearTimeout(t);
+          resolve(playerRef.current);
+        });
+      });
+    },
+    []
+  );
 
   const handleStateChange = (event) => {
     const state = event.data;
@@ -253,6 +290,7 @@ export const AudioProvider = ({ children }) => {
     highlightBookmarkId,
     isAudioLoading,
     isPlayerReady: Boolean(playerRef.current),
+    waitForPlayerReady,
     playerRef,
   };
 

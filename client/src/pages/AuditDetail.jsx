@@ -8,6 +8,7 @@ import ResearchSummaryRenderer from '../components/ResearchSummaryRenderer';
 import ShareLinkButton from '../components/ShareLinkButton';
 import ExportPdfButton from '../components/ExportPdfButton';
 import useDeepLinkParams from '../hooks/useDeepLinkParams';
+import { recordLinkOpen } from '../utils/shareAnalytics';
 
 
 const AuditDetail = () => {
@@ -25,6 +26,7 @@ const AuditDetail = () => {
     duration,
     highlightBookmark,
     highlightBookmarkId,
+    waitForPlayerReady,
   } = useAudio();
 
   const deepLinkAppliedRef = useRef(false);
@@ -77,6 +79,9 @@ const AuditDetail = () => {
     if (deepLinkTs === null && deepLinkBookmarkId === null) return;
     deepLinkAppliedRef.current = true;
 
+    // Record the click-through so we can build share insights later.
+    recordLinkOpen({ auditId: audit._id, bookmarkId: deepLinkBookmarkId, source: 'deep-link' });
+
     let ts = deepLinkTs;
     if (deepLinkBookmarkId) {
       const bm = audit.bookmarks.find((b) => (b._id || b.id) === deepLinkBookmarkId);
@@ -87,12 +92,19 @@ const AuditDetail = () => {
       }
     }
     if (ts !== null && Number.isFinite(ts)) {
-      // Small delay lets the YouTube player mount before seeking
-      const timer = setTimeout(() => seekTo(ts), 350);
-      return () => clearTimeout(timer);
+      // Wait for the YouTube IFrame to be ready, with a safety timeout. Drops
+      // the 350ms heuristic — slow networks and mobile can take longer to
+      // mount the player, and on dev machines it can be ready immediately.
+      let cancelled = false;
+      waitForPlayerReady({ timeoutMs: 4000 })
+        .then(() => {
+          if (!cancelled) seekTo(ts);
+        })
+        .catch(() => { /* swallow — best effort */ });
+      return () => { cancelled = true; };
     }
     return undefined;
-  }, [audit, deepLinkTs, deepLinkBookmarkId, seekTo, highlightBookmark]);
+  }, [audit, deepLinkTs, deepLinkBookmarkId, seekTo, highlightBookmark, waitForPlayerReady]);
 
   const handleConfirmDelete = async () => {
     try {
@@ -774,6 +786,7 @@ const AuditDetail = () => {
                           bookmarkId={bmId}
                           label="Share"
                           compact
+                          source="bookmark-card"
                         />
                       </div>
                     </div>

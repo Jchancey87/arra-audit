@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { buildAuditLink } from '../utils/deepLinks.js';
+import { recordLinkOpen } from '../utils/shareAnalytics.js';
 
 /**
  * ShareLinkButton - copy or system-share a deep link to an audit bookmark.
@@ -22,6 +23,7 @@ const ShareLinkButton = ({
   bookmarkId,
   label = 'Share',
   compact = false,
+  source = 'inline',
 }) => {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
@@ -51,6 +53,7 @@ const ShareLinkButton = ({
     if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
         await navigator.share(shareData);
+        recordLinkOpen({ auditId, bookmarkId, source });
         return;
       } catch (err) {
         if (err && err.name === 'AbortError') return;
@@ -72,10 +75,11 @@ const ShareLinkButton = ({
         throw new Error('Clipboard unavailable');
       }
       setCopied(true);
+      recordLinkOpen({ auditId, bookmarkId, source });
     } catch (err) {
       setError('Copy failed');
     }
-  }, [auditId, timestampSeconds, bookmarkId]);
+  }, [auditId, timestampSeconds, bookmarkId, source]);
 
   const text = error ? error : copied ? 'Copied' : label;
   const color = error ? '#f87171' : copied ? '#22c55e' : '#ff6600';
