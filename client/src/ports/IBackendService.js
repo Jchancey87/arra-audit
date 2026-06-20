@@ -65,6 +65,7 @@ export class IBackendService {
   async getSketches(songId) { throw new Error('Not implemented'); }
   async getSketch(id) { throw new Error('Not implemented'); }
   async uploadSketch(songId, file, { title, notes } = {}) { throw new Error('Not implemented'); }
+  async updateSketch(id, updates) { throw new Error('Not implemented'); }
   async deleteSketch(id) { throw new Error('Not implemented'); }
   async analyzeSketch(id) { throw new Error('Not implemented'); }
 }

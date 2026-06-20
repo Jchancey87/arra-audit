@@ -162,7 +162,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 });
 
 app.use('/api/auth',       createAuthRoutes(authService));
-app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository));
+app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));

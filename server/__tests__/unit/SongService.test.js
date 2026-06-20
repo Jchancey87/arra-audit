@@ -68,10 +68,12 @@ describe('SongService Unit Tests', () => {
   describe('Trash/Restore/Purge operations', () => {
     let auditRepository;
     let techniqueRepository;
+    let sketchRepository;
 
     beforeEach(() => {
       auditRepository = new InMemoryRepository();
       techniqueRepository = new InMemoryRepository();
+      sketchRepository = new InMemoryRepository();
     });
 
     test('should get only soft-deleted songs', async () => {
@@ -121,6 +123,35 @@ describe('SongService Unit Tests', () => {
 
       const foundTech = await techniqueRepository.findById(tech._id);
       expect(foundTech).toBeNull();
+    });
+
+    test('should soft-delete a song and cascade to its sketches', async () => {
+      const song = await songRepository.create({ title: 'Song', userId: 'user-1', deletedAt: null });
+      const sk1 = await sketchRepository.create({ songId: song._id, userId: 'user-1', deletedAt: null });
+      const sk2 = await sketchRepository.create({ songId: song._id, userId: 'user-1', deletedAt: null });
+      // Sketch on a different song: should NOT be deleted
+      const otherSong = await songRepository.create({ title: 'Other', userId: 'user-1', deletedAt: null });
+      const skOther = await sketchRepository.create({ songId: otherSong._id, userId: 'user-1', deletedAt: null });
+
+      const ok = await songService.deleteSong(song._id, 'user-1', auditRepository, techniqueRepository, sketchRepository);
+      expect(ok).toBe(true);
+
+      const a = await sketchRepository.findById(sk1._id);
+      const b = await sketchRepository.findById(sk2._id);
+      const c = await sketchRepository.findById(skOther._id);
+      expect(a.deletedAt).toBeTruthy();
+      expect(b.deletedAt).toBeTruthy();
+      expect(c.deletedAt).toBeNull();
+    });
+
+    test('delete preview includes sketch count', async () => {
+      const song = await songRepository.create({ title: 'Song', userId: 'user-1', deletedAt: null });
+      await sketchRepository.create({ songId: song._id, userId: 'user-1', deletedAt: null });
+      await sketchRepository.create({ songId: song._id, userId: 'user-1', deletedAt: null });
+      const preview = await songService.getDeletePreview(song._id, 'user-1', auditRepository, techniqueRepository, sketchRepository);
+      expect(preview.sketchCount).toBe(2);
+      expect(preview.auditCount).toBe(0);
+      expect(preview.techniqueCount).toBe(0);
     });
   });
 });

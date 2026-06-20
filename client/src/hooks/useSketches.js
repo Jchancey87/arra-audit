@@ -1,6 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBackend } from '../context/BackendContext.jsx';
 
+function probeAudioDuration(url) {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') {
+      resolve(null);
+      return;
+    }
+    // Vite/Vitest in jsdom never resolves metadata fetches for /uploads/*.wav,
+    // so the probe would otherwise hang until the 5s safety timer fires.
+    // Skip in tests; the server-side python analyze path still fills the field.
+    try {
+      if (import.meta?.env?.MODE === 'test') {
+        resolve(null);
+        return;
+      }
+    } catch (_) { /* swallow */ }
+    const audio = new Audio();
+    let settled = false;
+    const finish = (v) => {
+      if (settled) return;
+      settled = true;
+      try { audio.src = ''; } catch (_) { /* swallow */ }
+      resolve(v);
+    };
+    const timer = setTimeout(() => finish(null), 5000);
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      clearTimeout(timer);
+      const d = audio.duration;
+      finish(Number.isFinite(d) && d > 0 ? d : null);
+    };
+    audio.onerror = () => {
+      clearTimeout(timer);
+      finish(null);
+    };
+    audio.src = url;
+  });
+}
+
 /**
  * useSketches(songId) - List + CRUD hook for DAW sketches tied to a song.
  *
@@ -60,6 +98,21 @@ export function useSketches(songId = null) {
       // Optimistic prepend; refetch in background for canonical order
       setSketches((prev) => [{ ...created }, ...prev]);
       refetch();
+      // Auto-probe duration via a hidden <audio> element so the server has it
+      // before the user runs the (slower) Python analysis. Best-effort; ignore
+      // failures (e.g. cors, missing file, decode error).
+      try {
+        if (created?.publicUrl && created?.durationSeconds == null) {
+          const probed = await probeAudioDuration(created.publicUrl);
+          if (probed != null) {
+            const updated = await backend.updateSketch(created._id || created.id, { durationSeconds: probed });
+            setSketches((prev) =>
+              prev.map((s) => ((s._id || s.id) === (updated._id || updated.id) ? { ...s, ...updated } : s))
+            );
+            return updated;
+          }
+        }
+      } catch (_) { /* swallow */ }
       return created;
     },
     [backend, songId, refetch]

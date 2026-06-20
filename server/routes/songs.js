@@ -24,7 +24,7 @@ function extractYouTubeId(url) {
   return null;
 }
 
-export default function createSongRoutes(songService, auditRepository, techniqueRepository) {
+export default function createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository) {
   const router = express.Router();
 
   const handleValidationErrors = (req, res, next) => {
@@ -118,7 +118,8 @@ export default function createSongRoutes(songService, auditRepository, technique
         req.params.id,
         req.userId,
         auditRepository,
-        techniqueRepository
+        techniqueRepository,
+        sketchRepository
       );
       res.json(preview);
     } catch (error) {
@@ -183,7 +184,8 @@ export default function createSongRoutes(songService, auditRepository, technique
         req.params.id,
         req.userId,
         auditRepository,
-        techniqueRepository
+        techniqueRepository,
+        sketchRepository
       );
       if (!result) return res.status(404).json({ error: 'Song not found' });
       res.json({ message: 'Song deleted' });

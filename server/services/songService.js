@@ -205,12 +205,13 @@ You MUST respond with a JSON object in this exact format (do not include markdow
   /**
    * Return counts of records that would be affected by deleting a song.
    */
-  async getDeletePreview(songId, userId, auditRepository, techniqueRepository) {
+  async getDeletePreview(songId, userId, auditRepository, techniqueRepository, sketchRepository) {
     const song = await this.getSong(songId, userId);
     if (!song) throw new Error('Song not found');
 
     let auditCount = 0;
     let techniqueCount = 0;
+    let sketchCount = 0;
 
     if (auditRepository) {
       const audits = await auditRepository.find({ songId, deletedAt: null });
@@ -224,7 +225,11 @@ You MUST respond with a JSON object in this exact format (do not include markdow
       }
     }
 
-    return { auditCount, techniqueCount };
+    if (sketchRepository) {
+      sketchCount = await sketchRepository.count({ songId, deletedAt: null });
+    }
+
+    return { auditCount, techniqueCount, sketchCount };
   }
 
   // ─── Delete (soft) ────────────────────────────────────────────────────────
@@ -232,7 +237,7 @@ You MUST respond with a JSON object in this exact format (do not include markdow
   /**
    * Soft-delete a song and cascade to its audits + linked technique entries.
    */
-  async deleteSong(songId, userId, auditRepository, techniqueRepository) {
+  async deleteSong(songId, userId, auditRepository, techniqueRepository, sketchRepository) {
     const song = await this.getSong(songId, userId);
     if (!song) return false;
 
@@ -249,6 +254,15 @@ You MUST respond with a JSON object in this exact format (do not include markdow
           }
         }
         await auditRepository.updateById(audit._id, { deletedAt: now });
+      }
+    }
+
+    // Cascade to sketches (A/B compare uploads). Sketches are not auto-restored
+    // along with the song because their backing files may have been cleaned up.
+    if (sketchRepository) {
+      const sketches = await sketchRepository.find({ songId, deletedAt: null });
+      for (const s of sketches) {
+        await sketchRepository.updateById(s._id, { deletedAt: now });
       }
     }
 

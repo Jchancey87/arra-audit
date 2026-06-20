@@ -98,6 +98,70 @@ describe('SketchService Unit Tests', () => {
     });
   });
 
+  describe('updateSketch', () => {
+    test('updates allowed metadata fields and persists them', async () => {
+      const song = await songRepository.create({ userId: 'user-1', deletedAt: null });
+      const sketch = await sketchService.createSketch({
+        userId: 'user-1',
+        songId: song._id,
+        file: mockFile({ filename: 'a.wav', path: '/tmp/a.wav' }),
+        title: 'orig',
+      });
+      const out = await sketchService.updateSketch(sketch._id, 'user-1', {
+        title: 'renamed',
+        notes: 'updated note',
+        durationSeconds: 42.5,
+      });
+      expect(out.title).toBe('renamed');
+      expect(out.notes).toBe('updated note');
+      expect(out.durationSeconds).toBe(42.5);
+    });
+
+    test('rejects unknown fields silently (whitelist)', async () => {
+      const song = await songRepository.create({ userId: 'user-1', deletedAt: null });
+      const sketch = await sketchService.createSketch({
+        userId: 'user-1',
+        songId: song._id,
+        file: mockFile({ filename: 'a.wav', path: '/tmp/a.wav' }),
+      });
+      const out = await sketchService.updateSketch(sketch._id, 'user-1', {
+        userId: 'attacker',
+        analysis: { evil: true },
+        durationSeconds: 5,
+      });
+      expect(out.userId).toBe('user-1');
+      expect(out.analysis == null).toBe(true);
+      expect(out.durationSeconds).toBe(5);
+    });
+
+    test('rejects out-of-range durationSeconds', async () => {
+      const song = await songRepository.create({ userId: 'user-1', deletedAt: null });
+      const sketch = await sketchService.createSketch({
+        userId: 'user-1',
+        songId: song._id,
+        file: mockFile({ filename: 'a.wav', path: '/tmp/a.wav' }),
+      });
+      await expect(
+        sketchService.updateSketch(sketch._id, 'user-1', { durationSeconds: -1 })
+      ).rejects.toThrow(/durationSeconds/);
+      await expect(
+        sketchService.updateSketch(sketch._id, 'user-1', { durationSeconds: 'not a number' })
+      ).rejects.toThrow(/durationSeconds/);
+    });
+
+    test('returns 404 for sketches owned by other users', async () => {
+      const song = await songRepository.create({ userId: 'user-1', deletedAt: null });
+      const sketch = await sketchService.createSketch({
+        userId: 'user-1',
+        songId: song._id,
+        file: mockFile({ filename: 'a.wav', path: '/tmp/a.wav' }),
+      });
+      await expect(
+        sketchService.updateSketch(sketch._id, 'user-2', { durationSeconds: 1 })
+      ).rejects.toThrow(/Sketch not found/);
+    });
+  });
+
   describe('analyzeSketch', () => {
     test('sends sketch to analysis service and stores the result', async () => {
       // Mock axios by monkey-patching SketchService's call site. We do this

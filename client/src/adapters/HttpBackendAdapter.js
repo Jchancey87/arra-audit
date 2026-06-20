@@ -329,6 +329,11 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  async updateSketch(id, updates) {
+    const res = await this.api.patch(`/sketches/${id}`, updates);
+    return res.data;
+  }
+
   async analyzeSketch(id) {
     const res = await this.api.post(`/sketches/${id}/analyze`);
     return res.data;

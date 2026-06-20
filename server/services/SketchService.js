@@ -77,6 +77,39 @@ export class SketchService {
     return sketches;
   }
 
+  async updateSketch(id, userId, updates) {
+    if (!id) throw new Error('Sketch id is required');
+    if (!updates || typeof updates !== 'object') {
+      const err = new Error('Updates payload is required');
+      err.status = 400;
+      throw err;
+    }
+    // Whitelist: only allow metadata that the client is permitted to fill in
+    // after a successful upload (e.g. duration probed from <audio> loadedmetadata).
+    const allowed = ['title', 'notes', 'durationSeconds'];
+    const safe = {};
+    for (const key of allowed) {
+      if (updates[key] !== undefined) safe[key] = updates[key];
+    }
+    if (safe.durationSeconds !== undefined) {
+      const n = Number(safe.durationSeconds);
+      if (!Number.isFinite(n) || n < 0 || n > 60 * 60 * 6) {
+        const err = new Error('durationSeconds must be a finite number between 0 and 21600');
+        err.status = 400;
+        throw err;
+      }
+      safe.durationSeconds = n;
+    }
+    if (Object.keys(safe).length === 0) {
+      const err = new Error('No allowed fields to update');
+      err.status = 400;
+      throw err;
+    }
+    // Re-fetch via getSketch to enforce ownership and 404 on missing/deleted.
+    await this.getSketch(id, userId);
+    return this.sketchRepository.updateById(id, safe);
+  }
+
   async getSketch(id, userId) {
     const sketch = await this.sketchRepository.findById(id);
     if (!sketch || sketch.deletedAt) {

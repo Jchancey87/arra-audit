@@ -12,7 +12,8 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, '../uploads/');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const ALLOWED_EXT = /mp3|wav|m4a|aac|flac|mpeg|x-wav/;
+const ALLOWED_EXT = ['.mp3', '.wav', '.m4a', '.aac', '.flac'];
+const ALLOWED_MIME_PREFIXES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/m4a', 'audio/mp4', 'audio/aac', 'audio/x-aac', 'audio/flac', 'audio/x-flac'];
 const MAX_BYTES = 100 * 1024 * 1024;
 
 const storage = multer.diskStorage({
@@ -26,9 +27,11 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (_req, file, cb) => {
-    const extname = ALLOWED_EXT.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = ALLOWED_EXT.test(file.mimetype);
-    if (extname && mimetype) cb(null, true);
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const mime = (file.mimetype || '').toLowerCase();
+    const extOk = ALLOWED_EXT.includes(ext);
+    const mimeOk = ALLOWED_MIME_PREFIXES.some((prefix) => mime === prefix || mime.startsWith(`${prefix};`));
+    if (extOk && mimeOk) cb(null, true);
     else cb(new Error('Only audio files (mp3, wav, m4a, aac, flac) are allowed'));
   },
   limits: { fileSize: MAX_BYTES },
@@ -118,6 +121,17 @@ export default function createSketchRoutes(sketchService) {
       res.json({ deleted: true, sketch: _sanitizeSketch(out) });
     } catch (err) {
       console.error('[sketches] delete error:', err);
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  });
+
+  // Patch sketch metadata (title/notes/durationSeconds)
+  router.patch('/:id', async (req, res) => {
+    try {
+      const out = await sketchService.updateSketch(req.params.id, req.userId, req.body || {});
+      res.json(_sanitizeSketch(out));
+    } catch (err) {
+      console.error('[sketches] patch error:', err);
       res.status(err.status || 500).json({ error: err.message });
     }
   });

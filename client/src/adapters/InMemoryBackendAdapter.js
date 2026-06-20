@@ -166,6 +166,7 @@ export class InMemoryBackendAdapter extends IBackendService {
       a.deletedAt = now;
       this.techniques.filter((t) => t.auditId === a._id).forEach((t) => { t.deletedAt = now; });
     });
+    this.sketches.filter((s) => s.songId === id).forEach((s) => { s.deletedAt = now; });
     return true;
   }
 
@@ -859,6 +860,17 @@ export class InMemoryBackendAdapter extends IBackendService {
     s.deletedAt = new Date().toISOString();
     s.updatedAt = new Date().toISOString();
     return { deleted: true, sketch: { ...s } };
+  }
+
+  async updateSketch(id, updates) {
+    const s = this.sketches.find((x) => x._id === id && !x.deletedAt);
+    if (!s) throw new Error('Sketch not found');
+    const allowed = ['title', 'notes', 'durationSeconds'];
+    for (const key of allowed) {
+      if (updates[key] !== undefined) s[key] = updates[key];
+    }
+    s.updatedAt = new Date().toISOString();
+    return { ...s };
   }
 
   async analyzeSketch(id) {
