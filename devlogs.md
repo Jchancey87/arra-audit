@@ -1732,4 +1732,78 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
 - **No SSE/push**: client refreshes the audit on mount to see updates. For "real-time" updates, would need SSE or websocket. Out of scope for 2.3.
 - **First-bookmark latency**: cold path downloads the full YouTube audio (~60s) before the first segment slice. Subsequent bookmarks on the same song reuse the cache.
 
+---
+
+## 2026-06-20 — Phase 2.4: Liked-by-Artist Discovery (TF-IDF)
+
+### Commit
+
+`fb75fd8 Phase 2.4: liked-by-artist discovery` + `584491d docs: sigmap regen (post-Phase 2.4)`
+
+### What shipped
+
+**End-to-end flow**: open any technique in the notebook → "Similar techniques from your notebook" section appears below the description → renders the top 5 by cosine similarity → click a card to swap the modal contents to that technique.
+
+**Backend**:
+- `server/ports/IRecommendationService.js`: port with `rank({targetId, targetText, corpus, limit})` + JSDoc.
+- `server/adapters/TFIDFAdapter.js`: pure-JS TF-IDF — lowercase + ASCII tokenize + small English stopword list, L1-normalized term frequency, smoothed IDF, sparse cosine sim. Self-similarity filtered by caller. Deterministic id-ascending tiebreak. No external deps.
+- `server/adapters/MockRecommendationAdapter.js`: deterministic stub for tests/offline. Tag-jaccard + small hash jitter.
+- `server/services/RecommendationService.js`: orchestrator — fetches target, fetches user notebook (capped at 5000), builds `text = description + techniqueName + lens + tags + notes`, calls adapter, hydrates top N back to full technique docs. Throws `TECHNIQUE_NOT_FOUND` on missing/wrong-user/soft-deleted target. Limit clamped to [1, 50].
+- `server/routes/techniques.js`: new `GET /:id/similar?limit=N` (registered before `/:id` to avoid collision).
+- `server.js`: wires `TFIDFAdapter` + `RecommendationService`.
+
+**Client**:
+- `IBackendService.findSimilarTechniques(techniqueId, {limit})`.
+- `HttpBackendAdapter`: `GET /techniques/:id/similar`.
+- `InMemoryBackendAdapter`: deterministic in-memory tag-jaccard + id-based jitter (no server needed for tests).
+- `client/src/hooks/useRecommendations.js`: wraps the call. Returns `{similar, target, loading, error, refetch}`. `skip` flag short-circuits when there's no description.
+- `client/src/components/SimilarTechniquesSection.jsx`: collapsible section in the technique modal. 5 states — empty (no description hint), loading, error + Retry, none, cards. Cards: lens-color left border, truncated description, gradient score bar, % label. Click card → `onOpenSimilar` callback.
+- `TechniqueDetailModal`: accepts optional `onOpenTechnique` prop, renders the new section.
+- `TechniqueNotebook`: passes `setSelectedTech` as `onOpenTechnique` — clicking a similar card opens that technique in the same modal chain.
+
+### Files
+
+| Path | Action | Notes |
+|---|---|---|
+| `server/ports/IRecommendationService.js` | NEW | port + JSDoc |
+| `server/adapters/TFIDFAdapter.js` | NEW | TF-IDF + cosine sim, `tokenize` exported |
+| `server/adapters/MockRecommendationAdapter.js` | NEW | deterministic stub |
+| `server/services/RecommendationService.js` | NEW | orchestrator, throws `TECHNIQUE_NOT_FOUND` |
+| `server/__tests__/unit/TFIDFAdapter.test.js` | NEW | 13 + 4 = 17 tests |
+| `server/__tests__/unit/RecommendationService.test.js` | NEW | 9 tests |
+| `server/routes/techniques.js` | MOD | new `GET /:id/similar` |
+| `server/server.js` | MOD | wires RecommendationService |
+| `client/src/ports/IBackendService.js` | MOD | `findSimilarTechniques` |
+| `client/src/adapters/HttpBackendAdapter.js` | MOD | matching method |
+| `client/src/adapters/InMemoryBackendAdapter.js` | MOD | in-memory mock |
+| `client/src/hooks/useRecommendations.js` | NEW | data hook |
+| `client/src/hooks/__tests__/useRecommendations.test.jsx` | NEW | 5 tests |
+| `client/src/components/SimilarTechniquesSection.jsx` | NEW | collapsible section + cards |
+| `client/src/components/__tests__/SimilarTechniquesSection.test.jsx` | NEW | 9 tests |
+| `client/src/components/TechniqueDetailModal.jsx` | MOD | accepts `onOpenTechnique`, renders section |
+| `client/src/pages/TechniqueNotebook.jsx` | MOD | wires `onOpenTechnique` |
+
+### Test totals
+
+- client vitest: 154 → 168 (+14) — all green
+- server jest: 77 → 104 (+27) — all green
+- Vite build clean. AuditDetail 58.1 KB unchanged; TechniqueNotebook 65.1 → 74.2 KB (+9.1 KB for section + hook).
+
+### Acceptance
+
+- Open any technique with a description → section appears with up to 5 ranked matches → cards show lens-color left border + truncated description + similarity score bar. ✓
+- Open a technique with no description → hint says "Add a description to this technique to surface similar entries from your notebook" + no network call. ✓
+- Click a similar card → modal contents swap to that technique (no full close + reopen). ✓
+- No matches yet (new notebook) → "No similar techniques yet" message. ✓
+- Backend 500 → section shows error with Retry button. ✓
+- Pagination: limit query param, clamped to [1, 50]. ✓
+
+### Risks + follow-ups
+
+- **OpenAI embeddings adapter (v2)**: spec mentions "TF-IDF first, OpenAI if results poor." Deferred — TF-IDF gives good results for short text + shared tags. Add an `OpenAIEmbeddingAdapter` later if the user complains about quality.
+- **Cross-user discovery**: spec says "across all artists in the user's notebook" — we correctly scope to the user's own notebook (privacy). If we ever want to surface techniques from the global pool, scope must change explicitly.
+- **Cached recommendations**: currently recomputed on every modal open. For larger notebooks, cache by `(userId, techniqueId)` with a TTL. v2.
+- **No streaming**: corpus is loaded synchronously into memory. For >5k techniques, paginate the source query. Cap is currently 5000.
+
+
 

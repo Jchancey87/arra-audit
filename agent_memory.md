@@ -1,23 +1,25 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3 ✅ shipped. Quick-win key-mismatch fix ✅ shipped. Ready for next Phase 2 feature.
-- **Status**: Session wrap-up. Phase 2.3 shipped this session (22 new tests, AuditDetail +6.3 KB). 154/154 client + 77/77 server + Vite build clean. Main 613 KB.
+- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3, 2.4 ✅ shipped. Quick-win key-mismatch fix ✅ shipped. Stem separation deferred (Demucs heavy dep). Ready for Phase 3 or 2.5.
+- **Status**: Session wrap-up. Phase 2.4 shipped (41 new tests, TechniqueNotebook +9.1 KB). 168/168 client + 104/104 server + Vite build clean. Main 613 KB.
 
 ## ⏸️ Resume Point (checkpoint 2026-06-20, SESSION END)
-- **Done this session (3 features):**
-  1. **Quick-win: AuditDetail key-mismatch fix** (`0988f3b`) — `AuditDetail.jsx:635,722` reads `lens-${lens}-${idx}` (matches LensPanel write side); "Grouped by template lenses" branch now actually renders. 4 regression tests in `responseKeyContract.test.js`.
-  2. **Phase 2.2 timestamped answers + scrollytelling** (`05a5dc6` + `59bdc34` + `ee24316`) — see Red Lines.
-  3. **Phase 2.3 per-bookmark CLAP analysis** (`7c93e15` + `325463c`) — see Red Lines.
-- **Test totals**: client vitest 91→154 (+63, including 4 contract tests). Server jest 67→77 (+10). Vite clean.
-- **Next (start here next session)**:
-  - **Phase 2.4** liked-by-artist discovery (M/3d) — TF-IDF cosine sim on techniques; `IRecommendationService` port + `TFIDFAdapter` + `useRecommendations` hook + "Similar techniques" section in `TechniqueDetailModal`
-  - **Phase 2.5** stem separation (L/1.5w) — Demucs, per-stem lanes; biggest scope, new heavy dep
-  - **Optional v2.3 follow-ups** (cheap): SSE push for bookmark-analysis status, audit-time GPU queueing, segment TTL on `/tmp` cache
-- **Stale for next session (technical debt)**:
+- **Done this session (4 features):**
+  1. **Quick-win: AuditDetail key-mismatch fix** (`0988f3b`)
+  2. **Phase 2.2 timestamped answers + scrollytelling** (`05a5dc6`)
+  3. **Phase 2.3 per-bookmark CLAP analysis** (`7c93e15`)
+  4. **Phase 2.4 liked-by-artist discovery** (`fb75fd8`) — see Red Lines
+- **Test totals**: client vitest 91→168 (+77). Server jest 67→104 (+37). Vite clean.
+- **Next (start here next session) — Phase 3 options**:
+  - **3.1 Daily "1 technique to remember" digest** (M-L/5d) — push notification + SM-2 spaced repetition. Adds `node-cron` + `web-push` deps, new `PushSubscription` model, new `INotificationService` port (`WebPushAdapter` + `SmtpAdapter`).
+  - **3.2 Offline-first audit drafts** (L/1.5w) — full PWA setup with `vite-plugin-pwa` + IndexedDB + sync queue. Big surface, high retention impact.
+  - **3.3 Mobile listening mode** (M/3d) — depends on 3.2. Stripped-down `/m/:songId` page with big play/bookmark/lens buttons.
+- **Stale tech debt**:
   - Sigmap regen noise (4-6 commits/feature); recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script as first cleanup task before next feature
-  - Extract `TechniqueDetailModal` from `TechniqueNotebook` chunk (~10-15 KB win)
+  - Extract `TechniqueDetailModal` from `TechniqueNotebook` chunk (~10-15 KB win; TechniqueNotebook now 74 KB after 2.4)
   - Extract `ArrangementTimelineWidget` (56.5 KB) into shared chunk via `manualChunks` — currently duplicated in AuditDetail + StudySessionWorkspace page chunks
+  - **Phase 2.3 v2 follow-ups** (cheap, deferred): SSE push for bookmark-analysis status, segment TTL on `/tmp` cache, OpenAI embeddings for 2.4 (if results poor)
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -59,7 +61,7 @@
 **Status (2026-06-20)**: ✅ All 15 v2 follow-ups shipped. See `devlogs.md` "## 2026-06-20 — Phase 1 v2 Follow-ups Sweep" for the full inventory and per-fix status.
 
 ## 🚧 Phase 2 — Educational Value
-**Status (2026-06-20)**: 2.1 promote-to-technique ✅ (`3f3102f`); 2.2 timestamped answers + scrollytelling ✅ (`05a5dc6`); 2.3 per-bookmark CLAP analysis ✅ (`7c93e15`). Next: 2.4 TF-IDF discovery (M/3d) or 2.5 stem separation (L/1.5w). User undecided.
+**Status (2026-06-20)**: 2.1 ✅, 2.2 ✅, 2.3 ✅, 2.4 ✅. 2.5 stem separation deferred (Demucs heavy dep + 1.5w estimate). User wants to look at Phase 3 next.
 
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
