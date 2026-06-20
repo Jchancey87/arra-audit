@@ -43,6 +43,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-20 | Resolved canvas timeline JSX compile syntax errors, hook declaration order ReferenceErrors, and Vitest test regressions. | `738a9c4` |
 | 2026-06-20 | Migrated timeline to Layered Canvas Architecture, fixed click/context menu interactions, and repaired the unit test suite. | `0905804` |
 | 2026-06-20 | Resolved stale closures for timeline drags/resizes, added drag-to-copy sections to tracks, and built left/right-click context menus for sections, blocks, and lanes. | `b1c2168` |
 | 2026-06-20 | Removed loudness, BPM, and key boxes from Audit Form & Detail, and enhanced timeline with zoom, bird's-eye minimap, arrangement density graph, and structural composition breakdown. | `ade0ec9` |
