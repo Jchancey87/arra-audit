@@ -632,7 +632,7 @@ const AuditDetail = () => {
                 // Grouped by template lenses to show actual questions
                 Object.entries(audit.templateQuestions.lenses).map(([lens, lensData]) => {
                   const questions = lensData.questions || [];
-                  const hasAnswers = questions.some((_, idx) => audit.responses[`${lens}-q${idx}`]);
+                  const hasAnswers = questions.some((_, idx) => audit.responses[`lens-${lens}-${idx}`]);
                   if (!hasAnswers) return null;
 
                   return (
@@ -719,7 +719,7 @@ const AuditDetail = () => {
                             </div>
                           )}
                           {questions.map((question, idx) => {
-                            const key = `${lens}-q${idx}`;
+                            const key = `lens-${lens}-${idx}`;
                             const answer = audit.responses[key];
                             if (!answer) return null;
                             const { text, timestampSeconds } = normalizeResponse(answer);
