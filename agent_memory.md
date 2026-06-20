@@ -1,23 +1,23 @@
 # 🧠 Active Agent Memory — Arra
 
 ## 🎯 Active Session Focus (Intent)
-- **Goal**: Phase 2 educational value — 2.1 promote-to-technique ✅ shipped; code-split carry-over ✅ shipped; 2.2 timestamped answers + scrollytelling ✅ shipped. Ready for next Phase 2 feature.
-- **Status**: Session wrap-up. 2.2 shipped this session (51 new tests, AuditDetail +4.8 KB). 142/142 client vitest + Vite build clean. Main 613 KB.
+- **Goal**: Phase 2 educational value — 2.1, 2.2, 2.3 ✅ shipped. Quick-win key-mismatch fix ✅ shipped. Ready for next Phase 2 feature.
+- **Status**: Session wrap-up. Phase 2.3 shipped this session (22 new tests, AuditDetail +6.3 KB). 154/154 client + 77/77 server + Vite build clean. Main 613 KB.
 
 ## ⏸️ Resume Point (checkpoint 2026-06-20, SESSION END)
-- **Done this session:**
-  1. **Phase 2.2 timestamped answers + scrollytelling** (`05a5dc6` + `59bdc34`) — `responseShape.js` normalizer, `scrollytelling.js` hooks, `LensPanel` "⏱ Tag {time}" button (with `×` clear), `AuditDetail` click-to-seek pills + cyan active highlight + header "⏵ Scrollytelling" toggle (debounced 350ms, minJumpSeconds 6). 51 new tests (33+9+9). AuditDetail 47→51.8 KB, main unchanged 613 KB.
-- **Test totals**: client vitest 91→142 (all green). Server still 67/67 (no backend changes this session).
-- **Pre-existing bug noted (not fixed)**: `AuditDetail.jsx` "Grouped by template lenses" branch reads `responses[`${lens}-q${idx}`]` (e.g. `harmony-q0`) but write side uses `lens-${lens}-${i}` (e.g. `lens-harmony-0`). Gate at line 577 always false, so users always see fallback branch. 1-line fix in next session.
-- **Next (start here next session)**: pick one of these and follow the **Changes** sub-list in `HANDOFF_P0_P4.md`:
-  - **Phase 2.3** per-bookmark CLAP analysis (M-L/5d) — biggest educational-value win; Python `analyze_segment` + `IBookmarkAnalysisService` port + GPU concurrent limit 2
-  - **Phase 2.4** liked-by-artist discovery (M/3d) — TF-IDF cosine sim on techniques
-  - **Phase 2.5** stem separation (L/1.5w) — Demucs, per-stem lanes (largest scope, new dep)
-  - **Quick win**: fix the AuditDetail `q${idx}` → `${idx}` key-mismatch bug (5-min, 1 test)
+- **Done this session (3 features):**
+  1. **Quick-win: AuditDetail key-mismatch fix** (`0988f3b`) — `AuditDetail.jsx:635,722` reads `lens-${lens}-${idx}` (matches LensPanel write side); "Grouped by template lenses" branch now actually renders. 4 regression tests in `responseKeyContract.test.js`.
+  2. **Phase 2.2 timestamped answers + scrollytelling** (`05a5dc6` + `59bdc34` + `ee24316`) — see Red Lines.
+  3. **Phase 2.3 per-bookmark CLAP analysis** (`7c93e15` + `325463c`) — see Red Lines.
+- **Test totals**: client vitest 91→154 (+63, including 4 contract tests). Server jest 67→77 (+10). Vite clean.
+- **Next (start here next session)**:
+  - **Phase 2.4** liked-by-artist discovery (M/3d) — TF-IDF cosine sim on techniques; `IRecommendationService` port + `TFIDFAdapter` + `useRecommendations` hook + "Similar techniques" section in `TechniqueDetailModal`
+  - **Phase 2.5** stem separation (L/1.5w) — Demucs, per-stem lanes; biggest scope, new heavy dep
+  - **Optional v2.3 follow-ups** (cheap): SSE push for bookmark-analysis status, audit-time GPU queueing, segment TTL on `/tmp` cache
 - **Stale for next session (technical debt)**:
   - Sigmap regen noise (4-6 commits/feature); recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script as first cleanup task before next feature
   - Extract `TechniqueDetailModal` from `TechniqueNotebook` chunk (~10-15 KB win)
-  - `ArrangementTimelineWidget` (56.5 KB) is already a shared chunk — good
+  - Extract `ArrangementTimelineWidget` (56.5 KB) into shared chunk via `manualChunks` — currently duplicated in AuditDetail + StudySessionWorkspace page chunks
 
 ## ⚠️ Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: Always set `controls: 1` and pass `origin` in `playerVars`. Removing `pointer-events: none` from iframe containers is mandatory to allow browser autoplay unlock gestures.
@@ -59,13 +59,17 @@
 **Status (2026-06-20)**: ✅ All 15 v2 follow-ups shipped. See `devlogs.md` "## 2026-06-20 — Phase 1 v2 Follow-ups Sweep" for the full inventory and per-fix status.
 
 ## 🚧 Phase 2 — Educational Value
-**Status (2026-06-20)**: 2.1 promote-to-technique ✅ (`3f3102f`); 2.2 timestamped answers + scrollytelling ✅ (`05a5dc6`). Next: 2.3 per-bookmark CLAP analysis (M-L/5d) — biggest win; or 2.4 TF-IDF discovery (M/3d). User undecided.
+**Status (2026-06-20)**: 2.1 promote-to-technique ✅ (`3f3102f`); 2.2 timestamped answers + scrollytelling ✅ (`05a5dc6`); 2.3 per-bookmark CLAP analysis ✅ (`7c93e15`). Next: 2.4 TF-IDF discovery (M/3d) or 2.5 stem separation (L/1.5w). User undecided.
 
 ## 🔄 Pruned Session Log (Full history in devlogs.md)
 | Date | Summary | Commit |
 |---|---|---|
 | 2026-06-20 | Carry-over: code-split App.jsx routes — 11 pages via React.lazy + Suspense(PageFallback). Main 1069→613KB (-43%, gzip 250→178KB). 2 PageFallback tests. 89/89 client. | `2f991ae` |
 | 2026-06-20 | Phase 2.2: timestamped answers + scrollytelling — responseShape normalizer, useMostVisible+useScrollytellingSeek hooks, LensPanel tag button + clear ×, AuditDetail click-to-seek pills + scrollytelling toggle (debounced 350ms, minJump 6s). 51 new tests. 142/142 client, AuditDetail 47→51.8 KB. | `05a5dc6` |
+| 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — AuditDetail.jsx reads lens-${lens}-${idx} (matches LensPanel write side); 4 regression tests. 146/146 client. | `0988f3b` |
+| 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python analyze_segment + ClapAnalyzer.analyze_features_from_array + POST /analyze-segment (GPU semaphore 2) + Audit bookmarkSchema.analysis + IBookmarkAnalysisService port + CLAPSegmentAdapter + MockBookmarkAnalysisAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes (auto-enqueue on add, POST analyze, GET analysis) + IBackendService port + Http/InMemory adapters + BookmarkAnalysisTags component on AuditDetail bookmark cards. 22 new tests (10+8 + 4 contract). 154/154 client, 77/77 server, AuditDetail 51.8→58.1 KB. | `7c93e15` |
+| 2026-06-20 | fix(audit): Grouped-by-template branch key mismatch — AuditDetail.jsx reads lens-${lens}-${idx} (matches LensPanel write side); 4 regression tests. 146/146 client. | `0988f3b` |
+| 2026-06-20 | Phase 2.3: per-bookmark CLAP analysis — Python analyze_segment + ClapAnalyzer.analyze_features_from_array + POST /analyze-segment (GPU semaphore 2) + Audit bookmarkSchema.analysis + IBookmarkAnalysisService port + CLAPSegmentAdapter + MockBookmarkAnalysisAdapter + BookmarkAnalysisService (queue 32, in-flight 8) + routes (auto-enqueue on add, POST analyze, GET analysis) + IBackendService port + Http/InMemory adapters + BookmarkAnalysisTags component on AuditDetail bookmark cards. 22 new tests (10+8 + 4 contract). 154/154 client, 77/77 server, AuditDetail 51.8→58.1 KB. | `7c93e15` |
 | 2026-06-20 | Phase 2.1 promote-to-technique: lensGuess + splitSentences utils, useTechniques.addFromSentence, PromoteToTechniqueModal, ResearchSummaryRenderer sentence-hover + 4 call-site wirings. 34 new tests (9+7+5+8+5). 89/89 client. Main 1047→1069KB. | `3f3102f` |
 | 2026-06-20 | Phase 1 v2 sweep (1.2): sample-level delta waveform, yt-dlp fallback harness, Playwright e2e smoke — audioDelta.js + 10 tests, YtDlpService (mock+subprocess) + 8 tests, Playwright config + 2 e2e tests, AudioContext fallback state, PATCH /:id route. 67/67 + 54/54 + 2/2. | `9715e6f` |
 | 2026-06-20 | Phase 1 v2 (1.1 + 1.3): player-ready poll, click-through analytics, PDF polish (4 fixes) — waitForPlayerReady, shareAnalytics (4 tests), lens-empty badge, cover page numbers, long-description wrap, applyBranding (6 tests). | `1667686` |

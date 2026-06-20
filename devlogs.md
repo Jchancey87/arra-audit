@@ -1643,3 +1643,93 @@ b8e6128 docs: sigmap regen (final)
 
 3 unstaged `.github/context-*.md` + 2 `.github/{copilot,gemini}-*.md` after post-commit hook. Tracked in resume-point tech-debt section; recommend `rm .git/hooks/post-commit` + add `npm run sigmap` script first thing in next session.
 
+---
+
+## 2026-06-20 — Quick Win: AuditDetail Key Mismatch Fix
+
+### Commit
+
+`0988f3b fix(audit): Grouped-by-template branch key mismatch \`\${lens}-q\${idx}\` -> \`lens-\${lens}-\${idx}\``
+
+### What shipped
+
+Followed up on the pre-existing bug noted in the Phase 2.2 devlog. `AuditDetail.jsx:635,722` now reads `responses[\`lens-\${lens}-\${idx}\`]` (matches the write side in `LensPanel` + `useCompletionCheck`). The "Grouped by template lenses" branch now actually renders — previously it always returned false at the `hasAnswers` gate and silently fell through to the raw-entries fallback.
+
+Added 4 regression tests in `responseKeyContract.test.js` that grep the source files for both the write-side and read-side patterns, plus a negative test that catches the legacy `\${lens}-q\${idx}` pattern if it ever sneaks back in.
+
+No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest unchanged.
+
+---
+
+## 2026-06-20 — Phase 2.3: Per-Bookmark CLAP Analysis
+
+### Commit
+
+`7c93e15 Phase 2.3: per-bookmark CLAP analysis` + `325463c docs: sigmap regen (post-Phase 2.3)`
+
+### What shipped
+
+**End-to-end flow**: tag at 2:25 (Phase 2.2) → bookmark auto-enqueues → Python slices the audio to ±5s → CLAP zero-shot scores 10 mood + 10 timbre tags + 3 most-similar canonical reference tracks → bookmark card surfaces the results as colored pills.
+
+**Python (`analysis_service/`)**:
+- `analyzer.py`: `analyze_segment(file_path, start_s, end_s, audio_id, pad_seconds=5)` slices the audio via librosa offset/duration and runs CLAP against a fixed taxonomy. `ClapAnalyzer.analyze_features_from_array(audio_array, sr, tags)` is the new method that skips the librosa reload for pre-loaded segments. Deterministic fallback seeded by `(audio_id, start_s, end_s)` so the same bookmark always returns the same analysis — no test flake.
+- `app.py`: `POST /analyze-segment` with `SegmentAnalysisRequest` BaseModel. Resolves audio via local `file_path` OR YouTube URL (downloads + caches to `/tmp/arra_temp_{yt_id}.mp3` if missing, reusing the existing yt-dlp cache from `download_and_analyze`). `asyncio.Semaphore(SEGMENT_GPU_CONCURRENCY)` defaults to 2 — the 4GB GTX 1050 Ti can comfortably run 2 CLAP inferences in parallel before OOMing. Configure via `SEGMENT_GPU_CONCURRENCY` env.
+
+**Backend**:
+- `server/models/Audit.js`: bookmarkSchema extended with `analysis` subdocument — `{status, model, version, mood_tags, timbre_tags, similar_to, error, computedAt}`. `null` = "not yet requested" (older bookmarks). Statuses: `pending` / `running` / `success` / `error` / `skipped`.
+- `server/ports/IBookmarkAnalysisService.js`: port interface + JSDoc typedefs for the analysis shape.
+- `server/adapters/CLAPSegmentAdapter.js`: thin HTTP wrapper. `ANALYSIS_SERVICE_URL` (default `http://localhost:8080`) + `ANALYSIS_API_TIMEOUT` (default 90s — a single inference + download cache miss can take 60s+).
+- `server/adapters/MockBookmarkAnalysisAdapter.js`: deterministic in-memory stub. Same input → same output. Used by tests + offline dev.
+- `server/services/BookmarkAnalysisService.js`: queue (limit 32) + in-flight cap (8) to prevent unbounded growth. Auto-resolves `ytId`/`youtubeUrl` from the song document when `filePath` is missing. Best-effort pending write → running status → final result/error patch. `enqueue()` returns `{accepted, reason?, queueSize}` for the route to surface.
+- `server/routes/audits.js`: bookmark add auto-enqueues analysis (fire-and-forget). New `POST /:id/bookmarks/:bookmarkId/analyze` for manual re-analyze. New `GET /:id/bookmarks/:bookmarkId/analysis` returns current status + queue depth.
+- `server/server.js`: wires `CLAPSegmentAdapter` + `BookmarkAnalysisService` and passes them to `createAuditRoutes`.
+
+**Client**:
+- `IBackendService`: `analyzeBookmark(auditId, bookmarkId, opts)` + `getBookmarkAnalysis(auditId, bookmarkId)`.
+- `HttpBackendAdapter`: matching methods.
+- `InMemoryBackendAdapter`: deterministic in-memory mock (seeded by bookmark id) for tests.
+- `client/src/components/BookmarkAnalysisTags.jsx`: bookmark-card tag renderer. 4 states — pending/running spinner, success pills (top-3 mood + top-3 timbre, plus `Similar: A - T · B - U · C - V` line), error with Retry button, hidden when `analysis` is null. Lens-palette colors per tag.
+- `AuditDetail`: `<BookmarkAnalysisTags>` rendered on every bookmark card.
+
+### Files
+
+| Path | Action | Notes |
+|---|---|---|
+| `analysis_service/analyzer.py` | MOD | `analyze_segment()`, `_clap_segment_analysis()`, `_fallback_segment_analysis()`, `_clap_similar_tracks()`, `ClapAnalyzer.analyze_features_from_array()`, taxonomy constants |
+| `analysis_service/app.py` | MOD | `POST /analyze-segment`, `SegmentAnalysisRequest`, `_ensure_cached_audio()`, `SEGMENT_GPU_CONCURRENCY` semaphore |
+| `server/models/Audit.js` | MOD | `bookmarkAnalysisSchema` + `analysis` field on `bookmarkSchema` |
+| `server/ports/IBookmarkAnalysisService.js` | NEW | port + JSDoc |
+| `server/adapters/CLAPSegmentAdapter.js` | NEW | HTTP wrapper |
+| `server/adapters/MockBookmarkAnalysisAdapter.js` | NEW | deterministic in-memory stub |
+| `server/services/BookmarkAnalysisService.js` | NEW | queue + concurrency + drain + resolution + write-back |
+| `server/__tests__/unit/BookmarkAnalysisService.test.js` | NEW | 10 tests |
+| `server/routes/audits.js` | MOD | auto-enqueue on add; new POST/GET bookmark-analysis routes |
+| `server/server.js` | MOD | wires `BookmarkAnalysisService` |
+| `client/src/ports/IBackendService.js` | MOD | `analyzeBookmark` + `getBookmarkAnalysis` |
+| `client/src/adapters/HttpBackendAdapter.js` | MOD | matching methods |
+| `client/src/adapters/InMemoryBackendAdapter.js` | MOD | seeded in-memory mock |
+| `client/src/components/BookmarkAnalysisTags.jsx` | NEW | tag renderer + retry button |
+| `client/src/components/__tests__/BookmarkAnalysisTags.test.jsx` | NEW | 8 tests |
+| `client/src/pages/AuditDetail.jsx` | MOD | `<BookmarkAnalysisTags>` per bookmark card |
+
+### Test totals
+
+- client vitest: 142 → 154 (+12) — all green
+- server jest: 67 → 77 (+10) — all green
+- Vite build clean. AuditDetail chunk 51.8 → 58.1 KB. Main 613 KB unchanged.
+
+### Acceptance
+
+- Add bookmark at 2:25 → bookmark card shows "Analyzing…" → CLAP run completes → card shows 3 mood pills (e.g. energetic, dreamy, intimate) + 3 timbre pills (e.g. warm, smooth, bright) + "Similar: Daft Punk - One More Time · Boards of Canada - Roygbiv · …" line ✓
+- Old bookmarks (pre-2.3) show no analysis section (`analysis === null`) — no error, no broken UI ✓
+- Add 10 bookmarks in a burst → only 2 CLAP inferences run concurrently (Python semaphore) → queue depth surfaces in `GET /analysis` ✓
+- Retry button on a failed analysis → calls `analyzeBookmark` → updates card with the new result ✓
+
+### Risks + follow-ups
+
+- **GPU contention**: mitigated by `SEGMENT_GPU_CONCURRENCY=2` in the Python service. If the host gets a bigger GPU, bump to 4-8.
+- **Disk usage**: `/tmp/arra_temp_{yt_id}.mp3` is the existing cache. Per-bookmark analysis reuses it. Cleanup is the existing temp purge path. Could add a TTL.
+- **No SSE/push**: client refreshes the audit on mount to see updates. For "real-time" updates, would need SSE or websocket. Out of scope for 2.3.
+- **First-bookmark latency**: cold path downloads the full YouTube audio (~60s) before the first segment slice. Subsequent bookmarks on the same song reuse the cache.
+
+
