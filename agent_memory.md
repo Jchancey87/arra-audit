@@ -1,9 +1,9 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Rewrote AuditTimeline from 1,967-line hybrid canvas/DOM to clean 705-line pure DOM component. Fixed infinite re-render OOM (unstable empty-array refs in useMemo deps).
-- **Status**: 288/288 client + Vite clean. Build clean.
-- **Next**: Deploy timeline rewrite, then Phase 3 or polish.
+- **Goal**: Rewrote AuditTimeline and ArrangementTimelineWidget from HTML5 Canvas to pure HTML/CSS DOM, removing OOM infinite loops and coordinate calculation code blocks.
+- **Status**: 288/288 client tests passing, production Vite build clean.
+- **Next**: Implement Phase 3.1 Daily Digest spaced repetition or offline-first drafts.
 
 ## Resume Point (checkpoint 2026-06-20 — TIMELINE INTERACTIONS SHIPPED)
 - Commits closed all timeline interactive needs: resizing/moving drag bugs, section drag-to-copy, and context menus for blocks & lanes.
@@ -43,6 +43,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-20 | Migrated ArrangementTimelineWidget to pure DOM and refactored widget unit tests to target DOM selectors. | `9790029` |
 | 2026-06-20 | Resolved canvas timeline JSX compile syntax errors, hook declaration order ReferenceErrors, and Vitest test regressions. | `738a9c4` |
 | 2026-06-20 | Migrated timeline to Layered Canvas Architecture, fixed click/context menu interactions, and repaired the unit test suite. | `0905804` |
 | 2026-06-20 | Resolved stale closures for timeline drags/resizes, added drag-to-copy sections to tracks, and built left/right-click context menus for sections, blocks, and lanes. | `b1c2168` |

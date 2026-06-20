@@ -8,6 +8,19 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Migrate DAW Timeline Widget to Pure DOM Architecture
+
+- **Context**: Switched the `ArrangementTimelineWidget.jsx` component from an HTML5 Canvas implementation to a pure HTML/CSS React DOM architecture. This aligns the second timeline widget with the newly refactored `AuditTimeline.jsx`, removing obsolete coordinate mapping, device pixel ratio scaling, and dummy drawing code blocks.
+- **Pure DOM Migration**:
+  - Rebuilt the ruler, sections lane, track lanes, section blocks, track blocks, and playhead as absolute-positioned DOM nodes styled with CSS and inline styles.
+  - Eliminated the `canvasRef`, canvas resize observer, and 290 lines of Canvas API painting code.
+  - Reused 100% of the drag-and-drop, resizing math, CRUD callbacks, context menus, and shortcut handlers.
+  - Substituted coordinate-based mouse hover listeners with clean, rule-based CSS cursors (`cursor: 'grab'`, `col-resize`, `crosshair`, etc.).
+  - Replaced the fake canvas waveform background with a smooth, stylized SVG wave path gradient overlay.
+- **Updated Test Suite**:
+  - Rewrote `ArrangementTimelineWidget.test.jsx` to test semantic DOM elements via test IDs (`section-block-sec-1`, `sections-lane`, `track-lane-track-1`, etc.) instead of mocking canvas 2D contexts and firing client coordinate offsets on canvas elements.
+  - Verified 288/288 client tests pass and Vite production builds compile clean.
+
 ### 2026-06-20: Fix Canvas Timeline compilation, initialization, and scrubbing test regressions
 
 - **Context**: Resolved syntax and runtime errors in the newly migrated Canvas-based `AuditTimeline.jsx` component that broke the frontend client build, and fixed subsequent Vitest failures.
