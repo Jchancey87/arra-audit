@@ -8,6 +8,18 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-20: Fix PDF Export Crash and Vite Duplicate Style Key Warning
+
+- **Context**: Resolved user-reported issue where PDF export was failing on audits and fixed a warning in the client production build.
+- **PDF Export Fix**:
+  - Identified a crash in `@react-pdf/renderer` inside `AuditReport.jsx` where empty strings (`""`) evaluated via logical AND (`&&`) checks inside JSX were returned to the `<View>` parent.
+  - Since React-PDF crashes when raw text/strings are rendered outside of a `<Text>` component, empty string expressions (like `{entry.answer && ...}`) threw an exception in the browser.
+  - Replaced the conditional `&&` checks for `entry.question`, `entry.answer`, and `entry.note` with ternary operators resolving to `null` (`? ... : null`) which React-PDF safely ignores.
+- **Timeline Warning Fix**:
+  - Cleaned up a duplicate `boxShadow` key in the style object for `ArrangementTimelineWidget.jsx` which was triggering an esbuild warning during Vite builds.
+  - Merged the selection (`isSel`), multiselection (`isMulti`), and playhead current block (`isCur`) shadow states into a single clean nested conditional expression.
+  - Verified the client application compiles with zero build warnings and all 283 unit tests pass cleanly.
+
 ### 2026-06-20: Refactor Track Analysis page, add Tavily cross-verification, and make timeline lanes toggleable
 
 - **Context**: Refactored the track analysis modules and the timeline lanes to address user request on visual distraction/regression and unconfident metrics.

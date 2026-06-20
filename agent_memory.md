@@ -43,6 +43,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-20 | Fixed PDF export crash on empty answers/questions/notes and resolved Vite build warning for duplicate boxShadow key. | `ee4f7c3` |
 | 2026-06-20 | Rebuilt timeline as multi-track DAW arranger, interactive drag-to-move/resize clips, custom lane overlays, settings modal inspector, and smooth 60fps playhead polling via requestAnimationFrame. 283/283 client tests pass. | `b178b5e` |
 | 2026-06-20 | Refactored track analysis to conditionally hide unconfident metrics (<95%), added Tavily cross-verification with AI metadata extraction, and made timeline lanes toggleable. 1 new client test (283 total). All tests pass. | `573c1e0` |
 | 2026-06-20 | Major AuditTimeline refactor: fixed playhead (px→%), replaced fake SVG waveform with energy_curve bar chart, removed redundant Downbeats lane, global playhead across all lanes, KeyRegions from sectional_key_candidates with beat-estimated timing, Sections now show user arrangement data via new `arrangementSections` prop, scrub tooltip offset fix. 48 new tests (282 total). Build clean. | `4888e2f` |
