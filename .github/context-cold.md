@@ -18,6 +18,7 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
+server/__tests__/unit/SketchService.test.js ← ../services/SketchService, ../adapters/InMemoryRepository
 server/adapters/InMemoryRepository.js ← ports/IRepository, ports/IUserRepository
 server/adapters/MockAIAdapter.js ← ports/ICompletionService
 server/adapters/MockSearchAdapter.js ← ports/ISearchService
@@ -37,6 +38,7 @@ client/src/hooks/useAudits.js ← context/BackendContext
 client/src/hooks/useCompletionCheck.js ← components/audit/lensConstants
 client/src/hooks/useCurricula.js ← context/BackendContext
 client/src/hooks/useDeepLinkParams.js ← utils/deepLinks
+client/src/hooks/useSketches.js ← context/BackendContext
 client/src/hooks/useSong.js ← context/BackendContext
 client/src/hooks/useStudyProgress.js ← context/BackendContext
 client/src/hooks/useTasteProfiles.js ← context/BackendContext
@@ -173,6 +175,12 @@ export function useCurricula()  :10-64
 export function useDeepLinkParams()  :13-19
 ```
 
+### client/src/hooks/useSketches.js
+```
+export function useSketches(songId = null)  :53-152
+function probeAudioDuration(url)  :4-40
+```
+
 ### client/src/hooks/useSong.js
 ```
 export function useSong(songId, { skip = false } = {})  :13-78
@@ -221,6 +229,11 @@ export function buildAuditFilename(audit, song)  :52-57
 ```
 
 ## server
+
+### server/__tests__/unit/SketchService.test.js
+```
+function mockFile({ originalname = 'sketch.wav', mimetype = 'audio/wav', size = 1024, filename = 'sketch-1.wav', path: filePath = '/tmp/sketch-1.wav' } = {})  :5-7
+```
 
 ### server/adapters/InMemoryRepository.js
 ```
@@ -369,6 +382,24 @@ export class IUserRepository  :14-36
 function formatLabel(key)  :4-14
 ```
 
+### server/routes/sketches.js
+```
+function _sanitizeSketch(s)  :40-61
+```
+
+### server/services/SketchService.js
+```
+export class SketchService  :11-132
+  constructor(sketchRepository, songRepository, { analysisServiceUrl, logger = console } = {})  :12-18
+  async assertSongOwned(songId, userId)  :20-33
+  if(!song)  :23-27
+  async createSketch({ userId, songId, file, title = '', notes = '' })  :35-69
+  if(file.size > DEFAULT_LIMITS.maxFileBytes)  :48-52
+  async getSketchesForSong(songId, userId)  :71-78
+  async updateSketch(id, userId, updates)  :80-111
+  if(!updates || typeof updates !== 'object')  :82-86
+```
+
 ### server/services/auditGenerator.js
 ```
 export async function generateAuditTemplate(songTitle, artist, researchSummary, lenses)  :42-77
@@ -410,6 +441,17 @@ export class CurriculumService  :1-101
   if(!this.aiAdapter)  :20-22
   async saveCustomCurriculum(userId, curriculumData)  :79-88
   async getPopulatedStudyProgress(id)  :93-98
+```
+
+### server/services/songService.js
+```
+export class SongService  :11-118
+  constructor(songRepository, searchService, aiService)  :12-17
+  async importSong(songData, research) → Promise<Object>  :31-118
+  if(!title || !resolvedSourceId || !userId)  :55-57
+  if(existing)  :67-72
+  if(research && research.results?.length > 0 && this.aiService)  :75-116
+  if(aiSummary && aiSummary.overview)  :100-112
 ```
 
 ### server/services/tasteService.js

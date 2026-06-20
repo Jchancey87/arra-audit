@@ -3,7 +3,7 @@
 ## Auto-generated signatures
 <!-- Updated by gen-context.js -->
 You are a coding assistant with complete knowledge of this codebase.
-The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:30:42.245Z.
+The following code signatures were extracted by SigMap v7.0.1 on 2026-06-20T03:34:07.656Z.
 <!-- sigmap: version=7.0.1 -->
 
 These signatures represent every public function, class, and type in the project.
@@ -23,8 +23,7 @@ Always run `sigmap ask` (or `sigmap --query`) before searching for files relevan
 
 ## deps
 ```
-server/__tests__/unit/SketchService.test.js ← ../services/SketchService, ../adapters/InMemoryRepository
-client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, pages/Dashboard
+client/src/App.jsx ← styles/global, context/AuthContext, context/AudioContext, pages/Login, components/ResearchSummaryRenderer
 client/src/adapters/HttpBackendAdapter.js ← ports/IBackendService
 client/src/adapters/InMemoryBackendAdapter.js ← ports/IBackendService
 client/src/components/ComparePlayer.jsx ← context/AudioContext, utils/audioDelta
@@ -32,22 +31,21 @@ client/src/components/ResearchSummaryRenderer.jsx ← utils/splitSentences, util
 client/src/components/__tests__/ComparePlayer.test.jsx ← ComparePlayer, ../context/AudioContext, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
 client/src/context/AudioContext.jsx ← BackendContext
 client/src/hooks/__tests__/useTechniques.test.jsx ← useTechniques, ../context/BackendContext, ../adapters/InMemoryBackendAdapter
-client/src/hooks/useSketches.js ← context/BackendContext
 client/src/hooks/useTechniques.js ← context/BackendContext, utils/lensGuess
 client/src/pdf/AuditReport.jsx ← theme, utils/pdfData
 client/src/utils/__tests__/lensGuess.test.js ← lensGuess
 ```
 
-## changes (last 5 commits — 1 second ago)
+## changes (last 5 commits — 0 seconds ago)
 ```
 client/src/hooks/__tests__/useTechniques.test.jsx +makeWrapper
 client/src/hooks/useTechniques.js             ~useTechniques
 client/src/utils/__tests__/lensGuess.test.js  +countAll
 client/src/utils/lensGuess.js                 +guessLens  +escapeRegex
 client/src/utils/splitSentences.js            +splitSentences
-.github/context-cold.md                       +ClapAnalyzer  +__init__  +analyze_features  +get_clap_analyzer
-.github/copilot-instructions.md               +App  +formatTime  +readMeta  +MetaRow
-.github/gemini-context.md                     +App  +formatTime  +readMeta  +MetaRow
+.github/context-cold.md                       ~App  ~useTechniques  ~ErrorBoundary  ~useStudyProgress
+.github/copilot-instructions.md               +App  +makeWrapper  +useTechniques  +countAll
+.github/gemini-context.md                     +App  +makeWrapper  +useTechniques  +countAll
 ```
 
 ## .github
@@ -75,10 +73,10 @@ h3 client/src/hooks/useAudits.js
 h3 client/src/hooks/useCompletionCheck.js
 h3 client/src/hooks/useCurricula.js
 h3 client/src/hooks/useDeepLinkParams.js
+h3 client/src/hooks/useSketches.js
 h3 client/src/hooks/useSong.js
 h3 client/src/hooks/useStudyProgress.js
 h3 client/src/hooks/useTasteProfiles.js
-h3 client/src/pages/SketchCompare.jsx
 ```
 
 ### .github/copilot-instructions.md
@@ -101,13 +99,13 @@ h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
-h3 client/src/hooks/useSketches.js
 h3 client/src/hooks/useTechniques.js
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
 h3 client/src/utils/audioDelta.js
+h3 client/src/utils/lensGuess.js
 ```
 
 ### .github/gemini-context.md
@@ -130,20 +128,20 @@ h3 client/src/components/ResearchSummaryRenderer.jsx
 h3 client/src/components/__tests__/ComparePlayer.test.jsx
 h3 client/src/context/AudioContext.jsx
 h3 client/src/hooks/__tests__/useTechniques.test.jsx
-h3 client/src/hooks/useSketches.js
 h3 client/src/hooks/useTechniques.js
 h3 client/src/pdf/AuditReport.jsx
 h3 client/src/pdf/theme.js
 h3 client/src/ports/IBackendService.js
 h3 client/src/utils/__tests__/lensGuess.test.js
 h3 client/src/utils/audioDelta.js
+h3 client/src/utils/lensGuess.js
 ```
 
 ## client
 
 ### client/src/App.jsx
 ```
-function App()  :744-756
+function App()  :865-877
 ```
 
 ### client/src/adapters/HttpBackendAdapter.js
@@ -202,12 +200,6 @@ export const useAudio = () =>  :459-465
 ### client/src/hooks/__tests__/useTechniques.test.jsx
 ```
 function makeWrapper(backend)  :8-12
-```
-
-### client/src/hooks/useSketches.js
-```
-export function useSketches(songId = null)  :53-152
-function probeAudioDuration(url)  :4-40
 ```
 
 ### client/src/hooks/useTechniques.js
@@ -286,44 +278,10 @@ export function splitSentences(text)  :1-18
 
 ## server
 
-### server/__tests__/unit/SketchService.test.js
-```
-function mockFile({ originalname = 'sketch.wav', mimetype = 'audio/wav', size = 1024, filename = 'sketch-1.wav', path: filePath = '/tmp/sketch-1.wav' } = {})  :5-7
-```
-
-### server/routes/sketches.js
-```
-function _sanitizeSketch(s)  :40-61
-```
-
 ### server/routes/songs.js
 ```
 function extractYouTubeId(url)  :13-25
 function _sanitizeSong(song)  :288-314
-```
-
-### server/services/SketchService.js
-```
-export class SketchService  :11-132
-  constructor(sketchRepository, songRepository, { analysisServiceUrl, logger = console } = {})  :12-18
-  async assertSongOwned(songId, userId)  :20-33
-  if(!song)  :23-27
-  async createSketch({ userId, songId, file, title = '', notes = '' })  :35-69
-  if(file.size > DEFAULT_LIMITS.maxFileBytes)  :48-52
-  async getSketchesForSong(songId, userId)  :71-78
-  async updateSketch(id, userId, updates)  :80-111
-  if(!updates || typeof updates !== 'object')  :82-86
-```
-
-### server/services/songService.js
-```
-export class SongService  :11-118
-  constructor(songRepository, searchService, aiService)  :12-17
-  async importSong(songData, research) → Promise<Object>  :31-118
-  if(!title || !resolvedSourceId || !userId)  :55-57
-  if(existing)  :67-72
-  if(research && research.results?.length > 0 && this.aiService)  :75-116
-  if(aiSummary && aiSummary.overview)  :100-112
 ```
 
 ### server/services/ytDlpService.js
