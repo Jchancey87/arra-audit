@@ -267,6 +267,10 @@ const AuditForm = () => {
     flash(`Section "${block.name}" added`);
   }, [responses, handleResponseChange, flash]);
 
+  const handleUpdateSections = useCallback((newSections) => {
+    handleResponseChange('arrangement-timeline', JSON.stringify(newSections));
+  }, [handleResponseChange]);
+
   // ── Analysis override handler (Track Analysis inline edit) ──────────────
   const handleAnalysisChangeOverride = useCallback(async (draft) => {
     if (!songId) return;
@@ -413,6 +417,7 @@ const AuditForm = () => {
             onUpdateMarker={handleUpdateMarker}
             onDeleteMarker={handleDeleteMarker}
             onAddSection={handleAddSection}
+            onUpdateSections={handleUpdateSections}
             onSeek={seekTo}
             onBack={handleGoBackStep}
             onSkip={handleSkipStep}

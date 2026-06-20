@@ -47,19 +47,40 @@ export const AudioProvider = ({ children }) => {
   const playerReadyResolversRef = useRef([]);
   const playerReadyPromiseRef = useRef(Promise.resolve());
 
-  // Poll current time when playing
+  // Poll current time smoothly via requestAnimationFrame when playing
   useEffect(() => {
-    if (isPlaying) {
-      timerRef.current = setInterval(() => {
-        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-          setCurrentTime(playerRef.current.getCurrentTime());
+    let animationFrameId;
+    let lastTime = -1;
+
+    const poll = () => {
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        const time = playerRef.current.getCurrentTime();
+        if (typeof time === 'number' && !isNaN(time) && time !== lastTime) {
+          lastTime = time;
+          setCurrentTime(time);
         }
-      }, 500);
+      }
+      if (isPlaying) {
+        animationFrameId = requestAnimationFrame(poll);
+      }
+    };
+
+    if (isPlaying) {
+      animationFrameId = requestAnimationFrame(poll);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      // Just check one last time on pause to make sure we're precise
+      if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+        const time = playerRef.current.getCurrentTime();
+        if (typeof time === 'number' && !isNaN(time)) {
+          setCurrentTime(time);
+        }
+      }
     }
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [isPlaying]);
 

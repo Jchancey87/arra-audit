@@ -2,11 +2,21 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../../utils/playheadAnnouncer.js';
 
 const LANE_HEIGHT = 40;
-const LANE_LABEL_WIDTH = 80;
+const LANE_LABEL_WIDTH = 110;
 
 const formatTime = (s) => {
   const sec = Math.floor(s || 0);
   return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+};
+
+const parseTime = (str) => {
+  if (!str) return 0;
+  if (typeof str === 'number') return str;
+  const parts = String(str).split(':');
+  if (parts.length === 2) {
+    return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+  }
+  return parseFloat(str) || 0;
 };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -275,158 +285,6 @@ const KeyRegionsLane = ({ regions, duration, currentTime }) => {
   );
 };
 
-// ── Sections Lane ─────────────────────────────────────────────────────────────
-const SectionsLane = ({ sections, duration, currentTime, onSectionClick, onAddSection }) => {
-  const totalSec = duration || 1;
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
-  const [startTime, setStartTime] = useState('');
-
-  const startAdd = useCallback(() => {
-    setName('');
-    setStartTime(formatTime(currentTime || 0));
-    setAdding(true);
-  }, [currentTime]);
-
-  const submit = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!name.trim()) return;
-    const [m, s] = startTime.split(':').map((n) => parseInt(n, 10) || 0);
-    const startSeconds = m * 60 + s;
-    if (onAddSection) onAddSection({ name: name.trim(), start: startSeconds });
-    setAdding(false);
-    setName('');
-  }, [name, startTime, onAddSection]);
-
-  const cancel = useCallback((e) => {
-    e?.stopPropagation?.();
-    setAdding(false);
-    setName('');
-  }, []);
-
-  const sorted = useMemo(
-    () => [...(sections || [])].sort((a, b) => (a.startTime || a.start || 0) - (b.startTime || b.start || 0)),
-    [sections],
-  );
-
-  return (
-    <div
-      style={{
-        height: adding ? '52px' : '22px',
-        position: 'relative',
-        background: 'var(--bg-surface-1)',
-        overflow: 'hidden',
-        transition: 'height 0.15s ease',
-      }}
-    >
-      {sorted.map((s, i) => {
-        const start = s.startTime ?? s.start ?? 0;
-        const dur = s.duration ?? (s.end ? s.end - start : 30);
-        const end = start + dur;
-        const left = clamp((start / totalSec) * 100, 0, 100);
-        const width = clamp(((end - start) / totalSec) * 100, 1, 100);
-        const typeColor = {
-          intro: 'var(--status-info)',
-          verse: 'var(--accent-primary)',
-          chorus: 'var(--status-success)',
-          bridge: 'var(--status-warning)',
-          prechorus: 'var(--text-tertiary)',
-          outro: 'var(--status-error)',
-          solo: '#9b59b6',
-          breakdown: '#1abc9c',
-          interlude: '#e67e22',
-        };
-        return (
-          <div
-            key={s.id || i}
-            onClick={() => onSectionClick && onSectionClick(s)}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{
-              position: 'absolute',
-              left: `${left}%`,
-              width: `${width}%`,
-              top: 2,
-              bottom: 2,
-              background: typeColor[s.type] || 'var(--bg-surface-3)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono, monospace',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              cursor: 'pointer',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              padding: '0 4px',
-              borderRadius: '2px',
-            }}
-            title={`${s.name || s.type || 'Section'} · ${formatTime(start)} - ${formatTime(end)}`}
-          >
-            {s.name || s.type || '?'}
-          </div>
-        );
-      })}
-      {!adding && onAddSection && (
-        <button
-          onClick={startAdd}
-          className="ghost"
-          style={{
-            position: 'absolute',
-            right: 4,
-            top: 2,
-            bottom: 2,
-            padding: '0 6px',
-            fontSize: '9px',
-            color: 'var(--text-tertiary)',
-            background: 'transparent',
-          }}
-        >
-          + Section
-        </button>
-      )}
-      {adding && (
-        <form
-          onSubmit={submit}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            inset: '2px 4px',
-            background: 'var(--bg-surface-3)',
-            display: 'flex',
-            gap: '6px',
-            alignItems: 'center',
-            padding: '0 6px',
-            zIndex: 3,
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '10px',
-          }}
-        >
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Section name"
-            style={{ flex: '0 0 110px', fontSize: '10px', padding: '3px 5px' }}
-          />
-          <input
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            placeholder="0:00"
-            style={{ width: '52px', fontSize: '10px', padding: '3px 5px' }}
-            aria-label="Section start time"
-          />
-          <button type="submit" className="primary" style={{ fontSize: '9px', padding: '3px 8px' }}>Add</button>
-          <button type="button" onClick={cancel} className="ghost" style={{ fontSize: '9px', padding: '3px 6px' }}>Cancel</button>
-        </form>
-      )}
-    </div>
-  );
-};
-
 // ── Markers Lane ──────────────────────────────────────────────────────────────
 const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDeleteMarker }) => {
   const totalSec = duration || 1;
@@ -446,8 +304,6 @@ const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDelet
     setOpenMenuId(m._id || m.id);
   }, []);
 
-  // Close context menu on outside click (native DOM listener to catch
-  // clicks outside React's event delegation root)
   const menuRef = useRef(null);
   useEffect(() => {
     if (!openMenuId) return;
@@ -456,7 +312,6 @@ const MarkersLane = ({ markers, duration, onMarkerClick, onUpdateMarker, onDelet
         closeMenu();
       }
     };
-    // Use setTimeout to avoid closing on the same click that opened the menu
     const id = setTimeout(() => document.addEventListener('click', handler), 0);
     return () => {
       clearTimeout(id);
@@ -587,6 +442,7 @@ const Lane = ({ label, children, borderless }) => (
     <div
       className="audit-lane-label"
       style={{
+        width: `${LANE_LABEL_WIDTH}px`,
         display: 'flex',
         alignItems: 'center',
         padding: '0 8px',
@@ -598,6 +454,7 @@ const Lane = ({ label, children, borderless }) => (
         background: 'var(--bg-surface-1)',
         borderRight: '1px solid var(--border-subtle)',
         flexShrink: 0,
+        boxSizing: 'border-box',
       }}
     >
       {label}
@@ -606,6 +463,16 @@ const Lane = ({ label, children, borderless }) => (
   </div>
 );
 
+// ── Predefined DAW Track lanes ────────────────────────────────────────────────
+const DAW_LANES = [
+  { id: 'arrangement', label: 'Sections', color: 'var(--accent-primary)', emoji: '🎼' },
+  { id: 'vocals', label: 'Vocals', color: '#35d777', emoji: '🎤' },
+  { id: 'synths', label: 'Synths/Keys', color: '#9b59b6', emoji: '🎹' },
+  { id: 'guitars', label: 'Guitars', color: '#1abc9c', emoji: '🎸' },
+  { id: 'bass', label: 'Bass', color: '#e67e22', emoji: '🎻' },
+  { id: 'drums', label: 'Drums', color: '#e74c3c', emoji: '🥁' },
+];
+
 // ── Main AuditTimeline component ──────────────────────────────────────────────
 const AuditTimeline = ({
   song,
@@ -613,6 +480,7 @@ const AuditTimeline = ({
   duration,
   onSeek,
   onAddSection,
+  onUpdateSections,
   onAddMarker,
   onUpdateMarker,
   onDeleteMarker,
@@ -634,6 +502,20 @@ const AuditTimeline = ({
   const [tooltipMounted, setTooltipMounted] = useState(false);
   const playheadAnnouncement = usePlayheadAnnouncer(currentTime, duration);
 
+  // ── Drag and Resize State ──
+  const [dragState, setDragState] = useState(null);
+  const [editingClip, setEditingClip] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    type: 'verse',
+    lane: 'arrangement',
+    startTimeStr: '0:00',
+    duration: 16,
+    notes: '',
+  });
+
+  const totalSec = duration || song?.durationSeconds || 0;
+
   useEffect(() => {
     setShowScrubTooltip(scrubRatio != null);
   }, [scrubRatio]);
@@ -651,7 +533,6 @@ const AuditTimeline = ({
 
   const analysis = song.audioAnalysis || {};
   const overrides = song.audioOverrides || {};
-  const totalSec = duration || song.durationSeconds || 0;
   const beatsPerBar = overrides.estimated_meter === '3/4' ? 3 : overrides.estimated_meter === '6/8' ? 6 : 4;
 
   // Key regions from sectional_key_candidates + beat grid
@@ -667,19 +548,32 @@ const AuditTimeline = ({
   // Overall key fallback
   const overallKey = analysis.key ? `${analysis.key}${analysis.scale === 'minor' ? 'm' : ''}` : null;
 
-  // Merge arrangement sections with key region labels
-  const displaySections = useMemo(() => {
-    if (arrangementSections && arrangementSections.length > 0) return arrangementSections;
-    if (!keyRegions || keyRegions.length === 0) return [];
-    return keyRegions.map((r) => ({
-      id: `analytical-${r.label}`,
-      name: r.label,
-      type: parseSectionType(r.label),
-      startTime: r.start,
-      duration: r.end - r.start,
-      analytical: true,
+  // Map and sync flat display clips (with backwards compatibility)
+  const displayClips = useMemo(() => {
+    const rawClips = arrangementSections && arrangementSections.length > 0
+      ? arrangementSections
+      : keyRegions.map((r) => ({
+          id: `analytical-${r.label}`,
+          name: r.label,
+          type: parseSectionType(r.label),
+          startTime: r.start,
+          duration: r.end - r.start,
+          analytical: true,
+        }));
+
+    return rawClips.map((c) => ({
+      ...c,
+      lane: c.lane || 'arrangement',
     }));
   }, [arrangementSections, keyRegions]);
+
+  const [localSections, setLocalSections] = useState([]);
+
+  useEffect(() => {
+    if (!dragState && !editingClip) {
+      setLocalSections(displayClips);
+    }
+  }, [displayClips, dragState, editingClip]);
 
   const waveData = useMemo(() => analysis.energy_curve || analysis.waveform_peaks || [0.3], [analysis]);
   const seekBars = useMemo(() => {
@@ -687,7 +581,7 @@ const AuditTimeline = ({
     return Array.from({ length: seekBarCount }, (_, i) => {
       const idx = Math.floor((i / seekBarCount) * waveData.length);
       const v = clamp(waveData[idx] || 0, 0, 1);
-      const h = Math.max(2, v * 16); // 16px max height
+      const h = Math.max(2, v * 16);
       return (
         <div
           key={i}
@@ -704,14 +598,205 @@ const AuditTimeline = ({
   }, [waveData]);
 
   const displayPct = scrubRatio != null ? scrubRatio * 100 : (totalSec > 0 ? (currentTime / totalSec) * 100 : 0);
-  const hasSections = displaySections.length > 0;
+
+  // ── Drag and Resize Actions ──
+  const handleMouseDown = useCallback((e, clip, action) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (readOnly) return;
+
+    setDragState({
+      clipId: clip.id || clip._id,
+      action,
+      initialStartTime: clip.startTime ?? clip.start ?? 0,
+      initialDuration: clip.duration ?? (clip.end ? clip.end - (clip.startTime ?? clip.start) : 30),
+      initialX: e.clientX,
+    });
+  }, [readOnly]);
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handleMouseMove = (e) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const trackWidth = rect.width - LANE_LABEL_WIDTH;
+      if (trackWidth <= 0) return;
+
+      const deltaX = e.clientX - dragState.initialX;
+      const deltaSecs = (deltaX / trackWidth) * totalSec;
+
+      setLocalSections((prev) => {
+        return prev.map((c) => {
+          const cid = c.id || c._id;
+          if (cid !== dragState.clipId) return c;
+
+          let start = c.startTime ?? c.start ?? 0;
+          let dur = c.duration ?? 30;
+
+          if (dragState.action === 'move') {
+            start = Math.max(0, Math.min(totalSec - dragState.initialDuration, dragState.initialStartTime + deltaSecs));
+          } else if (dragState.action === 'resize-left') {
+            const possibleStart = Math.max(0, dragState.initialStartTime + deltaSecs);
+            const clampedStart = Math.min(dragState.initialStartTime + dragState.initialDuration - 0.5, possibleStart);
+            dur = dragState.initialStartTime + dragState.initialDuration - clampedStart;
+            start = clampedStart;
+          } else if (dragState.action === 'resize-right') {
+            dur = Math.max(0.5, Math.min(totalSec - dragState.initialStartTime, dragState.initialDuration + deltaSecs));
+          }
+
+          return {
+            ...c,
+            startTime: start,
+            duration: dur,
+            start,
+            end: start + dur,
+          };
+        });
+      });
+    };
+
+    const handleMouseUp = (e) => {
+      const deltaX = Math.abs(e.clientX - dragState.initialX);
+      if (deltaX < 3) {
+        // Simple click -> open settings editor
+        const clickedClip = localSections.find(c => (c.id || c._id) === dragState.clipId);
+        if (clickedClip) {
+          setEditingClip(clickedClip);
+          const start = clickedClip.startTime ?? clickedClip.start ?? 0;
+          setEditForm({
+            name: clickedClip.name || '',
+            type: clickedClip.type || 'verse',
+            lane: clickedClip.lane || 'arrangement',
+            startTimeStr: formatTime(start),
+            duration: Math.max(1, Math.floor(clickedClip.duration ?? 16)),
+            notes: clickedClip.notes || '',
+          });
+        }
+      } else {
+        // Save dragged changes back
+        setLocalSections((latestSections) => {
+          if (onUpdateSections) {
+            onUpdateSections(latestSections);
+          }
+          return latestSections;
+        });
+      }
+      setDragState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, totalSec, onUpdateSections, localSections]);
+
+  // ── Clip Add / Edit / Delete Helpers ──
+  const handleAddClip = useCallback((laneId) => {
+    const start = currentTime || 0;
+    const defaultDur = 16;
+
+    const newClip = {
+      id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: '',
+      type: laneId === 'arrangement' ? 'verse' : 'custom',
+      startTime: Math.max(0, Math.floor(start)),
+      duration: defaultDur,
+      lane: laneId,
+      notes: '',
+      isNew: true,
+    };
+
+    setEditingClip(newClip);
+    setEditForm({
+      name: '',
+      type: laneId === 'arrangement' ? 'verse' : 'custom',
+      lane: laneId,
+      startTimeStr: formatTime(start),
+      duration: defaultDur,
+      notes: '',
+    });
+  }, [currentTime]);
+
+  const handleSaveClipEdit = useCallback(() => {
+    if (!editingClip) return;
+    if (!editForm.name.trim()) return; // Validation: name must not be empty!
+
+    const start = parseTime(editForm.startTimeStr);
+    const dur = editForm.duration;
+
+    if (editingClip.isNew) {
+      if (onAddSection && editingClip.lane === 'arrangement') {
+        onAddSection({ name: editForm.name || 'New Section', start });
+      } else {
+        const fullClip = {
+          ...editingClip,
+          name: editForm.name || 'New Clip',
+          type: editForm.type,
+          lane: editForm.lane,
+          startTime: start,
+          duration: dur,
+          start,
+          end: start + dur,
+          notes: editForm.notes,
+          isNew: false,
+          analytical: false,
+        };
+        const updated = [...localSections, fullClip].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+        setLocalSections(updated);
+        if (onUpdateSections) {
+          onUpdateSections(updated);
+        }
+      }
+    } else {
+      const cid = editingClip.id || editingClip._id;
+      const updated = localSections.map((c) => {
+        const id = c.id || c._id;
+        if (id !== cid) return c;
+        return {
+          ...c,
+          name: editForm.name || 'Clip',
+          type: editForm.type,
+          lane: editForm.lane,
+          startTime: start,
+          duration: dur,
+          start,
+          end: start + dur,
+          notes: editForm.notes,
+          analytical: false,
+        };
+      });
+      setLocalSections(updated);
+      if (onUpdateSections) {
+        onUpdateSections(updated);
+      }
+    }
+
+    setEditingClip(null);
+  }, [editingClip, editForm, onUpdateSections, onAddSection, localSections]);
+
+  const handleDeleteClip = useCallback(() => {
+    if (!editingClip) return;
+    const cid = editingClip.id || editingClip._id;
+
+    const updated = localSections.filter((c) => (c.id || c._id) !== cid);
+    setLocalSections(updated);
+    if (onUpdateSections) {
+      onUpdateSections(updated);
+    }
+
+    setEditingClip(null);
+  }, [editingClip, onUpdateSections, localSections]);
 
   return (
     <section
       ref={containerRef}
       role="region"
       aria-label="Song timeline with energy curve, beat grid, key regions, and section markers"
-      style={{ marginTop: '16px' }}
+      style={{ marginTop: '16px', position: 'relative' }}
     >
       {/* Section header */}
       <div
@@ -800,6 +885,17 @@ const AuditTimeline = ({
             </button>
           </div>
 
+          {onAddSection && !readOnly && (
+            <button
+              type="button"
+              onClick={() => handleAddClip('arrangement')}
+              className="ghost"
+              style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}
+            >
+              + Section
+            </button>
+          )}
+
           {onAddMarker && !readOnly && (
             <button
               onClick={() => onAddMarker(currentTime || 0)}
@@ -838,7 +934,7 @@ const AuditTimeline = ({
           position: 'relative',
         }}
       >
-        {/* Vertical Beat Grid Overlay (Background grid lines) */}
+        {/* Vertical Beat Grid Overlay */}
         {showBeatGrid && analysis.beat_times && (
           <div
             style={{
@@ -899,7 +995,7 @@ const AuditTimeline = ({
           />
         </div>
 
-        {/* Seek / Playhead Scrubber Track (Always visible at the top) */}
+        {/* Seek / Playhead Scrubber Track */}
         <Lane label="Seek">
           <div
             ref={scrubBarRef}
@@ -987,7 +1083,7 @@ const AuditTimeline = ({
           </Lane>
         )}
 
-        {/* Optional Overall Key Fallback (when no sectional candidates) */}
+        {/* Optional Overall Key Fallback */}
         {showKeyRegions && keyRegions.length === 0 && overallKey && (
           <Lane label="Key">
             <div onMouseDown={startScrub} style={{ height: '100%', cursor: 'pointer' }}>
@@ -1009,15 +1105,149 @@ const AuditTimeline = ({
           </Lane>
         )}
 
-        {/* Sections Lane */}
-        <Lane label="Sections" borderless={!hasSections}>
-          <SectionsLane
-            sections={displaySections}
-            duration={totalSec}
-            currentTime={currentTime}
-            onAddSection={!readOnly && onAddSection ? onAddSection : null}
-          />
-        </Lane>
+        {/* DAW Track Lanes */}
+        {DAW_LANES.map((lane, lIdx) => {
+          const laneClips = localSections.filter((c) => (c.lane || 'arrangement') === lane.id);
+          return (
+            <Lane
+              key={lane.id}
+              label={
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <span style={{ fontSize: '11px', marginRight: '4px' }}>{lane.emoji}</span>
+                  <span style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{lane.label}</span>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleAddClip(lane.id); }}
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: 'none',
+                        borderRadius: '3px',
+                        color: 'var(--text-secondary)',
+                        fontSize: '9px',
+                        padding: '1px 4px',
+                        cursor: 'pointer',
+                        marginLeft: '4px',
+                        fontFamily: 'monospace',
+                        fontWeight: 'bold',
+                      }}
+                      title={`Add clip to ${lane.label}`}
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+              }
+              borderless={lIdx === DAW_LANES.length - 1}
+            >
+              <div
+                style={{
+                  height: `${LANE_HEIGHT}px`,
+                  position: 'relative',
+                  background: 'var(--bg-surface-1)',
+                  overflow: 'hidden',
+                  cursor: dragState ? (dragState.action === 'move' ? 'grabbing' : 'col-resize') : 'default',
+                }}
+              >
+                {laneClips.map((s, i) => {
+                  const start = s.startTime ?? s.start ?? 0;
+                  const dur = s.duration ?? (s.end ? s.end - start : 30);
+                  const end = start + dur;
+                  const left = clamp((start / totalSec) * 100, 0, 100);
+                  const width = clamp((dur / totalSec) * 100, 0.5, 100);
+                  const typeColor = {
+                    intro: 'var(--status-info)',
+                    verse: 'var(--accent-primary)',
+                    chorus: 'var(--status-success)',
+                    bridge: 'var(--status-warning)',
+                    prechorus: 'var(--text-tertiary)',
+                    outro: 'var(--status-error)',
+                    solo: '#9b59b6',
+                    breakdown: '#1abc9c',
+                    interlude: '#e67e22',
+                  };
+                  const color = typeColor[s.type] || 'var(--bg-surface-3)';
+                  const active = currentTime >= start && currentTime < end;
+
+                  return (
+                    <div
+                      key={s.id || s._id || i}
+                      onMouseDown={(e) => {
+                        if (readOnly) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const mouseX = e.clientX - rect.left;
+                        let action = 'move';
+                        if (mouseX < 8) {
+                          action = 'resize-left';
+                        } else if (rect.width - mouseX < 8) {
+                          action = 'resize-right';
+                        }
+                        handleMouseDown(e, s, action);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        top: 2,
+                        bottom: 2,
+                        background: color,
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '9px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        cursor: readOnly ? 'pointer' : (dragState?.clipId === (s.id || s._id) ? (dragState.action === 'move' ? 'grabbing' : 'col-resize') : 'grab'),
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap',
+                        textOverflow: 'ellipsis',
+                        padding: '0 8px',
+                        borderRadius: '3px',
+                        border: active ? '1px solid #fff' : '1px solid rgba(0,0,0,0.15)',
+                        boxShadow: active ? '0 0 8px rgba(255,255,255,0.2)' : 'none',
+                        userSelect: 'none',
+                        zIndex: active ? 3 : 1,
+                      }}
+                      title={`${s.name || s.type || 'Clip'} · ${formatTime(start)} - ${formatTime(end)}`}
+                    >
+                      {/* Left resize handle cursor overlay */}
+                      {!readOnly && (
+                        <div style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: '6px',
+                          cursor: 'col-resize',
+                          zIndex: 4
+                        }} />
+                      )}
+
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {s.name || s.type || '?'}
+                      </span>
+
+                      {/* Right resize handle cursor overlay */}
+                      {!readOnly && (
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: '6px',
+                          cursor: 'col-resize',
+                          zIndex: 4
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Lane>
+          );
+        })}
 
         {/* Markers Lane */}
         <Lane label="Markers" borderless>
@@ -1069,6 +1299,156 @@ const AuditTimeline = ({
           );
         })()}
       </div>
+
+      {/* Clip Edit Modal */}
+      {editingClip && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(2px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+        }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveClipEdit();
+            }}
+            style={{
+              background: 'var(--bg-surface-3)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '6px',
+              padding: '20px',
+              width: '340px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+              fontFamily: 'JetBrains Mono, monospace',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase', color: 'var(--accent-primary)', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
+              {editingClip.isNew ? 'Add New Clip' : 'Edit Clip Settings'}
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Clip Name</label>
+              <input
+                autoFocus
+                placeholder="Section name"
+                value={editForm.name}
+                onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))}
+                style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', color: '#fff', fontSize: '12px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Section Color Type</label>
+                <select
+                  value={editForm.type}
+                  onChange={(e) => setEditForm(p => ({ ...p, type: e.target.value }))}
+                  style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 8px', color: '#fff', fontSize: '12px' }}
+                >
+                  <option value="intro">Intro</option>
+                  <option value="verse">Verse</option>
+                  <option value="chorus">Chorus</option>
+                  <option value="bridge">Bridge</option>
+                  <option value="outro">Outro</option>
+                  <option value="solo">Solo</option>
+                  <option value="breakdown">Breakdown</option>
+                  <option value="interlude">Interlude</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Track Lane</label>
+                <select
+                  value={editForm.lane}
+                  onChange={(e) => setEditForm(p => ({ ...p, lane: e.target.value }))}
+                  style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 8px', color: '#fff', fontSize: '12px' }}
+                >
+                  {DAW_LANES.map(l => (
+                    <option key={l.id} value={l.id}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Start Time</label>
+                <input
+                  placeholder="0:00"
+                  value={editForm.startTimeStr}
+                  onChange={(e) => setEditForm(p => ({ ...p, startTimeStr: e.target.value }))}
+                  aria-label="Section start time"
+                  style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', color: '#fff', fontSize: '12px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Duration (s)</label>
+                <input
+                  type="number"
+                  min="0.5"
+                  max={totalSec}
+                  value={editForm.duration}
+                  onChange={(e) => setEditForm(p => ({ ...p, duration: parseFloat(e.target.value) || 16 }))}
+                  style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', color: '#fff', fontSize: '12px' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Notes / Details</label>
+              <textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm(p => ({ ...p, notes: e.target.value }))}
+                style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '6px 10px', color: '#fff', fontSize: '12px', minHeight: '60px', resize: 'vertical' }}
+                placeholder="e.g. Chord changes, observations"
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+              <div>
+                {!editingClip.isNew && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteClip}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--status-error)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Delete Clip
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingClip(null)}
+                  className="ghost"
+                  style={{ padding: '6px 12px', fontSize: '11px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSaveClipEdit}
+                  className="primary"
+                  style={{ padding: '6px 16px', fontSize: '11px', background: 'var(--accent-primary)', border: 'none', color: '#fff' }}
+                >
+                  {editingClip.isNew ? 'Add' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </section>
   );
 };

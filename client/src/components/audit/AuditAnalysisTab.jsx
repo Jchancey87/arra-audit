@@ -42,7 +42,7 @@ const AuditAnalysisTab = ({
   song, audit,
   isGuided, currentStep, stepIndex, totalSteps, fallbackNotice,
   currentTime, duration, globalBookmarks, arrangementSections,
-  onChangeOverride, onAddMarker, onUpdateMarker, onDeleteMarker, onAddSection, onSeek,
+  onChangeOverride, onAddMarker, onUpdateMarker, onDeleteMarker, onAddSection, onUpdateSections, onSeek,
   onBack, onSkip, onAdvance, onComplete, onTriggerAnalysis, onVerifyAnalysis,
   analysisProgress, analysisStage,
 }) => (
@@ -69,6 +69,7 @@ const AuditAnalysisTab = ({
             onUpdateMarker={onUpdateMarker}
             onDeleteMarker={onDeleteMarker}
             onAddSection={onAddSection}
+            onUpdateSections={onUpdateSections}
             markers={globalBookmarks}
             arrangementSections={arrangementSections || []}
           />
