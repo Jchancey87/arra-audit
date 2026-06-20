@@ -140,6 +140,13 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   const tracksRef = useRef([]);
   const selectedBlockIdRef = useRef(null);
   const multiSelectedIdsRef = useRef(new Set());
+  const selectedTrackBlockRef = useRef(null);
+
+  // ── Drag & Resize Refs for Canvas ──
+  const canvasRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
+  const dragStartInfoRef = useRef(null);
 
   // ── Dismiss context menu on click or scroll anywhere ──
   useEffect(() => {
@@ -195,6 +202,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
   tracksRef.current = tracks;
   selectedBlockIdRef.current = selectedBlockId;
   multiSelectedIdsRef.current = multiSelectedIds;
+  selectedTrackBlockRef.current = selectedTrackBlock;
 
   const sortedBlocks   = [...blocks].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
   const totalDuration  = song?.durationSeconds
@@ -363,154 +371,382 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
     });
   };
 
-  // ── Section drag-and-drop to tracks (Copy & Paste) ──
-  const handleSectionDragStart = (e, block) => {
+  // ── Canvas text truncater helper ──
+  const truncateText = (ctx, text, maxWidth) => {
+    if (!text) return '';
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let truncated = text;
+    while (truncated.length > 0 && ctx.measureText(truncated + '...').width > maxWidth) {
+      truncated = truncated.slice(0, -1);
+    }
+    return truncated + '...';
+  };
+
+  // ── Canvas coordinate mapping cursor hover ──
+  const handleMouseMoveHover = (e) => {
     if (readOnly) return;
-    if (e.button !== 0) return; // Only left-click drags
-    if (e.target.closest('[data-no-drag]')) return;
+    if (isDraggingRef.current || isResizingRef.current) return;
 
-    e.preventDefault();
-    const startX = e.clientX;
-    const startY = e.clientY;
-    let isDragging = false;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    const onMove = (me) => {
-      const dx = me.clientX - startX;
-      const dy = me.clientY - startY;
-      if (!isDragging && Math.sqrt(dx * dx + dy * dy) > 5) {
-        isDragging = true;
-        setDraggedSection(block);
+    const clickedTime = mouseX / pxPerSec;
+    
+    // Check sections
+    if (mouseY >= 28 && mouseY < 28 + 114) {
+      const hoverBlock = sortedBlocks.find(
+        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
+      );
+      if (hoverBlock) {
+        const isSel = hoverBlock.id === selectedBlockIdRef.current;
+        const blockRightEdgeX = ((hoverBlock.startTime || 0) + (hoverBlock.duration || 0)) * pxPerSec;
+        if (isSel && Math.abs(mouseX - blockRightEdgeX) < 10) {
+          canvas.style.cursor = 'col-resize';
+        } else {
+          canvas.style.cursor = 'pointer';
+        }
+        return;
+      }
+      canvas.style.cursor = 'default';
+      return;
+    }
+
+    // Check tracks
+    let trackIdx = -1;
+    if (mouseY >= 28 + 114) {
+      trackIdx = Math.floor((mouseY - (28 + 114)) / 46);
+    }
+
+    if (trackIdx >= 0 && trackIdx < tracksRef.current.length) {
+      const track = tracksRef.current[trackIdx];
+      const clickedBlock = track.blocks?.find(
+        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
+      );
+
+      if (clickedBlock) {
+        const isSel = selectedTrackBlockRef.current?.trackId === track.id && selectedTrackBlockRef.current?.blockId === clickedBlock.id;
+        const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
+        if (isSel && Math.abs(mouseX - blockRightEdgeX) < 8) {
+          canvas.style.cursor = 'col-resize';
+        } else {
+          canvas.style.cursor = 'grab';
+        }
+        return;
+      }
+      canvas.style.cursor = 'crosshair';
+      return;
+    }
+
+    canvas.style.cursor = 'default';
+  };
+
+  // ── Drag Listeners registration ──
+  const registerDragListeners = () => {
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragUp);
+  };
+
+  const handleDragMove = (e) => {
+    const info = dragStartInfoRef.current;
+    if (!info) return;
+
+    if (info.type === 'section-resize') {
+      let delta = (e.clientX - info.startX) / pxPerSec;
+      let dur = Math.max(1, info.startDur + delta);
+      dur = viewMode === 'bars' ? snapDurBars(dur, bpm) : Math.round(dur);
+      onChange('arrangement-timeline', JSON.stringify(
+        blocksRef.current.map(b => b.id === info.block.id ? { ...b, duration: dur } : b)
+      ));
+    }
+
+    else if (info.type === 'section-move') {
+      const dx = e.clientX - info.startX;
+      const dy = e.clientY - info.startY;
+      if (!info.isActualDrag && Math.sqrt(dx * dx + dy * dy) > 5) {
+        info.isActualDrag = true;
+        setDraggedSection(info.block);
         document.body.style.cursor = 'copy';
       }
-      if (isDragging) {
-        setDraggedSectionPosition({ x: me.clientX, y: me.clientY });
+      if (info.isActualDrag) {
+        setDraggedSectionPosition({ x: e.clientX, y: e.clientY });
       }
-    };
+    }
 
-    const onUp = (ue) => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+    else if (info.type === 'track-block-resize') {
+      let dur = Math.max(1, info.startDur + (e.clientX - info.startX) / pxPerSec);
+      dur = viewMode === 'bars' ? snapDurBars(dur, bpm) : Math.max(1, Math.round(dur));
+      updateTrackBlock(info.track.id, info.block.id, { duration: dur });
+    }
 
-      if (isDragging) {
+    else if (info.type === 'track-block-move') {
+      info.didMove = true;
+      let s = Math.max(0, info.startSec + (e.clientX - info.startX) / pxPerSec);
+      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
+      updateTrackBlock(info.track.id, info.block.id, { startTime: s });
+    }
+  };
+
+  const handleDragUp = (e) => {
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragUp);
+
+    const info = dragStartInfoRef.current;
+    dragStartInfoRef.current = null;
+    isDraggingRef.current = false;
+    isResizingRef.current = false;
+
+    if (!info) return;
+
+    if (info.type === 'section-resize') {
+      if (saveNow) saveNow();
+    }
+
+    else if (info.type === 'section-move') {
+      if (info.isActualDrag) {
         setDraggedSection(null);
         document.body.style.cursor = '';
-        const element = document.elementFromPoint(ue.clientX, ue.clientY);
+        const element = document.elementFromPoint(e.clientX, e.clientY);
         const trackLane = element?.closest('[data-track-id]');
         if (trackLane) {
           const trackId = trackLane.getAttribute('data-track-id');
           const tb = {
             id: 'tb-' + Date.now() + Math.random().toString(36).substr(2, 5),
-            startTime: block.startTime,
-            duration: block.duration,
+            startTime: info.block.startTime,
+            duration: info.block.duration,
           };
           const next = tracksRef.current.map(t => t.id === trackId ? { ...t, blocks: [...(t.blocks || []), tb] } : t);
           saveTracks(next);
           setSelectedTrackBlock({ trackId, blockId: tb.id });
         }
       } else {
-        // Selection and multi-selection logic (formerly in onClick)
-        const isSel = block.id === selectedBlockIdRef.current;
+        const isSel = info.block.id === selectedBlockIdRef.current;
         const mod = detectModifier(e);
         if (mod) {
           const order = sortedBlocks.map((b) => b.id);
           setMultiSelectedIds(applyBlockClick({
             selected: multiSelectedIdsRef.current,
             order,
-            clickedId: block.id,
+            clickedId: info.block.id,
             lastClickedId: lastClickedIdRef.current,
             modifier: mod,
           }));
-          lastClickedIdRef.current = block.id;
+          lastClickedIdRef.current = info.block.id;
         } else {
-          setSelectedBlockId(isSel ? null : block.id);
+          setSelectedBlockId(isSel ? null : info.block.id);
           setMultiSelectedIds(new Set());
-          lastClickedIdRef.current = block.id;
+          lastClickedIdRef.current = info.block.id;
         }
       }
-    };
+    }
 
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
-  // ── Section resize drag ──
-  const handleSectionResize = (e, block) => {
-    e.preventDefault(); e.stopPropagation();
-    if (readOnly) return;
-    const startX = e.clientX;
-    const startDur = block.duration || 30;
-    const onMove = (me) => {
-      let delta = (me.clientX - startX) / pxPerSec;
-      let dur = Math.max(1, startDur + delta);
-      dur = viewMode === 'bars' ? snapDurBars(dur, bpm) : Math.round(dur);
-      onChange('arrangement-timeline', JSON.stringify(
-        blocksRef.current.map(b => b.id === block.id ? { ...b, duration: dur } : b)
-      ));
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+    else if (info.type === 'track-block-resize') {
       if (saveNow) saveNow();
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    }
+
+    else if (info.type === 'track-block-move') {
+      if (info.didMove) {
+        if (saveNow) saveNow();
+      } else {
+        const isSel = selectedTrackBlockRef.current?.trackId === info.track.id && selectedTrackBlockRef.current?.blockId === info.block.id;
+        const mod = detectModifier(e);
+        if (mod) {
+          const order = (info.track.blocks || []).map((b) => b.id);
+          setMultiSelectedIds(applyBlockClick({
+            selected: multiSelectedIdsRef.current,
+            order,
+            clickedId: info.block.id,
+            lastClickedId: lastClickedIdRef.current,
+            modifier: mod,
+          }));
+          lastClickedIdRef.current = info.block.id;
+        } else {
+          setSelectedTrackBlock(isSel ? null : { trackId: info.track.id, blockId: info.block.id });
+          setMultiSelectedIds(new Set());
+          lastClickedIdRef.current = info.block.id;
+        }
+      }
+    }
   };
 
-  // ── Track block resize drag ──
-  const handleTrackBlockResize = (e, track, block) => {
-    e.preventDefault(); e.stopPropagation();
+  const handleMouseDown = (e) => {
     if (readOnly) return;
-    const startX = e.clientX;
-    const startDur = block.duration || 8;
-    const onMove = (me) => {
-      let dur = Math.max(1, startDur + (me.clientX - startX) / pxPerSec);
-      dur = viewMode === 'bars' ? snapDurBars(dur, bpm) : Math.max(1, Math.round(dur));
-      updateTrackBlock(track.id, block.id, { duration: dur });
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      if (saveNow) saveNow();
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const clickedTime = mouseX / pxPerSec;
+    const isRightClick = e.button === 2 || e.ctrlKey; // support ctrl+click context menu on mac
+
+    // Check if clicked in sections lane (y: 28 to 28 + 114)
+    if (mouseY >= 28 && mouseY < 28 + 114) {
+      const clickedBlock = sortedBlocks.find(
+        (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
+      );
+
+      if (clickedBlock) {
+        if (isRightClick) {
+          handleContextMenu(e, 'section-block', { block: clickedBlock });
+        } else {
+          const isSel = clickedBlock.id === selectedBlockIdRef.current;
+          const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
+          const isResize = isSel && Math.abs(mouseX - blockRightEdgeX) < 10;
+
+          if (isResize) {
+            isResizingRef.current = true;
+            dragStartInfoRef.current = {
+              type: 'section-resize',
+              block: clickedBlock,
+              startX: e.clientX,
+              startDur: clickedBlock.duration || 30,
+            };
+            registerDragListeners();
+          } else {
+            isDraggingRef.current = true;
+            dragStartInfoRef.current = {
+              type: 'section-move',
+              block: clickedBlock,
+              startX: e.clientX,
+              startY: e.clientY,
+              isActualDrag: false,
+            };
+            registerDragListeners();
+          }
+        }
+      } else {
+        if (isRightClick) {
+          handleContextMenu(e, 'sections-lane', { time: clickedTime });
+        } else {
+          setSelectedBlockId(null);
+          setSelectedTrackBlock(null);
+          setMultiSelectedIds(new Set());
+        }
+      }
+      return;
+    }
+
+    // Check if clicked in tracks lane (y > 28 + 114)
+    if (mouseY >= 28 + 114) {
+      const trackIdx = Math.floor((mouseY - (28 + 114)) / 46);
+      if (trackIdx >= 0 && trackIdx < tracksRef.current.length) {
+        const track = tracksRef.current[trackIdx];
+        const clickedBlock = track.blocks?.find(
+          (b) => clickedTime >= (b.startTime || 0) && clickedTime <= (b.startTime || 0) + (b.duration || 0)
+        );
+
+        if (clickedBlock) {
+          if (isRightClick) {
+            handleContextMenu(e, 'track-block', { track, block: clickedBlock });
+          } else {
+            const isSel = selectedTrackBlockRef.current?.trackId === track.id && selectedTrackBlockRef.current?.blockId === clickedBlock.id;
+            const blockRightEdgeX = ((clickedBlock.startTime || 0) + (clickedBlock.duration || 0)) * pxPerSec;
+            const isResize = isSel && Math.abs(mouseX - blockRightEdgeX) < 8;
+
+            if (isResize) {
+              isResizingRef.current = true;
+              dragStartInfoRef.current = {
+                type: 'track-block-resize',
+                track,
+                block: clickedBlock,
+                startX: e.clientX,
+                startDur: clickedBlock.duration || 8,
+              };
+              registerDragListeners();
+            } else {
+              isDraggingRef.current = true;
+              dragStartInfoRef.current = {
+                type: 'track-block-move',
+                track,
+                block: clickedBlock,
+                startX: e.clientX,
+                startSec: clickedBlock.startTime || 0,
+                didMove: false,
+              };
+              registerDragListeners();
+            }
+          }
+        } else {
+          if (isRightClick) {
+            handleContextMenu(e, 'track-lane', { track, time: clickedTime });
+          } else {
+            let s = clickedTime;
+            s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
+            addTrackBlock(track.id, s);
+          }
+        }
+      }
+      return;
+    }
+
+    // Check if clicked in ruler (y < 28)
+    if (mouseY < 28) {
+      if (!isRightClick) {
+        handleSeek(clickedTime);
+      }
+    }
   };
 
-  // ── Track block move drag ──
-  const handleTrackBlockMove = (e, track, block) => {
-    e.preventDefault(); e.stopPropagation();
-    if (readOnly) return;
-    const startX = e.clientX;
-    const startSec = block.startTime || 0;
-    let didMove = false;
-    const onMove = (me) => {
-      didMove = true;
-      let s = Math.max(0, startSec + (me.clientX - startX) / pxPerSec);
-      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
-      updateTrackBlock(track.id, block.id, { startTime: s });
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      if (saveNow && didMove) saveNow();
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
+  // ── Canvas Painting Effect ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-  // ── Lane click → add block ──
-  const handleLaneClick = (e, track) => {
-    if (readOnly) return;
-    if (e.target.closest('[data-track-block]')) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    let s = (e.clientX - rect.left) / pxPerSec;
-    s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
-    addTrackBlock(track.id, s);
-  };
+    const HEADER_H = 28;
+    const SECTION_ROW_H = 114;
+    const TRACK_ROW_H = 46;
 
-  // ── Ruler rendering ──
-  const renderRuler = () => {
-    const ticks = [];
+    const dpr = window.devicePixelRatio || 1;
+    const logicalWidth = contentWidth;
+    const logicalHeight = HEADER_H + SECTION_ROW_H + tracks.length * TRACK_ROW_H;
+
+    canvas.width = logicalWidth * dpr;
+    canvas.height = logicalHeight * dpr;
+    canvas.style.width = `${logicalWidth}px`;
+    canvas.style.height = `${logicalHeight}px`;
+
+    ctx.scale(dpr, dpr);
+
+    // Clear and draw background
+    ctx.fillStyle = '#0c0c0f';
+    ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+    // Draw ruler background
+    ctx.fillStyle = '#08080b';
+    ctx.fillRect(0, 0, logicalWidth, HEADER_H);
+
+    // Draw sections lane background
+    ctx.fillStyle = '#070709';
+    ctx.fillRect(0, HEADER_H, logicalWidth, SECTION_ROW_H);
+
+    // Draw horizontal dividers
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, HEADER_H);
+    ctx.lineTo(logicalWidth, HEADER_H);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    ctx.moveTo(0, HEADER_H + SECTION_ROW_H);
+    ctx.lineTo(logicalWidth, HEADER_H + SECTION_ROW_H);
+    ctx.stroke();
+
+    tracks.forEach((track, idx) => {
+      const y = HEADER_H + SECTION_ROW_H + (idx + 1) * TRACK_ROW_H;
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(logicalWidth, y);
+      ctx.stroke();
+    });
+
+    // Draw Ticks & Grid Lines
     if (viewMode === 'bars') {
       const totalBarsCount = Math.ceil((totalDuration / 60) * (bpm / 4));
       let interval = 1;
@@ -520,34 +756,233 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       else if (totalBarsCount > 16) interval = 2;
 
       for (let bar = 1; bar <= totalBarsCount + interval; bar += interval) {
-        const left = barToSec(bar, bpm) * pxPerSec;
-        if (left > contentWidth + 20) break;
-        ticks.push(
-          <div key={bar} style={{ position: 'absolute', left, top: 0, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateX(-50%)' }}>
-            <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: bar === 1 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', paddingTop: '5px', letterSpacing: '0.02em' }}>
-              {bar === 1 ? 'Bar 1' : bar}
-            </span>
-            <div style={{ width: '1px', height: '6px', background: 'rgba(255,255,255,0.12)', marginTop: '2px' }} />
-          </div>
-        );
+        const x = barToSec(bar, bpm) * pxPerSec;
+        if (x > logicalWidth + 20) break;
+
+        // Grid line
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.beginPath();
+        ctx.moveTo(x, HEADER_H);
+        ctx.lineTo(x, logicalHeight);
+        ctx.stroke();
+
+        // Tick
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.beginPath();
+        ctx.moveTo(x, HEADER_H - 6);
+        ctx.lineTo(x, HEADER_H);
+        ctx.stroke();
+
+        ctx.fillStyle = bar === 1 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)';
+        ctx.font = '10px "Roboto Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(bar === 1 ? 'Bar 1' : String(bar), x, HEADER_H - 12);
       }
     } else {
       const tickInterval = totalDuration > 360 ? 60 : 30;
       for (let t = 0; t <= totalDuration + tickInterval; t += tickInterval) {
-        const left = t * pxPerSec;
-        if (left > contentWidth + 20) break;
-        ticks.push(
-          <div key={t} style={{ position: 'absolute', left, top: 0, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateX(-50%)' }}>
-            <span style={{ fontSize: '10px', fontFamily: '"Roboto Mono", monospace', color: t === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap', paddingTop: '5px' }}>
-              {formatTime(t)}
-            </span>
-            <div style={{ width: '1px', height: '6px', background: 'rgba(255,255,255,0.12)', marginTop: '2px' }} />
-          </div>
-        );
+        const x = t * pxPerSec;
+        if (x > logicalWidth + 20) break;
+
+        // Grid line
+        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+        ctx.beginPath();
+        ctx.moveTo(x, HEADER_H);
+        ctx.lineTo(x, logicalHeight);
+        ctx.stroke();
+
+        // Tick
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.beginPath();
+        ctx.moveTo(x, HEADER_H - 6);
+        ctx.lineTo(x, HEADER_H);
+        ctx.stroke();
+
+        ctx.fillStyle = t === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)';
+        ctx.font = '10px "Roboto Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(formatTime(t), x, HEADER_H - 12);
       }
     }
-    return ticks;
-  };
+
+    // Draw Continuous Waveform background
+    ctx.save();
+    const waveGrad = ctx.createLinearGradient(0, HEADER_H, 0, HEADER_H + SECTION_ROW_H);
+    waveGrad.addColorStop(0, '#00e5ff');
+    waveGrad.addColorStop(0.5, '#ff6600');
+    waveGrad.addColorStop(1, '#00e5ff');
+
+    const waveGrad2 = ctx.createLinearGradient(0, HEADER_H, 0, HEADER_H + SECTION_ROW_H);
+    waveGrad2.addColorStop(0, '#22c55e');
+    waveGrad2.addColorStop(1, '#10b981');
+
+    ctx.globalAlpha = 0.08;
+    
+    const pointsCount = 200;
+    const midYOffset = HEADER_H + SECTION_ROW_H / 2;
+
+    // Path 1
+    ctx.fillStyle = waveGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, midYOffset);
+    for (let i = 0; i <= pointsCount; i++) {
+      const x = (i / pointsCount) * logicalWidth;
+      const noise = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
+      ctx.lineTo(x, midYOffset - noise);
+    }
+    for (let i = pointsCount; i >= 0; i--) {
+      const x = (i / pointsCount) * logicalWidth;
+      const noise = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
+      ctx.lineTo(x, midYOffset + noise);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Path 2
+    ctx.fillStyle = waveGrad2;
+    ctx.beginPath();
+    ctx.moveTo(0, midYOffset);
+    for (let i = 0; i <= pointsCount; i++) {
+      const x = (i / pointsCount) * logicalWidth;
+      const noise = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
+      ctx.lineTo(x, midYOffset - noise);
+    }
+    for (let i = pointsCount; i >= 0; i--) {
+      const x = (i / pointsCount) * logicalWidth;
+      const noise = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
+      ctx.lineTo(x, midYOffset + noise);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+
+    // Draw Section blocks
+    sortedBlocks.forEach(block => {
+      const bx = (block.startTime || 0) * pxPerSec;
+      const bw = Math.max(80, (block.duration || 30) * pxPerSec);
+      const isSel = block.id === selectedBlockId;
+      const isMulti = multiSelectedIds.has(block.id);
+      const isCur = activeBlock?.id === block.id;
+      const color = TYPE_COLORS[block.type] || TYPE_COLORS.custom;
+      const by = HEADER_H + 8;
+      const bh = SECTION_ROW_H - 16;
+
+      ctx.fillStyle = isSel || isMulti ? `${color}40` : `${color}18`;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 3);
+      ctx.fill();
+
+      ctx.strokeStyle = isSel ? '#ff6600' : isMulti ? '#fbbf24' : color;
+      ctx.lineWidth = isSel ? 1.5 : 1;
+      ctx.stroke();
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, 4, bh, [3, 0, 0, 3]);
+      ctx.fill();
+
+      ctx.fillStyle = isSel ? '#ffffff' : 'rgba(255,255,255,0.85)';
+      ctx.font = 'bold 12px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(truncateText(ctx, block.name || '', bw - 16), bx + 8, by + 8);
+
+      if (block.notes) {
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        ctx.font = 'italic 10px system-ui, -apple-system, sans-serif';
+        ctx.fillText(truncateText(ctx, block.notes, bw - 16), bx + 8, by + 26);
+      }
+
+      ctx.fillStyle = color;
+      ctx.font = 'bold 10px "Roboto Mono", monospace';
+      ctx.textBaseline = 'bottom';
+      const timeStr = viewMode === 'bars'
+        ? formatBarRange(block.startTime || 0, block.duration || 30)
+        : formatTime(block.startTime);
+      ctx.fillText(timeStr, bx + 8, by + bh - 8);
+
+      const durStr = viewMode === 'bars'
+        ? formatDurBars(block.duration || 30)
+        : `${block.duration}s`;
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '10px "Roboto Mono", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(durStr, bx + bw - 8, by + bh - 8);
+
+      if (isCur) {
+        const prog = Math.min(100, Math.max(0, ((currentTime - (block.startTime || 0)) / (block.duration || 1)) * 100));
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, by + bh - 2, bw * (prog / 100), 2);
+      }
+
+      if (isSel) {
+        ctx.fillStyle = '#ff6600';
+        ctx.fillRect(bx + bw - 3, by + bh / 2 - 8, 2, 16);
+      }
+    });
+
+    // Draw Track blocks
+    tracks.forEach((track, trackIdx) => {
+      const ty = HEADER_H + SECTION_ROW_H + trackIdx * TRACK_ROW_H;
+      ctx.fillStyle = trackIdx % 2 === 0 ? 'rgba(255,255,255,0.005)' : 'rgba(255,255,255,0.015)';
+      ctx.fillRect(0, ty, logicalWidth, TRACK_ROW_H);
+
+      track.blocks?.forEach(block => {
+        const bx = (block.startTime || 0) * pxPerSec;
+        const bw = Math.max(18, (block.duration || 8) * pxPerSec);
+        const bh = TRACK_ROW_H - 14;
+        const by = ty + 7;
+
+        const isSel = selectedTrackBlock?.trackId === track.id && selectedTrackBlock?.blockId === block.id;
+        const isMulti = multiSelectedIds.has(block.id);
+
+        ctx.fillStyle = isSel || isMulti ? `${track.color}45` : `${track.color}28`;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, bw, bh, 3);
+        ctx.fill();
+
+        ctx.strokeStyle = isSel ? track.color : isMulti ? '#fbbf24' : track.color + '70';
+        ctx.lineWidth = isSel ? 1.5 : 1;
+        ctx.stroke();
+
+        ctx.fillStyle = track.color;
+        ctx.font = 'bold 9px "Roboto Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const clipStr = viewMode === 'bars'
+          ? formatBarRange(block.startTime || 0, block.duration || 8)
+          : formatTime(block.startTime);
+        ctx.fillText(truncateText(ctx, clipStr, bw - 8), bx + 6, by + bh / 2);
+
+        if (isSel) {
+          ctx.fillStyle = track.color;
+          ctx.fillRect(bx + bw - 2, by + bh / 2 - 5, 1.5, 10);
+        }
+      });
+    });
+
+    // Draw Playhead
+    const playheadX = currentTime * pxPerSec;
+    if (playheadX <= logicalWidth) {
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(playheadX, 0);
+      ctx.lineTo(playheadX, logicalHeight);
+      ctx.stroke();
+
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.moveTo(playheadX - 5, 0);
+      ctx.lineTo(playheadX + 5, 0);
+      ctx.lineTo(playheadX, 7);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }, [tracks, sortedBlocks, bpm, pxPerSec, currentTime, selectedBlockId, selectedTrackBlock, multiSelectedIds, viewMode, activeBlock, totalDuration, contentWidth]);
+
+  // ── Keyboard shortcuts ──
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -920,274 +1355,15 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
             {/* ── SCROLLABLE CONTENT ───────────────────────────────────────── */}
             <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
               <div style={{ minWidth: contentWidth, position: 'relative' }}>
-
-                {/* Ruler */}
-                <div style={{
-                  height: 28, position: 'relative',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
-                  background: '#08080b', overflow: 'hidden',
-                }}>
-                  {renderRuler()}
-                </div>
-
-                {/* Sections row */}
-                {sortedBlocks.length > 0 && (
-                  <div
-                    onContextMenu={(e) => {
-                      if (e.target.closest('[data-track-block]') || e.target.closest('[data-section-block]')) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      let s = (e.clientX - rect.left) / pxPerSec;
-                      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
-                      handleContextMenu(e, 'sections-lane', { time: s });
-                    }}
-                    style={{
-                      height: SECTION_ROW_H, position: 'relative',
-                      background: '#070709',
-                      borderBottom: tracks.length > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                    }}
-                  >
-                    {/* Decorative waveform background — continuous amplitude peaks */}
-                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', opacity: 0.08 }} preserveAspectRatio="none">
-                      <defs>
-                        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#00e5ff" stopOpacity="1" />
-                          <stop offset="50%" stopColor="#ff6600" stopOpacity="0.5" />
-                          <stop offset="100%" stopColor="#00e5ff" stopOpacity="1" />
-                        </linearGradient>
-                        <linearGradient id="waveGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.8" />
-                          <stop offset="100%" stopColor="#10b981" stopOpacity="0.2" />
-                        </linearGradient>
-                      </defs>
-                      {/* Continuous waveform path — amplitude peaks */}
-                      {(() => {
-                        const points = 200;
-                        const midY = 50;
-                        let path1 = '';
-                        let path2 = '';
-                        let pathMirror1 = '';
-                        let pathMirror2 = '';
-                        for (let i = 0; i <= points; i++) {
-                          const x = (i / points) * 100;
-                          const noise1 = Math.sin(i * 0.06 + 2) * 22 + Math.cos(i * 0.17) * 14 + Math.sin(i * 0.4 + 1) * 8 + Math.cos(i * 0.03) * 5;
-                          const noise2 = Math.cos(i * 0.09) * 12 + Math.sin(i * 0.28) * 7 + Math.cos(i * 0.5 + 3) * 5;
-                          const y1 = midY - noise1;
-                          const y2 = midY - noise2;
-                          const prefix = i === 0 ? 'M' : 'L';
-                          path1 += `${prefix}${x} ${y1} `;
-                          pathMirror1 = `${i === 0 ? 'M' : 'L'}${x} ${midY + noise1} ` + pathMirror1;
-                          path2 += `${prefix}${x} ${y2} `;
-                          pathMirror2 = `${i === 0 ? 'M' : 'L'}${x} ${midY + noise2} ` + pathMirror2;
-                        }
-                        return (
-                          <>
-                            <path d={path1 + pathMirror1} fill="url(#waveGrad)" />
-                            <path d={path2 + pathMirror2} fill="url(#waveGrad2)" />
-                          </>
-                        );
-                      })()}
-                    </svg>
-
-                    {/* Section blocks */}
-                    {sortedBlocks.map(block => {
-                      const left    = (block.startTime || 0) * pxPerSec;
-                      const width   = Math.max(80, (block.duration || 30) * pxPerSec);
-                      const isSel   = block.id === selectedBlockId;
-                      const isMulti = multiSelectedIds.has(block.id);
-                      const isCur   = activeBlock?.id === block.id;
-                      const color   = TYPE_COLORS[block.type] || TYPE_COLORS.custom;
-                      const prog    = isCur ? Math.min(100, Math.max(0, ((currentTime - (block.startTime || 0)) / (block.duration || 1)) * 100)) : 0;
-
-                      return (
-                        <div
-                          key={block.id}
-                          data-section-block="true"
-                          onMouseDown={(e) => handleSectionDragStart(e, block)}
-                          onContextMenu={(e) => handleContextMenu(e, 'section-block', { block })}
-                          onClick={(e) => {
-                            if (readOnly) {
-                              handleSeek(block.startTime || 0);
-                            }
-                          }}
-                          title={block.notes ? `Observations: ${block.notes}` : `Click to ${readOnly ? 'seek' : 'edit'}`}
-                          style={{
-                            position: 'absolute', left, top: 8, bottom: 8, width,
-                            background: isSel || isMulti ? `${color}40` : `${color}18`,
-                            border: `1px solid ${isSel ? '#ff6600' : isMulti ? '#fbbf24' : color}`,
-                            borderLeft: `4px solid ${color}`,
-                            boxShadow: isSel ? '0 0 12px rgba(255,102,0,0.25)' : isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : isCur ? `0 0 8px ${color}30` : 'none',
-                            borderRadius: '3px', cursor: 'pointer',
-                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                            padding: '8px 10px',
-                            transition: 'background-color 0.15s, border-color 0.15s, box-shadow 0.15s',
-                            overflow: 'hidden', userSelect: 'none', zIndex: isSel ? 3 : 1,
-                          }}
-                        >
-                          {/* Playback progress strip */}
-                          {isCur && (
-                            <div style={{ position: 'absolute', left: 0, bottom: 0, height: '2px', background: color, width: `${prog}%`, transition: 'width 0.4s linear', zIndex: 1 }} />
-                          )}
-
-                          {/* Block header */}
-                          <div data-no-drag="true">
-                            <span style={{ fontWeight: '600', fontSize: '12px', color: isSel ? '#ffffff' : 'rgba(255,255,255,0.85)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {block.name}
-                            </span>
-                            {block.notes && (
-                              <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px', fontStyle: 'italic' }}>
-                                {block.notes}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Block footer: bar range OR mm:ss */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontFamily: '"Roboto Mono", monospace', fontSize: '10px', color, fontWeight: 'bold' }}>
-                              {viewMode === 'bars'
-                                ? formatBarRange(block.startTime || 0, block.duration || 30)
-                                : formatTime(block.startTime)}
-                            </span>
-                            <span style={{ fontFamily: '"Roboto Mono", monospace', fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>
-                              {viewMode === 'bars'
-                                ? formatDurBars(block.duration || 30)
-                                : `${block.duration}s`}
-                            </span>
-                          </div>
-
-                          {/* Resize handle */}
-                          {!readOnly && (
-                            <div
-                              onMouseDown={e => handleSectionResize(e, block)}
-                              onClick={e => e.stopPropagation()}
-                              title="Drag to resize"
-                              style={{
-                                position: 'absolute', right: 0, top: 0, bottom: 0, width: '7px',
-                                cursor: 'col-resize', zIndex: 5,
-                                background: isSel ? 'rgba(255,102,0,0.1)' : 'transparent',
-                              }}
-                            >
-                              <div style={{ width: '2px', height: '16px', background: isSel ? '#ff6600' : 'rgba(255,255,255,0.1)', margin: 'auto', position: 'absolute', top: 0, bottom: 0, right: '2px', borderRadius: '1px' }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Playhead */}
-                    {playheadLeft !== null && (
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '2px', background: 'var(--accent-cyan)', boxShadow: '0 0 6px var(--accent-cyan)', pointerEvents: 'none', zIndex: 10, transition: 'none' }}>
-                        <div style={{
-                          position: 'absolute',
-                          top: -1,
-                          left: '-5px',
-                          width: '12px',
-                          height: '9px',
-                          background: 'var(--accent-cyan)',
-                          clipPath: 'polygon(0% 0%, 100% 0%, 50% 100%)'
-                        }} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── INSTRUMENT TRACK LANES ───────────────────────────── */}
-                {tracks.map((track, idx) => (
-                  <div
-                    key={track.id}
-                    data-track-id={track.id}
-                    onClick={e => handleLaneClick(e, track)}
-                    onContextMenu={(e) => {
-                      if (e.target.closest('[data-track-block]')) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      let s = (e.clientX - rect.left) / pxPerSec;
-                      s = viewMode === 'bars' ? snapStartBars(s, bpm) : Math.round(s);
-                      handleContextMenu(e, 'track-lane', { track, time: s });
-                    }}
-                    title={readOnly ? undefined : 'Click empty space to add an activity block'}
-                    style={{
-                      height: TRACK_ROW_H, position: 'relative',
-                      background: idx % 2 === 0 ? '#070709' : '#08080b',
-                      borderBottom: idx < tracks.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                      cursor: readOnly ? 'default' : 'crosshair',
-                    }}
-                  >
-                    {track.blocks.map(block => {
-                      const left  = (block.startTime || 0) * pxPerSec;
-                      const width = Math.max(18, (block.duration || 8) * pxPerSec);
-                      const isSel = selectedTrackBlock?.trackId === track.id && selectedTrackBlock?.blockId === block.id;
-                      const isMulti = multiSelectedIds.has(block.id);
-
-                      return (
-                        <div
-                          key={block.id}
-                          data-track-block="true"
-                          onClick={e => {
-                            e.stopPropagation();
-                            const mod = detectModifier(e);
-                            if (mod) {
-                              // Scope the order to this track's blocks so
-                              // shift+click range-selects within the same
-                              // track, not across the whole timeline.
-                              const order = (track.blocks || []).map((b) => b.id);
-                              setMultiSelectedIds(applyBlockClick({
-                                selected: multiSelectedIds,
-                                order,
-                                clickedId: block.id,
-                                lastClickedId: lastClickedIdRef.current,
-                                modifier: mod,
-                              }));
-                              lastClickedIdRef.current = block.id;
-                            } else {
-                              setSelectedTrackBlock(isSel ? null : { trackId: track.id, blockId: block.id });
-                              setMultiSelectedIds(new Set());
-                              lastClickedIdRef.current = block.id;
-                            }
-                          }}
-                          onMouseDown={e => handleTrackBlockMove(e, track, block)}
-                          onContextMenu={e => handleContextMenu(e, 'track-block', { track, block })}
-                          style={{
-                            position: 'absolute', left, top: 7, bottom: 7, width,
-                            background: isSel || isMulti ? `${track.color}45` : `${track.color}28`,
-                            border: `1px solid ${isSel ? track.color : isMulti ? '#fbbf24' : track.color + '70'}`,
-                            borderRadius: '3px',
-                            cursor: 'grab',
-                            display: 'flex', alignItems: 'center', paddingLeft: '6px',
-                            overflow: 'hidden', userSelect: 'none', zIndex: isSel || isMulti ? 5 : 2,
-                            boxShadow: isSel ? `0 0 8px ${track.color}35` : isMulti ? '0 0 0 2px rgba(251, 191, 36, 0.35)' : 'none',
-                            transition: 'background 0.1s, box-shadow 0.1s',
-                          }}
-                        >
-                          {/* Label */}
-                          <span style={{ fontSize: '9px', fontFamily: '"Roboto Mono", monospace', color: track.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none', letterSpacing: '0.02em' }}>
-                            {viewMode === 'bars'
-                              ? formatBarRange(block.startTime || 0, block.duration || 8)
-                              : formatTime(block.startTime)}
-                          </span>
-
-                          {/* Resize handle */}
-                          {!readOnly && (
-                            <div
-                              onMouseDown={e => { e.stopPropagation(); handleTrackBlockResize(e, track, block); }}
-                              onClick={e => e.stopPropagation()}
-                              style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 5 }}
-                            >
-                              <div style={{ width: '2px', height: '10px', background: track.color, opacity: isSel ? 0.9 : 0.4, margin: 'auto', position: 'absolute', top: 0, bottom: 0, right: '1px', borderRadius: '1px' }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {/* Playhead through track */}
-                    {playheadLeft !== null && (
-                      <div style={{ position: 'absolute', top: 0, bottom: 0, left: playheadLeft, width: '2px', background: 'var(--accent-cyan)', opacity: 0.5, pointerEvents: 'none', zIndex: 10, transition: 'none' }} />
-                    )}
-                  </div>
-                ))}
-
-                {/* Spacer below last track for Add Track row */}
-                {!readOnly && <div style={{ height: 40 }} />}
-
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMoveHover}
+                  onContextMenu={(e) => e.preventDefault()}
+                  width={contentWidth}
+                  height={28 + 114 + tracks.length * 46}
+                  style={{ display: 'block', background: '#0c0c0f' }}
+                />
               </div>
             </div>
           </div>
