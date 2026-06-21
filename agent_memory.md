@@ -1,9 +1,9 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Universal wavesurfer.js regions + TimelinePlugin (timeline2) across ALL lens tabs + ALL daily-goal study sessions, plus fix the "brief white noise then silence" audio playback bug on lens audits.
-- **Status**: 299/299 client tests pass, Vite build clean. `UniversalWaveformBar.jsx` shipped — renders wavesurfer waveform + RegionsPlugin + TimelinePlugin + compact transport on every lens tab (AuditForm) + every study-session day (StudySessionWorkspace). `loadSong` memoized (was the white-noise root cause). `audioError` state added for the 404-on-disk case.
-- **Next**: Phase 3.1 Daily Digest, or in-flight download UX polish. 6 legacy songs still have `publicUrl: undefined` — user can re-download via the recovery banner now surfaced on every surface.
+- **Goal**: Universal wavesurfer.js regions + TimelinePlugin (timeline2) across ALL lens tabs + ALL daily-goal study sessions, plus dynamic track lanes replacing the DAW timeline, and TabBar positioning above the waveform.
+- **Status**: 299/299 client tests pass, Vite build clean. `UniversalWaveformBar.jsx` updated for track lanes (`hideWaveform={true}`). Tab selection bar moved above the waveform block in `AuditForm.jsx`. Old canvas timeline removed. Tracks support drag-select region creation and database autosave.
+- **Next**: Phase 3.1 Daily Digest, or in-flight download UX polish.
 
 ## Resume Point (checkpoint 2026-06-21 — SSE REFERENCEERROR FIX + PM2 CLEANUP + AUDIO DOWNLOAD WIRING FIX + SYNC /IMPORT)
 - Bug 1: `routes/audits.js:352` referenced `audit._id` but `const audit` was declared inside the `try` block, so it went out of scope. Fix: lift to `let audit`. Tests for 404/200 SSE paths added. (`2fafe9b`)
@@ -57,6 +57,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-21 | feat(audit): replace old timeline with dynamic multi-track lanes synced to master waveform and TabBar positioning above waveform | `68f0a0a` |
 | 2026-06-21 | feat(theme): unify website theme with charcoal, white, grey, and orange tape deck audio player palette | `f856338` |
 | 2026-06-21 | feat(study-session): persist timeline region dragging, updates, creations, and type presets in daily study workspace | `f24466b` |
 | 2026-06-21 | chore(prune): run knip to prune unused dependencies, files, and exports. | `3519d4f` |

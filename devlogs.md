@@ -8,6 +8,20 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: Audit Form — Replace old DAW timeline with dynamic track lanes (dummy timeline2) & TabBar reordering
+
+- **Context**: The user requested to reorder the workspace layout on the audit form page to place the tab selections ("analysis, lens: , sources, and notebook") above the master `UniversalWaveformBar` timeline. They also requested removing the old canvas-based `AuditTimeline` DAW arranger for all lenses (Texture retains its Spectrogram) and replacing it with the ability to add and delete independent horizontal "tracks" (rendered as multiple slim, dummy `UniversalWaveformBar` lanes directly below the master waveform). These track lanes have invisible waveforms, suppress duplicate audio, support zoom synchronization, and allow dragging, resizing, creating, and deleting regions (storing config and blocks immediately into the response key `'arrangement-tracks'`).
+- **Implementation**:
+  - **TabBar reordering**: Moved the `AuditTabBar` render block directly above the master `UniversalWaveformBar` inside `AuditForm.jsx`.
+  - **Dynamic track lanes**:
+    - Defined a shared `zoom` state variable in `AuditForm.jsx` (defaulting to `8`), bound to the master waveform and forwarded to all track waveforms.
+    - Added support for `hideWaveform` and `onZoomChange` props in `UniversalWaveformBar.jsx` to let the track lanes render slim, silent dummy instances that hide waveform visualizers while preserving full regions click, edit, resize, and drag selection features.
+    - Updated `UniversalWaveformBar.jsx` to sync its internal `zoom` state when the `pxPerSec` prop updates, ensuring horizontal alignment across all lanes.
+    - Extracted the inline region inspector panel into a shared variable (`inspectorEl`) to keep the codebase clean and prevent layout duplication.
+    - Added track lanes list, "+ Add Track" action panel, and CRUD handlers inside `AuditForm.jsx`. Track configurations are stored as serialized JSON arrays in `responses['arrangement-tracks']` matching the block category system (Vocals, Rhythm, Bass, Synth, Guitar, Brass, Strings, FX).
+    - Removed `AuditTimeline` component rendering completely from `AuditAnalysisTab.jsx` for all non-texture lenses.
+- **Verification**: Built the production client build cleanly (zero warnings or compile issues) and verified that all 299 Vitest test cases are passing.
+
 ### 2026-06-21: UI Theme — unify website with charcoal, white, grey, and orange tape deck audio player palette
 
 - **Context**: The user requested that the entire website follow the charcoal theme of the tape deck audio player.
