@@ -144,13 +144,13 @@ export class MongooseRepository extends IRepository {
   }
 }
 
-export class CurriculumRepository extends MongooseRepository {
+class CurriculumRepository extends MongooseRepository {
   constructor() {
     super(Curriculum);
   }
 }
 
-export class StudyProgressRepository extends MongooseRepository {
+class StudyProgressRepository extends MongooseRepository {
   constructor() {
     super(StudyProgress);
   }
@@ -249,7 +249,7 @@ export class UserRepository extends IUserRepository {
   }
 }
 
-export class MongooseUserRepository extends UserRepository {
+class MongooseUserRepository extends UserRepository {
   constructor() {
     super(User);
   }

@@ -7,7 +7,7 @@ import { useBackend } from '../context/BackendContext.jsx';
  * Exposes:
  *   { curricula, loading, error, refetch, generate, save }
  */
-export function useCurricula() {
+function useCurricula() {
   const backend = useBackend();
   const [curricula, setCurricula] = useState([]);
   const [loading, setLoading] = useState(true);

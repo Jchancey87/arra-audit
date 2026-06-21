@@ -168,4 +168,3 @@ export const buildBookmarkAnalysisSseHandler = ({ auditRepository } = {}) => {
 };
 
 export { BookmarkAnalysisBus };
-export default bookmarkAnalysisBus;

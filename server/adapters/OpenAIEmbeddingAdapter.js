@@ -194,4 +194,3 @@ export class OpenAIEmbeddingAdapter {
   }
 }
 
-export default OpenAIEmbeddingAdapter;

@@ -9,7 +9,7 @@ import { useBackend } from '../context/BackendContext.jsx';
  *
  * `research(lens, name)` triggers a deep-dive and refreshes the list.
  */
-export function useTasteProfiles() {
+function useTasteProfiles() {
   const backend = useBackend();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -13,7 +13,8 @@
     "sigmap": "npx --yes sigmap --generate"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "knip": "^6.17.1"
   },
   "engines": {
     "node": ">=24.0.0",

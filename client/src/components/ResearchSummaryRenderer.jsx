@@ -54,7 +54,7 @@ const ICONS = {
   ),
 };
 
-export const parseSummaryText = (text) => {
+const parseSummaryText = (text) => {
   if (!text) return [];
 
   // Check for markdown headings

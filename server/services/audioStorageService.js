@@ -18,7 +18,7 @@
 import fs from 'fs';
 import path from 'path';
 
-export class IAudioStorageService {
+class IAudioStorageService {
   // eslint-disable-next-line no-unused-vars
   async moveIntoStore(songId, sourcePath, { mimeType } = {}) {
     throw new Error('IAudioStorageService.moveIntoStore not implemented');

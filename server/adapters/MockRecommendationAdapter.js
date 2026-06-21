@@ -65,4 +65,3 @@ export class MockRecommendationAdapter {
   }
 }
 
-export default MockRecommendationAdapter;

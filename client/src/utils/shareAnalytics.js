@@ -75,4 +75,4 @@ export function getLinkOpenStats() {
   return { totalOpens: events.length, perAudit, perSource };
 }
 
-export const __test__ = { STORAGE_KEY, MAX_EVENTS, MAX_AGE_MS };
+const __test__ = { STORAGE_KEY, MAX_EVENTS, MAX_AGE_MS };

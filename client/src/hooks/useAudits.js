@@ -12,7 +12,7 @@ import { useBackend } from '../context/BackendContext.jsx';
  *
  * Mutations optimistically remove the affected audit from the list.
  */
-export function useAudits(filters = {}) {
+function useAudits(filters = {}) {
   const backend = useBackend();
   const [audits, setAudits] = useState([]);
   const [loading, setLoading] = useState(true);

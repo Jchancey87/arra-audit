@@ -3,7 +3,7 @@
 
 let cached = null;
 
-export async function loadPdfRenderer() {
+async function loadPdfRenderer() {
   if (cached) return cached;
   const mod = await import('@react-pdf/renderer');
   cached = {

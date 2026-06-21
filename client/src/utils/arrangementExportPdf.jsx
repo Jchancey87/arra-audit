@@ -139,4 +139,3 @@ export const ArrangementReport = ({ song, sections = [], tracks = [], bpm, timeS
   );
 };
 
-export default ArrangementReport;

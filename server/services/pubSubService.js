@@ -210,5 +210,4 @@ class PubSubService {
 }
 
 const singleton = new PubSubService();
-export { PubSubService, singleton as pubSubService, waitForReady };
-export default singleton;
+export { PubSubService,   };

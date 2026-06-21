@@ -189,4 +189,4 @@ export class SketchService {
   }
 }
 
-export const __test__ = { DEFAULT_LIMITS, ANALYSIS_TIMEOUT_MS };
+const __test__ = { DEFAULT_LIMITS, ANALYSIS_TIMEOUT_MS };

@@ -97,4 +97,3 @@ export class MockBookmarkAnalysisAdapter {
   }
 }
 
-export default MockBookmarkAnalysisAdapter;

@@ -258,7 +258,7 @@ export class InMemoryRepository extends IRepository {
  * Mirrors the InMemoryRepository CRUD surface, plus the password methods
  * that live on IUserRepository (not on IRepository).
  */
-export class InMemoryUserRepository extends IUserRepository {
+class InMemoryUserRepository extends IUserRepository {
   constructor() {
     super();
     this._store = new InMemoryRepository();

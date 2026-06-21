@@ -168,7 +168,7 @@ export const canvasToBlob = (canvas, type = 'image/png', quality) =>
     }, type, quality);
   });
 
-export const downloadBlob = (blob, filename) => {
+const downloadBlob = (blob, filename) => {
   if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') return;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

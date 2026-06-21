@@ -233,5 +233,4 @@ export class BookmarkAnalysisService {
   }
 }
 
-export default BookmarkAnalysisService;
-export { initialAnalysis, MAX_BACKGROUND_JOBS, DEFAULT_QUEUE_LIMIT };
+;

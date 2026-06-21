@@ -112,4 +112,3 @@ export const useBookmarkAnalysisStream = (auditId) => {
   return { snapshots, lastUpdate, status, error, refresh };
 };
 
-export default useBookmarkAnalysisStream;

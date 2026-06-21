@@ -155,4 +155,4 @@ export function prepareReportData(audit, song) {
   };
 }
 
-export { formatTimestamp, formatDuration, LENS_LABELS };
+export { formatTimestamp, formatDuration,  };

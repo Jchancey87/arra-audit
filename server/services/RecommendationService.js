@@ -87,4 +87,3 @@ export class RecommendationService {
   }
 }
 
-export default RecommendationService;

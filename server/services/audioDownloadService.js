@@ -67,4 +67,3 @@ export class AudioDownloadService {
   }
 }
 
-export default AudioDownloadService;

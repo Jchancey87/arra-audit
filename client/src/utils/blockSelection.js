@@ -29,7 +29,7 @@ export const detectModifier = (event) => {
   return m;
 };
 
-export const isSelected = (selected, id) => selected instanceof Set && selected.has(id);
+const isSelected = (selected, id) => selected instanceof Set && selected.has(id);
 
 /**
  * Apply a click event to the current selection.

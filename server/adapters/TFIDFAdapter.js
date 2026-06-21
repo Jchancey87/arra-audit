@@ -137,4 +137,3 @@ export class TFIDFAdapter {
   }
 }
 
-export default TFIDFAdapter;

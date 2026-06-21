@@ -117,4 +117,3 @@ export class CLAPSegmentAdapter {
   }
 }
 
-export default CLAPSegmentAdapter;

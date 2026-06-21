@@ -11,7 +11,7 @@ import { useBackend } from '../context/BackendContext.jsx';
  *     start, linkSong, logDay, completeDay, uploadSketch, submitReview,
  *   }
  */
-export function useStudyProgress() {
+function useStudyProgress() {
   const backend = useBackend();
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
