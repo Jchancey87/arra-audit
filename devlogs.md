@@ -8,6 +8,31 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: FilesystemAudioStorageAdapter — defensive mkdir on every moveIntoStore
+
+- **Context**: After the stuck-song recovery banner was added, the user hit "Re-download audio" on a legacy song whose `publicUrl` was null. The chown of `server/uploads/songs/` (which I had `rmdir`'d as a sudo-less alternative to `chown`) exposed a second bug: the dir no longer existed on disk, so the next `copyFile` failed `ENOENT`.
+- **Root cause**: `FilesystemAudioStorageAdapter` constructor (`server/services/audioStorageService.js:62-68`) calls `fs.mkdirSync(this.songsDir, { recursive: true })` exactly once at boot, when the `arra-server` process is constructed. The in-memory `this.songsDir` path is then frozen. If the dir is removed at runtime (operator-level `rmdir`, the chown-rmdir combo we just did, or a misbehaving cleanup script), the running process keeps the stale path and every subsequent `moveIntoStore` → `copyFile` throws `ENOENT`. The dir only re-materializes on the next `pm2 restart`.
+- **Fix** (`server/services/audioStorageService.js:83-98`): added `await fs.promises.mkdir(this.songsDir, { recursive: true })` immediately before the `copyFile` call inside `moveIntoStore`. Idempotent, single syscall on a path that almost always exists, races-safe (multiple concurrent re-downloads won't clobber each other because `recursive: true` is a no-op on existing dirs).
+- **New regression test** (`server/__tests__/unit/audioStorageService.test.js`): 3 tests covering the exact runtime scenario (rmdir the songs dir after the adapter is constructed, then call `moveIntoStore` and assert the file lands), idempotency, and the existing source-missing error path.
+- **Operational note**: the running `arra-server` still had the old code, so `pm2 restart arra-server` was needed to push the fix. Future rmdir'ing of `uploads/songs` on a running server is now safe without a restart.
+- **Verification**: server tests 143/143 pass (15 suites), client tests 288/288 still pass, vite build clean. `pm2 jlist` shows `arra-server` online with new pid.
+
+### 2026-06-21: AuditForm — recovery banner for stuck legacy songs (publicUrl=null)
+
+- **Context**: User reported "playback is not working on texture and harmony lens" while running audits. I misread the first pass and shipped a study-session fix that wasn't the real bug. User clarified the symptom is on the **AuditForm** (Lens tab) — the floating `MonitorPortal` is visible, the play button is clickable, but clicking it does nothing: no audio, playhead doesn't move, `currentTime` stays at 0. The same issue was reproduced across multiple lens types in the same audit, which confirmed it was a **song-level** defect, not a lens-specific one — the user just happened to check texture and harmony first.
+- **Root cause**: `song.publicUrl === null`. The `<audio>` element at `AudioContext.jsx:258` is gated on `{activeSong?.publicUrl && (...)}`, so when the URL is null the element never mounts. `audioRef.current` is therefore null, and the `play()` callback at `AudioContext.jsx:123` is a silent no-op (`if (!audioRef.current) return;`). The same shape of bug was already fixed in `StudySessionWorkspace.jsx:295-318` on 2026-06-21, but the AuditForm had no equivalent banner, so any audit pointing at a stuck legacy song was a dead end.
+- **Fix**: Mirrored the StudySessionWorkspace pattern in `AuditForm.jsx`. Added `useBackend` import, a `recovering` / `recoveryError` state pair, a `handleRedownloadAudio` callback that calls `backend.redownloadSongAudio(songId)` (POST `/songs/:id/download-audio`, the synchronous endpoint added 2026-06-21) and then `loadSong(fresh)` + `refetchSong()` to push the hydrated song into both the audio context and the `useSong` data hook, plus a recovery banner above the `AuditPanelHeader` that renders whenever `song && !song.publicUrl` with a "Re-download audio" button. Banner is page-level (not tab-level) because the defect affects every lens equally.
+- **Wavesurfer clarification**: User also asked "are we using canvas as wavesurfer.js requires". Answer: yes — but only inside `WaveformTimelineOverlay.jsx:57` via `WaveSurfer.create({ container, media: audioRef.current, ... })`, which is only mounted inside the `ArrangementTimelineWidget` for the arrangement lens. There is no wavesurfer instance on the Lens tab, the Analysis tab's `AuditTimeline`, or for any non-arrangement lens anywhere in the app. The user not seeing waveforms on texture/harmony audits is expected — none were ever rendered there. Wavesurfer attaches to the same shared `<audio>` element as the rest of the app so there's no drift between waveform and transport.
+- **Known separate bug flagged, not fixed**: `client/src/components/audit/lensConstants.js:1-35` defines `LENS_PROMPTS` with keys `{harmony, rhythm, form, texture, melody}` — but every other consumer (`lensGuess.js:42`, `pdfData.js:122`, `useAuditShortcuts.js:23`, `AuditDetail.jsx:367`, `AuditForm.jsx:215` for the `M` shortcut gate) uses `arrangement`. Effect: an audit with `lensSelection: ['arrangement']` silently falls back to the `harmony` prompts because `LENS_PROMPTS['arrangement']` is undefined and `setActiveLens` is never called. Needs a follow-up to align the constants file with the rest of the app, or rename `arrangement` → `form` everywhere and drop `form` from the constants. Not part of this fix.
+- **Verification**: `npm run build` clean (8.81s), `npm test` 288/288 pass.
+
+### 2026-06-21: Restore playback on texture / harmony / rhythm / melody study-session lens days
+
+- **Context**: User reported "playback is not working on texture and harmony lens" in the Study Session workspace. Root cause: `StudySessionWorkspace.jsx:74-77` calls `setShowVideo(false)` on mount which hides the global `MonitorPortal` (the floating player), and the only fallback transport UI — `ArrangementTimelineWidget` — is gated to `['arrangement', 'form']` lens days (`StudySessionWorkspace.jsx:738`). On texture, harmony, rhythm, and melody days there was literally no play button anywhere on the page. Arrangement/form days worked because the wavesurfer-backed timeline widget is its own transport. The user also asked about canvas because they expected to see a wavesurfer waveform on the missing-lens days — those never existed there; wavesurfer is only instantiated in `WaveformTimelineOverlay.jsx` (attached to the shared `<audio>` element via `WaveSurfer.create({ media: audioRef.current, ... })`) and only used inside the arrangement timeline.
+- **Fix**: Added a small inline transport row (play/pause + ±10s + `M:SS / M:SS` time read-out) to the Reference Signal panel in `StudySessionWorkspace.jsx`. The row calls the existing `useAudio()` API (`togglePlay`, `seekTo`, `isPlaying`, `currentTime`, `duration`) and writes against the same single shared `<audio>` element, so there's no second audio engine, no drift, and no new state surface. Buttons are disabled and the time read-out shows `no audio` (in red) when `activeSong?.publicUrl` is null — that case is still covered by the existing "Re-download audio" banner a few lines above.
+- **Scope**: Additive change only. Arrangement/form days keep their wavesurfer timeline widget AND now also have the inline Reference Signal player; texture/harmony/rhythm/melody days get the inline player. The global `MonitorPortal` is still hidden inside the study workspace (same as before), so layout doesn't change.
+- **Verification**: `npm run build` clean (5.44s, no warnings), `npm test` 288/288 pass.
+
 ### 2026-06-20: Migrate DAW Timeline Widget to Pure DOM Architecture
 
 - **Context**: Switched the `ArrangementTimelineWidget.jsx` component from an HTML5 Canvas implementation to a pure HTML/CSS React DOM architecture. This aligns the second timeline widget with the newly refactored `AuditTimeline.jsx`, removing obsolete coordinate mapping, device pixel ratio scaling, and dummy drawing code blocks.
@@ -1493,3 +1518,156 @@ waveform *is* the transport. The same `<audio>` element feeds:
 
 No dual-engine sync, no IFrame CDA, no embed-block failure mode. The
 arranger timeline is now genuinely a single-audio-source DAW.
+
+## 2026-06-21 — Universal wavesurfer regions + timeline2 + audio playback fix
+
+### Problem
+1. **Audio playback on lens audits**: "brief white noise then silence."
+2. **wavesurfer regions + timeline2** only existed on arrangement/form
+   days (inside ArrangementTimelineWidget). Harmony / rhythm / texture /
+   melody lens days and non-arrangement lens tabs had no waveform at all.
+
+### Root cause of the white noise (the real bug)
+`AudioContext.loadSong` was NOT memoized — it was a plain `async` function,
+so it got a new function identity on every render. AuditForm had:
+`useEffect(() => { if (song) loadSong(song); }, [song?._id, loadSong])`.
+Because `loadSong` changed identity every render, the effect fired every
+render → `loadSong()` → `audioRef.current.pause()` +
+`audioRef.current.currentTime = 0` on every render. Symptom: user clicks
+play → hears the first few ms of the MP3 (perceived as a "white noise"
+burst) → next render cycle pauses + resets → silence. The playhead never
+gets past t=0 because every render yanks it back.
+
+Fix: wrap `loadSong` in `useCallback([])`. All referenced values are
+stable useState dispatchers + a stable ref, so [] is correct. Also
+memoized `setShowVideo` (same class of bug in StudySessionWorkspace's
+mount effect — harmless but wasteful).
+
+### Audio error surfacing (the 404-on-disk case)
+Separate failure mode: song.publicUrl is set in the DB but the file was
+removed from `server/uploads/songs/` (e.g. the rmdir incident, or manual
+cleanup). The `<audio>` fetches it → express.static returns a 404 HTML
+page → browser decodes the HTML as audio → static burst → `<audio>` error
+event → silence. The old recovery UI only fired on `publicUrl === null`,
+so this case showed a dead play button with no recovery path.
+
+Fix: AudioContext now tracks `audioError` state (set in the
+`onAudioError` handler, cleared in `loadSong`). The recovery banners in
+AuditForm + StudySessionWorkspace + UniversalWaveformBar now fire on
+`!publicUrl || audioError`, and the UniversalWaveformBar renders an
+inline "Re-download audio" button when `onRecover` is provided.
+
+### Universal wavesurfer regions + timeline2
+New component: `client/src/components/UniversalWaveformBar.jsx`. Self-
+contained: pulls `audioRef / togglePlay / seekTo / currentTime / duration
+/ audioError` from `useAudio()`, renders `WaveformTimelineOverlay` (which
+owns WaveSurfer.create + RegionsPlugin + TimelinePlugin) + a compact
+transport row (play/pause + ±10s + zoom ±). Drop-in anywhere inside
+<AudioProvider>.
+
+`WaveformTimelineOverlay` generalized: `sections` prop replaced with a
+generic `regions` prop (`{ id, start, end, color, label, drag, resize,
+selected }`). ArrangementTimelineWidget now maps its sortedBlocks →
+regions inline. Added `hideWaveform` prop to ArrangementTimelineWidget so
+callers that render UniversalWaveformBar above it can suppress the
+widget's internal WaveformTimelineOverlay — avoids two WaveSurfer.create()
+instances attaching to the same `<audio>`.
+
+Wiring:
+- **AuditForm**: UniversalWaveformBar rendered above the tab bar, always
+  visible on every lens tab + the analysis tab. Regions = arrangement
+  sections + bookmarks (colored by lens via LENS_REGION_COLOR) + tagged
+  timestamps for the active lens (when on the lens tab). Clicking a
+  region seeks to its start.
+- **StudySessionWorkspace**: UniversalWaveformBar rendered in the
+  Reference Signal panel on ALL lens days (not just arrangement/form).
+  ArrangementTimelineWidget (arrangement/form days only) gets
+  `hideWaveform` to avoid the double-wavesurfer.
+- **lensConstants.js**: added shared `LENS_REGION_COLOR` +
+  `SECTION_TYPE_COLORS` maps so any surface can build color-coded regions
+  without importing the widget.
+
+### Files
+- `client/src/context/AudioContext.jsx` — `loadSong` + `setShowVideo`
+  wrapped in useCallback (the white-noise fix). New `audioError` state +
+  `clearAudioError` on the context value. `onAudioError` now captures
+  the error code + src + a human message.
+- `client/src/components/UniversalWaveformBar.jsx` — NEW. Self-contained
+  waveform + regions + timeline2 + transport + recovery UI.
+- `client/src/components/WaveformTimelineOverlay.jsx` — generalized
+  `regions` prop (was `sections` + `selectedBlockId`). Added
+  `waveHeight` + `showTimeline` props. Region element styling moved
+  inline (no longer depends on TYPE_COLORS — caller supplies colors).
+- `client/src/components/ArrangementTimelineWidget.jsx` — maps
+  sortedBlocks → generic regions inline. New `hideWaveform` prop.
+- `client/src/components/audit/lensConstants.js` — added
+  `LENS_REGION_COLOR` + `SECTION_TYPE_COLORS`.
+- `client/src/pages/AuditForm.jsx` — UniversalWaveformBar above tabs.
+  `waveformRegions` memo (sections + bookmarks + active-lens tags).
+  Recovery banner fires on `audioError` too. `audioError` pulled from
+  useAudio.
+- `client/src/pages/StudySessionWorkspace.jsx` — UniversalWaveformBar in
+  the Reference Signal panel on all days. `hideWaveform` passed to
+  ArrangementTimelineWidget. Recovery banner fires on `audioError` too.
+- `client/src/components/__tests__/UniversalWaveformBar.test.jsx` — NEW,
+  11 tests (play/pause/seek/disabled states/recovery/no-audio/no-song).
+
+### Verification
+- 299/299 client tests pass (288 + 11 new). Vite build clean.
+- pm2 restart arra-server + arra-client pushed the new code.
+- DB inspection: 7 songs, 6 with `publicUrl: undefined` (legacy YouTube
+  source — recovery banner will show), 1 with a valid local file
+  (`6a37525157dfafca9dcaaf3c.mp3`, 2:45, ffprobe-clean).
+
+## 2026-06-21 — Polish sweep: SSE→Redis, venv recreation, PDF perf, Lighthouse infra
+
+### 1. SSE→Redis pub/sub
+New `server/services/pubSubService.js` — Redis pub/sub with in-process
+EventEmitter fallback. Two Redis connections (pub + sub) per the Redis
+protocol. `fromPid` envelope prevents double-delivery when Redis echoes
+back to the publishing process. When Redis is unavailable (not installed,
+down, timeout), the fallback fires synchronously — tests + single-instance
+deploys work unchanged. `ioredis@5.11.1` added to server deps.
+`BookmarkAnalysisBus` migrated. Server tests 143/143 pass with Redis
+running. Redis binary built from source to `~/.local/bin/redis-server`
+(no sudo required). Start: `~/.local/bin/redis-server --daemonize yes`.
+
+### 2. Python venv recreation
+Old venv had stale pip shebangs from the sonic-dna→arra rebrand (empty
+`pip freeze`, broken shebangs). Recreated from scratch:
+`python3 -m venv venv && venv/bin/pip install -r
+analysis_service/requirements.txt`. torch 2.6.0+cu126, transformers
+5.12.1, fastapi 0.138.0, librosa 0.11.0, all ML deps installed.
+`analysis_service/requirements.txt` is the source of truth (with
+`--extra-index-url` for the CUDA 12.6 torch wheel). arra-analysis
+restarted and running.
+
+### 3. PDF export perf
+- `ExportArrangementButton` — changed from static import to
+  `React.lazy(() => import(...))` in ArrangementTimelineWidget. Only
+  loads on export click. ArrangementTimelineWidget chunk: 74→66 KB (-8KB).
+- `pdf/constants.js` — extracted LENS_LABELS + LENS_DESCRIPTIONS from
+  `theme.js` so pure data-transform modules (pdfData.js) can import
+  lens labels without transitively pulling the 1.6 MB react-pdf bundle.
+  react-pdf.browser chunk is already properly code-split as a dynamic
+  import inside handlePdf.
+- Loading indicator already existed (button shows "Exporting…" while busy).
+
+### 4. Lighthouse infra
+- `lighthouse@13.4.0` added to client devDependencies.
+- `scripts/lighthouse.mjs` — Lighthouse CI gate with configurable
+  thresholds (perf=90, a11y=95, best-practices=90, seo=80). Boots
+  vite preview, audits, tears down. Exit 77 when Chrome unavailable.
+- `npm run lighthouse` script in client/package.json.
+- Chrome binary: Playwright cache at
+  `~/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`.
+- **BLOCKED**: needs `sudo apt install -y libnspr4 libnss3 libxss1
+  libgbm1 libasound2` before Chrome can launch. Run that, then:
+  ```
+  cd client && \
+  CHROME_PATH=~/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome \
+  npx lighthouse http://localhost:3050 --output=json \
+    --output-path=./lighthouse-report.json \
+    --chrome-flags="--headless --no-sandbox --disable-gpu" \
+    --only-categories=performance,accessibility,best-practices,seo
+  ```
