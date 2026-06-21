@@ -57,6 +57,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-21 | feat(analysis): replace DAW timeline grid with wavesurfer spectrogram on Texture lens. | `bc61699` |
 | 2026-06-20 | Migrated ArrangementTimelineWidget to pure DOM and refactored widget unit tests to target DOM selectors. | `9790029` |
 | 2026-06-21 | Fix `audit is not defined` ReferenceError in SSE bookmarks route (scoped const inside try block) + integration tests for ownership-gated SSE endpoint. | `2fafe9b` |
 | 2026-06-21 | Fix missing `audioStorageService` injection in `new SongService(...)` in server.js — background audio downloads had been silently failing with `attachLocalAudio requires audioStorageService`, leaving `publicUrl=null` and tripping the rate limiter via client polling. | `893e5e1` |

@@ -1671,3 +1671,32 @@ restarted and running.
     --chrome-flags="--headless --no-sandbox --disable-gpu" \
     --only-categories=performance,accessibility,best-practices,seo
   ```
+
+## 2026-06-21 — DAW timeline grid replacement with spectrogram on Texture lens
+
+### Problem
+When auditing under the **Texture** lens, the multi-lane DAW timeline grid (displaying sections, vocals, synths, guitars, bass, drums, etc.) is less relevant than detailed spectral and frequency content. A spectrogram is essential for studying reverb tails, frequency balance, and acoustic texture.
+
+### Solution
+Replaced the entire DAW timeline grid (`AuditTimeline` inside the `Analysis` tab) with a full-height interactive wavesurfer.js spectrogram when auditing under the **Texture** lens.
+1. **Waveform Restored**: Reverted changes to `UniversalWaveformBar` and layout files so the main song waveform at the top remains standard.
+2. **Interactive Spectrogram Grid Replacement**:
+   - In `AuditAnalysisTab.jsx`, if the active lens is `texture`, instead of rendering the multi-lane `AuditTimeline`, we render `WaveformTimelineOverlay` with `spectrogram={true}` and a height of `240px`.
+   - Populated the spectrogram with color-coded regions representing the song's arrangement sections (colored by type) and bookmarks (colored by lens).
+   - Wired region click handlers (`handleRegionClick`) to seek the audio context to the region start time.
+   - The `#00e5ff` playhead cursor tracks the playhead over the spectrogram.
+
+### Implementation Details
+- **WaveformTimelineOverlay.jsx**:
+  - Re-added `Spectrogram` plugin registration. When `spectrogram` is active, it hides the standard waveform rendering (colors set to `'transparent'`) and draws a high-resolution frequency spectrogram on the background layer.
+- **AuditForm.jsx**:
+  - Forwarded `activeLens` state to `<AuditAnalysisTab ... />`.
+- **AuditAnalysisTab.jsx**:
+  - Restructured to utilize hook variables.
+  - Pulls `audioRef` from `useAudio()`.
+  - Maps `arrangementSections` and `globalBookmarks` to `spectrogramRegions` with type and lens colors.
+  - Conditionally renders `WaveformTimelineOverlay` inside a clean pane wrapper in place of `<AuditTimeline ... />` when `activeLens === 'texture'`.
+
+### Verification
+- Frontend test suite compiles and runs successfully, with all 299 tests passing.
+- Staged and committed under `bc61699`.
