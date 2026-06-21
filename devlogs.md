@@ -8,6 +8,19 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: Waveform Timeline2 (UniversalWaveformBar) — refactor regions to support drag selection, looping, real-time opacity/color edits, and immediate sync
+
+- **Context**: The user reported that clicking on the timeline2 (wavesurfer waveform/timeline bar) on the Harmony lens had regions blocks appear with no way to edit their opacity or region title/information. They pointed to the wavesurfer regions example and requested a refactor of the regions feature.
+- **Timing Bug Root Cause**: In `WaveformTimelineOverlay.jsx`, the regions sync `useEffect` was running before the audio loaded and decoded (`isReadyRef.current` was false), causing it to return early and skip drawing regions. On subsequent state updates or clicks that caused page re-renders, the sync effect ran again, saw `isReady` was true, and suddenly made the regions pop in.
+- **Feature Gaps**: The regions on the waveform were read-only: drag selection was not enabled, dragging/resizing did not persist time shifts back to response state/API, there was no way to edit region content (title/information), color, or opacity, and no region loop playback support.
+- **Fixes implemented**:
+  - **timing/sync**: Replaced `isReadyRef` with an `isReady` state hook inside `WaveformTimelineOverlay.jsx` and added it as a dependency of the region sync `useEffect`, guaranteeing regions are immediately drawn once wavesurfer decodes the audio.
+  - **drag selection**: Passed `dragSelectEnabled` down and registered `regionsPlugin.on('region-created')`. Created a `onRegionCreate` callback that translates drawn regions into new Arrangement Sections (on arrangement/form lens) or Bookmarks (on rhythm/texture/harmony/melody lenses).
+  - **drag/resize updates**: Listened to `region-update-end` and mapped updates to the underlying DB (bookmarks) or responses state (arrangement-timeline and tag responses).
+  - **region inspector**: Added a glassmorphism inspector panel in `UniversalWaveformBar.jsx` when a region is clicked. Users can edit the region's Title (`label`/`name`), Notes/Description (`text`/`notes`), Color presets, and Opacity (slider adjusting RGBA alpha on the fly), toggle region looping, and delete the region.
+  - **looping**: Implemented active region looping using `region-in` / `region-out` events matching the official example.
+- **Verification**: `npm test` passed 299/299 tests, and the Vite production build compiled successfully.
+
 ### 2026-06-21: FilesystemAudioStorageAdapter — defensive mkdir on every moveIntoStore
 
 - **Context**: After the stuck-song recovery banner was added, the user hit "Re-download audio" on a legacy song whose `publicUrl` was null. The chown of `server/uploads/songs/` (which I had `rmdir`'d as a sudo-less alternative to `chown`) exposed a second bug: the dir no longer existed on disk, so the next `copyFile` failed `ENOENT`.

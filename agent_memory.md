@@ -57,6 +57,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-21 | feat(waveform): refactor regions to support drag selection, looping, real-time opacity/color edits, and immediate sync on load. | `434558f` |
 | 2026-06-21 | feat(waveform): align top waveform width with spectrogram by applying paddingLeft on Texture lens. | `c65af8b` |
 | 2026-06-21 | feat(analysis): replace DAW timeline grid with wavesurfer spectrogram on Texture lens. | `bc61699` |
 | 2026-06-20 | Migrated ArrangementTimelineWidget to pure DOM and refactored widget unit tests to target DOM selectors. | `9790029` |
