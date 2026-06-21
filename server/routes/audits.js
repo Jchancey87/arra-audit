@@ -341,8 +341,9 @@ export default function createAuditRoutes(auditService, templateComposer, techni
       // Ownership check first (returns 404 on miss, 200 on hit). We
       // piggy-back on the same auditService.getAudit path the polling
       // endpoint uses so a non-owner gets 404, not a working stream.
+      let audit;
       try {
-        const audit = await auditService.getAudit(req.params.id, req.userId);
+        audit = await auditService.getAudit(req.params.id, req.userId);
         if (!audit) return res.status(404).json({ error: 'Audit not found' });
       } catch (err) {
         return next(err);
