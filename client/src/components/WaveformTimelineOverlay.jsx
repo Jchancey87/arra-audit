@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.js';
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.js';
+import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.js';
 
 /**
  * Waveform timeline overlay backed by wavesurfer.js.
@@ -39,9 +40,11 @@ const WaveformTimelineOverlay = ({
   onRegionUpdate,
   waveHeight = 80,
   showTimeline = true,
+  spectrogram = false,
 }) => {
   const waveformRef = useRef(null);
   const timelineRef = useRef(null);
+  const spectrogramRef = useRef(null);
   const wsRef = useRef(null);
   const regionsRef = useRef(null);
   const isReadyRef = useRef(false);
@@ -50,9 +53,11 @@ const WaveformTimelineOverlay = ({
   useEffect(() => {
     const waveformEl = waveformRef.current;
     const timelineEl = timelineRef.current;
+    const spectrogramEl = spectrogramRef.current;
     const media = audioRef?.current;
     if (!waveformEl || !media) return;
     if (showTimeline && !timelineEl) return;
+    if (spectrogram && !spectrogramEl) return;
 
     const plugins = [];
 
@@ -69,17 +74,31 @@ const WaveformTimelineOverlay = ({
     regionsRef.current = regionsPlugin;
     plugins.push(regionsPlugin);
 
+    if (spectrogram) {
+      const spectrogramPlugin = Spectrogram.create({
+        container: spectrogramEl,
+        labels: true,
+        height: waveHeight,
+        splitChannels: false,
+        scale: 'mel',
+        fftSamples: 1024,
+        labelsBackground: 'rgba(0, 0, 0, 0.4)',
+        useWebWorker: true,
+      });
+      plugins.push(spectrogramPlugin);
+    }
+
     const ws = WaveSurfer.create({
       container: waveformEl,
       media,                              // attach to the shared <audio>
-      waveColor: 'rgba(255, 102, 0, 0.35)',
-      progressColor: 'rgba(255, 102, 0, 0.65)',
+      waveColor: spectrogram ? 'transparent' : 'rgba(255, 102, 0, 0.35)',
+      progressColor: spectrogram ? 'transparent' : 'rgba(255, 102, 0, 0.65)',
       cursorColor: '#00e5ff',
       cursorWidth: 1.5,
       height: waveHeight,
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
+      barWidth: spectrogram ? 0 : 2,
+      barGap: spectrogram ? 0 : 1,
+      barRadius: spectrogram ? 0 : 2,
       normalize: true,
       minPxPerSec: pxPerSec,
       fillParent: true,
@@ -118,7 +137,7 @@ const WaveformTimelineOverlay = ({
   // We intentionally only re-create when the underlying <audio> element
   // identity changes (i.e. when a new song loads), not on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioRef?.current?.src, showTimeline, waveHeight]);
+  }, [audioRef?.current?.src, showTimeline, waveHeight, spectrogram]);
 
   // ---- Keep zoom in sync ----
   useEffect(() => {
@@ -176,8 +195,39 @@ const WaveformTimelineOverlay = ({
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      <div ref={waveformRef} style={{ width: '100%' }} />
-      {showTimeline && <div ref={timelineRef} style={{ width: '100%' }} />}
+      {spectrogram && (
+        <div
+          ref={spectrogramRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: `${waveHeight}px`,
+            zIndex: 0,
+            background: '#0c0c0f',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+      <div
+        ref={waveformRef}
+        style={{
+          width: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      />
+      {showTimeline && (
+        <div
+          ref={timelineRef}
+          style={{
+            width: '100%',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        />
+      )}
     </div>
   );
 };

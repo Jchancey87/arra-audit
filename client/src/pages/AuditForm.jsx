@@ -590,6 +590,7 @@ const AuditForm = () => {
           <AuditAnalysisTab
             song={song}
             audit={audit}
+            activeLens={activeLens}
             isGuided={isGuided}
             currentStep={currentStep}
             stepIndex={stepIndex}
