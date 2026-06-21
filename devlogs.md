@@ -1700,3 +1700,18 @@ Replaced the entire DAW timeline grid (`AuditTimeline` inside the `Analysis` tab
 ### Verification
 - Frontend test suite compiles and runs successfully, with all 299 tests passing.
 - Staged and committed under `bc61699`.
+
+## 2026-06-21 — Top waveform width alignment with spectrogram on Texture lens
+
+### Problem
+Because wavesurfer.js's Spectrogram plugin draws frequency labels on the left side of the spectrogram canvas (occupying exactly `55px`), the active spectrogram visualization canvas is narrower than the standard waveform display (`UniversalWaveformBar` at the top) by 55px on the left. This caused a horizontal playhead misalignment.
+
+### Solution
+Aligned the standard top waveform width and position with the spectrogram canvas by applying `padding-left: 55px` (using `border-box` sizing) to the waveform wrapper container when auditing under the **Texture** lens.
+- **WaveformTimelineOverlay.jsx**: Added a `paddingLeft` prop (default `0`), which sets `paddingLeft` and `boxSizing: 'border-box'` on the outer returned wrapper `div`.
+- **UniversalWaveformBar.jsx**: Accepted and forwarded `paddingLeft` to `WaveformTimelineOverlay`.
+- **AuditForm.jsx** & **StudySessionWorkspace.jsx**: Conditionally passed `paddingLeft={activeLens === 'texture' ? 55 : 0}` to `UniversalWaveformBar`.
+
+### Verification
+- Frontend test suite passes all 299 tests.
+- Staged and committed under `c65af8b`.
