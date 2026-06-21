@@ -61,6 +61,7 @@ const WaveformTimelineOverlay = ({
   paddingLeft = 0,
   dragSelectEnabled = false,
   loopRegionId = null,
+  hideWaveform = false,
 }) => {
   const waveformRef = useRef(null);
   const timelineRef = useRef(null);
@@ -116,18 +117,18 @@ const WaveformTimelineOverlay = ({
     const ws = WaveSurfer.create({
       container: waveformEl,
       media,                              // attach to the shared <audio>
-      waveColor: spectrogram ? 'transparent' : 'rgba(255, 102, 0, 0.35)',
-      progressColor: spectrogram ? 'transparent' : 'rgba(255, 102, 0, 0.65)',
+      waveColor: (spectrogram || hideWaveform) ? 'transparent' : 'rgba(255, 102, 0, 0.35)',
+      progressColor: (spectrogram || hideWaveform) ? 'transparent' : 'rgba(255, 102, 0, 0.65)',
       cursorColor: '#00e5ff',
       cursorWidth: 1.5,
       height: waveHeight,
-      barWidth: spectrogram ? 0 : 2,
-      barGap: spectrogram ? 0 : 1,
-      barRadius: spectrogram ? 0 : 2,
+      barWidth: (spectrogram || hideWaveform) ? 0 : 2,
+      barGap: (spectrogram || hideWaveform) ? 0 : 1,
+      barRadius: (spectrogram || hideWaveform) ? 0 : 2,
       normalize: true,
       minPxPerSec: pxPerSec,
       fillParent: true,
-      hideScrollbar: false,
+      hideScrollbar: hideWaveform ? true : false,
       autoScroll: true,
       autoCenter: false,
       interact: false,

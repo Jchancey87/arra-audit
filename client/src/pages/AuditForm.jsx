@@ -51,6 +51,17 @@ const TabLoadingPanel = ({ label = 'Loading…' }) => (
   </div>
 );
 
+const TRACK_CATEGORIES = {
+  vocals:  { color: '#a78bfa', code: 'VOC', emoji: '🎤', label: 'Vocals'    },
+  rhythm:  { color: '#34d399', code: 'DRM', emoji: '🥁', label: 'Rhythm'    },
+  bass:    { color: '#fbbf24', code: 'BAS', emoji: '🎸', label: 'Bass'      },
+  synth:   { color: '#22d3ee', code: 'SYN', emoji: '🎹', label: 'Synth'     },
+  guitar:  { color: '#fb7185', code: 'GTR', emoji: '🎸', label: 'Guitar'    },
+  brass:   { color: '#f97316', code: 'BRS', emoji: '🎺', label: 'Brass'     },
+  strings: { color: '#f472b6', code: 'STR', emoji: '🎻', label: 'Strings'   },
+  fx:      { color: '#9ca3af', code: 'SFX', emoji: '✨', label: 'FX / Other' },
+};
+
 // ── AuditForm ────────────────────────────────────────────────────────────────
 const AuditForm = () => {
   const { auditId } = useParams();
@@ -97,6 +108,116 @@ const AuditForm = () => {
   // already shipped in StudySessionWorkspace.jsx:295.
   const [recovering, setRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState('');
+  const [zoom, setZoom] = useState(8);
+  const [showAddTrack, setShowAddTrack] = useState(false);
+  const [newTrackName, setNewTrackName] = useState('');
+  const [newTrackCategory, setNewTrackCategory] = useState('vocals');
+
+  const tracks = useMemo(() => {
+    const raw = responses['arrangement-tracks'];
+    try {
+      return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : [];
+    } catch {
+      return [];
+    }
+  }, [responses]);
+
+  const handleAddTrack = useCallback(() => {
+    if (!newTrackName.trim()) return;
+    const cat = TRACK_CATEGORIES[newTrackCategory] || TRACK_CATEGORIES.fx;
+    const t = {
+      id: 'track-' + Date.now() + Math.random().toString(36).substr(2, 5),
+      name: newTrackName.trim(),
+      category: newTrackCategory,
+      color: cat.color,
+      emoji: cat.emoji,
+      blocks: [],
+    };
+    handleResponseChange('arrangement-tracks', JSON.stringify([...tracks, t]));
+    setNewTrackName('');
+    setShowAddTrack(false);
+    flash(`Track "${t.name}" added`);
+  }, [newTrackName, newTrackCategory, tracks, handleResponseChange, flash]);
+
+  const handleDeleteTrack = useCallback((trackId) => {
+    const next = tracks.filter(t => t.id !== trackId);
+    handleResponseChange('arrangement-tracks', JSON.stringify(next));
+    flash('Track removed');
+  }, [tracks, handleResponseChange, flash]);
+
+  const handleTrackRegionUpdate = useCallback((trackId, blockId, { start, end }) => {
+    const updatedTracks = tracks.map(t => {
+      if (t.id !== trackId) return t;
+      const updatedBlocks = (t.blocks || []).map(b => {
+        if (b.id !== blockId) return b;
+        return {
+          ...b,
+          startTime: Math.max(0, Math.floor(start)),
+          duration: Math.max(1, Math.round(end - start)),
+        };
+      });
+      return { ...t, blocks: updatedBlocks };
+    });
+    handleResponseChange('arrangement-tracks', JSON.stringify(updatedTracks));
+  }, [tracks, handleResponseChange]);
+
+  const handleTrackRegionChange = useCallback((trackId, blockId, fields) => {
+    const updatedTracks = tracks.map(t => {
+      if (t.id !== trackId) return t;
+      const updatedBlocks = (t.blocks || []).map(b => {
+        if (b.id !== blockId) return b;
+        return {
+          ...b,
+          ...(fields.label !== undefined ? { name: fields.label } : {}),
+          ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
+          ...(fields.color !== undefined ? { color: fields.color } : {}),
+          ...(fields.opacity !== undefined ? { opacity: fields.opacity } : {}),
+          ...(fields.type !== undefined ? { type: fields.type } : {}),
+        };
+      });
+      return { ...t, blocks: updatedBlocks };
+    });
+    handleResponseChange('arrangement-tracks', JSON.stringify(updatedTracks));
+  }, [tracks, handleResponseChange]);
+
+  const handleTrackRegionDelete = useCallback((trackId, blockId) => {
+    const updatedTracks = tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, blocks: (t.blocks || []).filter(b => b.id !== blockId) };
+    });
+    handleResponseChange('arrangement-tracks', JSON.stringify(updatedTracks));
+    flash('Region removed');
+  }, [tracks, handleResponseChange, flash]);
+
+  const handleTrackRegionCreate = useCallback((trackId, { start, end }) => {
+    const tb = {
+      id: 'tb-' + Date.now() + Math.random().toString(36).substr(2, 5),
+      startTime: Math.max(0, Math.floor(start)),
+      duration: Math.max(1, Math.round(end - start)),
+      name: 'New Region',
+    };
+    const updatedTracks = tracks.map(t => {
+      if (t.id !== trackId) return t;
+      return { ...t, blocks: [...(t.blocks || []), tb] };
+    });
+    handleResponseChange('arrangement-tracks', JSON.stringify(updatedTracks));
+    flash('Region created');
+  }, [tracks, handleResponseChange, flash]);
+
+  const mapTrackBlocksToRegions = useCallback((track) => {
+    return (track.blocks || []).map(b => ({
+      id: b.id,
+      start: b.startTime || 0,
+      end: (b.startTime || 0) + (b.duration || 10),
+      color: b.color || track.color || '#a78bfa',
+      label: b.name || b.label || '',
+      drag: true,
+      resize: true,
+      notes: b.notes || '',
+      type: b.type || 'custom',
+    }));
+  }, []);
+
 
   // Seed responses from audit when it first arrives
   useEffect(() => {
@@ -736,15 +857,21 @@ const AuditForm = () => {
         />
       </Suspense>
 
+      <Suspense fallback={<div style={{ height: '40px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border-subtle)' }} />}>
+        <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </Suspense>
+
       {/* Universal wavesurfer waveform + RegionsPlugin + TimelinePlugin
-          (timeline2). Always visible above the tab bar so every lens
+          (timeline2). Always visible so every lens
           (harmony / rhythm / texture / melody / form / arrangement) and
           the analysis tab share the same waveform, region pins, and
           transport. Regions adapt to the active context: arrangement
           sections + bookmarks always; tagged timestamps for the active
           lens when on the lens tab. */}
-      <div style={{ padding: '8px 12px 0' }}>
+      <div style={{ padding: '8px 12px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <UniversalWaveformBar
+          pxPerSec={zoom}
+          onZoomChange={setZoom}
           regions={waveformRegions}
           onRegionClick={handleWaveformRegionClick}
           onRegionUpdate={handleWaveformRegionUpdate}
@@ -756,11 +883,157 @@ const AuditForm = () => {
           title={`${LENS_LABEL[activeLens] || 'HARMONY'} LENS · WAVEFORM`}
           paddingLeft={activeLens === 'texture' ? 55 : 0}
         />
-      </div>
 
-      <Suspense fallback={<div style={{ height: '40px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border-subtle)' }} />}>
-        <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-      </Suspense>
+        {/* Track Lanes (dummy timeline2) */}
+        {activeLens !== 'texture' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {tracks.map((track) => (
+              <div key={track.id} style={{
+                background: 'var(--bg-surface-0)',
+                borderRadius: '4px',
+                border: '1px solid rgba(255,255,255,0.06)',
+                overflow: 'hidden',
+              }}>
+                {/* Track Header / Controls */}
+                <div style={{
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingLeft: '12px',
+                  paddingRight: '10px',
+                  background: '#0a0a0d',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px' }}>{track.emoji || '🎸'}</span>
+                    <span style={{
+                      fontSize: '10px',
+                      color: 'rgba(255,255,255,0.6)',
+                      fontFamily: '"Roboto Mono", monospace',
+                      fontWeight: 'bold',
+                    }}>{track.name}</span>
+                    <span style={{
+                      fontSize: '9px',
+                      color: 'rgba(255,255,255,0.3)',
+                      fontFamily: '"Roboto Mono", monospace',
+                      textTransform: 'uppercase',
+                    }}>({track.category})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTrack(track.id)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#f87171',
+                      cursor: 'pointer',
+                      fontSize: '10px',
+                      fontFamily: '"Roboto Mono", monospace',
+                    }}
+                  >✕ Remove Track</button>
+                </div>
+
+                {/* Track Waveform Overlay */}
+                <UniversalWaveformBar
+                  hideWaveform={true}
+                  pxPerSec={zoom}
+                  regions={mapTrackBlocksToRegions(track)}
+                  onRegionUpdate={(blockId, update) => handleTrackRegionUpdate(track.id, blockId, update)}
+                  onRegionChange={(blockId, fields) => handleTrackRegionChange(track.id, blockId, fields)}
+                  onRegionDelete={(blockId) => handleTrackRegionDelete(track.id, blockId)}
+                  onRegionCreate={(range) => handleTrackRegionCreate(track.id, range)}
+                  showTimeline={false}
+                />
+              </div>
+            ))}
+
+            {/* Add Track Form/Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+              {!showAddTrack ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddTrack(true)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    fontFamily: '"Roboto Mono", monospace',
+                    background: 'rgba(255,102,0,0.18)',
+                    color: '#ff6600',
+                    border: '1px solid rgba(255,102,0,0.4)',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                  }}
+                >+ Add Track</button>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0a0a0d', padding: '6px 10px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <input
+                    type="text"
+                    value={newTrackName}
+                    onChange={(e) => setNewTrackName(e.target.value)}
+                    placeholder="Track Name"
+                    style={{
+                      background: '#14141c',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '2px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      padding: '3px 6px',
+                      fontFamily: '"Roboto Mono", monospace',
+                    }}
+                  />
+                  <select
+                    value={newTrackCategory}
+                    onChange={(e) => setNewTrackCategory(e.target.value)}
+                    style={{
+                      background: '#14141c',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '2px',
+                      color: '#fff',
+                      fontSize: '11px',
+                      padding: '2px 4px',
+                      fontFamily: '"Roboto Mono", monospace',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {Object.entries(TRACK_CATEGORIES).map(([key, cat]) => (
+                      <option key={key} value={key}>{cat.emoji} {cat.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddTrack}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      fontFamily: '"Roboto Mono", monospace',
+                      background: 'rgba(52, 211, 153, 0.15)',
+                      color: '#34d399',
+                      border: '1px solid rgba(52, 211, 153, 0.4)',
+                      borderRadius: '2px',
+                      cursor: 'pointer',
+                    }}
+                  >Add</button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTrack(false)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      fontFamily: '"Roboto Mono", monospace',
+                      background: 'transparent',
+                      color: 'rgba(255,255,255,0.4)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '2px',
+                      cursor: 'pointer',
+                    }}
+                  >Cancel</button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <main
         ref={tabBodyRef}

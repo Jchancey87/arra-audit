@@ -6,7 +6,6 @@ import GuidedStepBar from './GuidedStepBar';
 import GuidedListenEmpty from './GuidedListenEmpty';
 import FallbackTemplateNotice from './FallbackTemplateNotice';
 
-const AuditTimeline = lazy(() => import('./AuditTimeline'));
 const WaveformTimelineOverlay = lazy(() => import('../WaveformTimelineOverlay.jsx'));
 
 const TabLoadingPanel = ({ label = 'Loading…' }) => (
@@ -147,23 +146,7 @@ const AuditAnalysisTab = ({
                 )}
               </div>
             </div>
-          ) : (
-            <Suspense fallback={<TabLoadingPanel label="Loading timeline…" />}>
-              <AuditTimeline
-                song={song}
-                currentTime={currentTime}
-                duration={duration || song.durationSeconds || 0}
-                onSeek={onSeek}
-                onAddMarker={onAddMarker}
-                onUpdateMarker={onUpdateMarker}
-                onDeleteMarker={onDeleteMarker}
-                onAddSection={onAddSection}
-                onUpdateSections={onUpdateSections}
-                markers={globalBookmarks}
-                arrangementSections={arrangementSections || []}
-              />
-            </Suspense>
-          )}
+          ) : null}
 
           {fallbackNotice && <FallbackTemplateNotice />}
 
