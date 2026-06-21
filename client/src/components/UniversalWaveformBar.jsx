@@ -53,7 +53,7 @@ const transportBtn = {
 };
 
 const panelStyle = {
-  background: '#0c0c0f',
+  background: 'var(--bg-surface-0)',
   borderRadius: '4px',
   border: '1px solid rgba(255,255,255,0.06)',
   overflow: 'hidden',

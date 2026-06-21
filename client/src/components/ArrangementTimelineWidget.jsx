@@ -971,7 +971,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
       ══════════════════════════════════════════════════════════════════════ */}
       {!hasContent && (
         <div style={{
-          padding: '50px 20px', textAlign: 'center', background: '#111114',
+          padding: '50px 20px', textAlign: 'center', background: 'var(--bg-surface-0)',
           border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '4px',
           color: 'rgba(255,255,255,0.3)', fontSize: '14px', fontStyle: 'italic',
         }}>
@@ -983,7 +983,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           TIMELINE WORKSPACE
       ══════════════════════════════════════════════════════════════════════ */}
       {hasContent && (
-        <div style={{ background: '#0c0c0f', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-surface-0)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
 
           <div style={{ display: 'flex' }}>
 
@@ -991,7 +991,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
             <div style={{
               width: GUTTER_W, minWidth: GUTTER_W, flexShrink: 0,
               display: 'flex', flexDirection: 'column',
-              background: '#0a0a0d',
+              background: 'var(--bg-surface-0)',
               borderRight: '1px solid rgba(255,255,255,0.06)',
               zIndex: 3,
             }}>
@@ -1362,7 +1362,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
           {/* ── ADD TRACK INLINE FORM ────────────────────────────────────── */}
           {!readOnly && showAddTrack && (
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px', background: '#111114', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px', background: 'var(--bg-surface-0)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <input
                 type="text"
                 placeholder="Track name (e.g. Lead Vocals)"
@@ -1402,7 +1402,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
           {/* ── TRACK BLOCK INSPECTOR ────────────────────────────────────── */}
           {!readOnly && selTrack && selTb && (
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '11px 16px', background: '#111114', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '11px 16px', background: 'var(--bg-surface-0)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: selTrack.color, boxShadow: `0 0 4px ${selTrack.color}` }} />
                 <span style={{ fontSize: '11px', fontFamily: '"Roboto Mono", monospace', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -1471,7 +1471,7 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           SECTION INSPECTOR
       ══════════════════════════════════════════════════════════════════════ */}
       {!readOnly && selectedBlock && (
-        <div style={{ background: '#111114', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', padding: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
+        <div style={{ background: 'var(--bg-surface-0)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '4px', padding: '20px', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
 
           {/* Inspector header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '12px' }}>

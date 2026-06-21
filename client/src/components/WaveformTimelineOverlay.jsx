@@ -269,7 +269,7 @@ const WaveformTimelineOverlay = ({
             width: '100%',
             height: `${waveHeight}px`,
             zIndex: 0,
-            background: '#0c0c0f',
+            background: 'var(--bg-surface-0)',
             pointerEvents: 'none',
           }}
         />

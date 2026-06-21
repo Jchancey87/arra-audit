@@ -5,10 +5,10 @@ const styles = `
 
   :root {
     /* Surface scale */
-    --bg-surface-0: #111114;
-    --bg-surface-1: #18181c;
-    --bg-surface-2: #202024;
-    --bg-surface-3: #28282e;
+    --bg-surface-0: #0a0a0c;
+    --bg-surface-1: #151518;
+    --bg-surface-2: #202025;
+    --bg-surface-3: #282828;
     --bg-surface-hover: #2e2e36;
 
     /* App/legacy aliases */
@@ -19,16 +19,16 @@ const styles = `
     --bg-primary: var(--bg-surface-0);
 
     /* Accent */
-    --accent-primary: #ff6a00;
+    --accent-primary: #ff6600;
     --accent-primary-muted: #5a2e12;
-    --accent-primary-bg: #ff6a0010;
+    --accent-primary-bg: rgba(255, 102, 0, 0.1);
     --accent-orange: var(--accent-primary);
-    --accent-orange-hover: #ff8a33;
+    --accent-orange-hover: #ff8533;
     --accent-cyan: #00e5ff;
 
     /* Text */
-    --text-primary: #f2f2f2;
-    --text-secondary: #9ca0a6;
+    --text-primary: #ffffff;
+    --text-secondary: #8a8a8a;
     --text-tertiary: #5a5d65;
     --text-accent: var(--accent-primary);
     --text-muted: var(--text-secondary);
@@ -47,7 +47,7 @@ const styles = `
     --color-error: #ff5252;
 
     /* Borders */
-    --border-subtle: #2a2a30;
+    --border-subtle: #1e1e24;
     --border-none: transparent;
     --border-color: var(--border-subtle);
 

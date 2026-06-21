@@ -967,8 +967,8 @@ const StudySessionWorkspace = () => {
 
           {/* Arrangement Timeline Widget for Arrangement/Form Lens days */}
           {['arrangement', 'form'].includes(currDay.lens?.toLowerCase()) && (
-            <div className="panel" style={{ background: '#1e1e1e', marginTop: '20px', border: '1px solid #383838', borderRadius: '2px', padding: '15px' }}>
-              <div style={{ borderBottom: '1px solid #282828', paddingBottom: '6px', marginBottom: '15px' }}>
+            <div className="panel" style={{ background: 'var(--bg-panel)', marginTop: '20px', border: '1px solid var(--border-color)', borderRadius: '2px', padding: '15px' }}>
+              <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '6px', marginBottom: '15px' }}>
                 <h3 style={{ color: '#ff6600', margin: 0, fontSize: '13px', display: 'flex', alignItems: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
                     <rect x="3" y="3" width="18" height="18" rx="2"></rect>

@@ -140,8 +140,8 @@ const AppContent = () => {
         {isAuthenticated && !focusMode && (
           <header style={{
             height: '48px',
-            background: '#282828',
-            borderBottom: '1px solid #2a2a2a',
+            background: 'var(--bg-surface-2)',
+            borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -312,8 +312,8 @@ const AppContent = () => {
           {isAuthenticated && (
             <aside style={{
               width: (leftOpen && !focusMode) ? '180px' : '0px',
-              background: '#111111',
-              borderRight: '1px solid #2a2a2a',
+              background: 'var(--bg-surface-1)',
+              borderRight: '1px solid var(--border-color)',
               transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               overflowX: 'hidden',
               overflowY: 'auto',
@@ -391,8 +391,8 @@ const AppContent = () => {
           {isAuthenticated && activeSong && showVideo && videoDock === 'left' && !focusMode && (
             <div style={{
               width: '320px',
-              background: '#151518',
-              borderRight: '1px solid rgba(255,255,255,0.08)',
+              background: 'var(--bg-surface-1)',
+              borderRight: '1px solid var(--border-color)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -555,8 +555,8 @@ const AppContent = () => {
           {isAuthenticated && activeSong && showVideo && videoDock === 'right' && !focusMode && (
             <div style={{
               width: '320px',
-              background: '#151518',
-              borderLeft: '1px solid rgba(255,255,255,0.08)',
+              background: 'var(--bg-surface-1)',
+              borderLeft: '1px solid var(--border-color)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -573,8 +573,8 @@ const AppContent = () => {
           {isAuthenticated && (
             <aside style={{
               width: (rightOpen && !focusMode) ? '280px' : '0px',
-              background: '#141418',
-              borderLeft: '1px solid rgba(255,255,255,0.08)',
+              background: 'var(--bg-surface-1)',
+              borderLeft: '1px solid var(--border-color)',
               transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               overflowX: 'hidden',
               overflowY: 'auto',
@@ -597,8 +597,8 @@ const AppContent = () => {
                       {/* Tavily Research snippet */}
                       {activeSong.researchSummary?.summary ? (
                         <div style={{ 
-                          background: '#0c0c0e', 
-                          border: '1px solid rgba(255,255,255,0.05)', 
+                          background: 'var(--bg-surface-0)', 
+                          border: '1px solid var(--border-color)', 
                           padding: '10px', 
                           borderRadius: '2px',
                           marginBottom: '15px'
@@ -635,8 +635,8 @@ const AppContent = () => {
                                 key={bm._id || index}
                                 onClick={() => seekTo(bm.timestampSeconds || bm.timestamp)}
                                 style={{
-                                  background: '#0c0c0e',
-                                  border: '1px solid rgba(255,255,255,0.06)',
+                                  background: 'var(--bg-surface-0)',
+                                  border: '1px solid var(--border-color)',
                                   borderRadius: '2px',
                                   padding: '8px',
                                   cursor: 'pointer',
@@ -678,8 +678,8 @@ const AppContent = () => {
         {isAuthenticated && activeSong && (
           <footer style={{
             height: bottomOpen ? '140px' : '30px',
-            background: '#282828',
-            borderTop: '1px solid #2a2a2a',
+            background: 'var(--bg-surface-3)',
+            borderTop: '1px solid var(--border-color)',
             display: 'flex',
             flexDirection: 'column',
             transition: 'height 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -691,8 +691,8 @@ const AppContent = () => {
               onClick={() => setBottomOpen(!bottomOpen)}
               style={{
                 height: '30px',
-                background: '#202020',
-                borderBottom: '1px solid #2a2a2a',
+                background: 'var(--bg-surface-2)',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -771,8 +771,8 @@ const AppContent = () => {
                     onClick={handleScrub}
                     style={{
                       height: '4px',
-                      background: '#151515',
-                      border: '1px solid #2a2a2a',
+                      background: 'var(--bg-surface-0)',
+                      border: '1px solid var(--border-color)',
                       borderRadius: '1px',
                       position: 'relative',
                       cursor: activeSong ? 'pointer' : 'not-allowed',
@@ -838,7 +838,7 @@ const AppContent = () => {
                       value={deckBookmarkNote}
                       onChange={(e) => setDeckBookmarkNote(e.target.value)}
                       disabled={!activeAudit}
-                      style={{ width: '180px', padding: '6px 10px', fontSize: '11px', background: '#111111', border: '1px solid #2a2a2a' }}
+                      style={{ width: '180px', padding: '6px 10px', fontSize: '11px', background: 'var(--bg-surface-0)', border: '1px solid var(--border-color)' }}
                     />
                     <button 
                       type="submit" 
