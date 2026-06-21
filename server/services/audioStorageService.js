@@ -86,6 +86,13 @@ export class FilesystemAudioStorageAdapter extends IAudioStorageService {
     }
     const ext = extension || path.extname(sourcePath).replace(/^\./, '') || 'mp3';
     const { filePath, publicUrl } = this._resolve(songId, ext);
+    // Defensive: the songs dir can be removed at runtime (e.g. an operator
+    // chown'ing a root-owned dir created by a prior misconfigured pm2
+    // daemon) and our in-memory this.songsDir path won't re-materialize
+    // until the process restarts. The constructor's mkdirSync only ran
+    // once at boot, so guard every copy with an idempotent mkdir. Cost is
+    // a single syscall on a path that almost always already exists.
+    await fs.promises.mkdir(this.songsDir, { recursive: true });
     // Copy so the original (e.g. /tmp yt-dlp download) can be cleaned up.
     await fs.promises.copyFile(sourcePath, filePath);
     const size = (await fs.promises.stat(filePath)).size;
