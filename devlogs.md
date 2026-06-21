@@ -8,6 +8,17 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: StudySessionWorkspace — persist timeline region dragging, updates, creations, and type presets in database
+
+- **Context**: The user reported that while dragging/resizing harmony regions in the daily study session workspace worked visually, it did not persist. They also needed to color-code regions for sections like Intro, Verse, Chorus, etc.
+- **Root Cause**: The waveform region callbacks in `StudySessionWorkspace.jsx` (such as `handleWaveformRegionUpdate`, `handleWaveformRegionChange`, `handleWaveformRegionDelete`, and `handleWaveformRegionCreate`) were writing to local state using `handleResponseChange` but did not call `saveNow`. In addition, `handleWaveformRegionChange` did not support updating the section `type` parameter, which prevented color preset tag mappings from saving.
+- **Fixes**:
+  - Hoisted all React states, `handleResponseChange`, `saveDraft`, and `saveNow` to the top of the `StudySessionWorkspace` component (directly after parameter extraction) to prevent TDZ `ReferenceError` crashes during render initialization.
+  - Re-implemented the four region callbacks (`handleWaveformRegionUpdate`, `handleWaveformRegionChange`, `handleWaveformRegionDelete`, and `handleWaveformRegionCreate`) using `useCallback` hook wrappers to commit updates directly to the backend database via `saveNow`.
+  - Added support for the `type` property in `handleWaveformRegionChange` so users can modify, tag, and immediately save section type presets (Verse, Chorus, Intro, Pre-Chorus, etc.) which maps automatically to the correct region colors.
+  - Memoized and callback-wrapped `handleRedownloadAudio` to maintain reference stability and prevent redundant render cycles.
+- **Verification**: Verified that all 299 client unit tests pass and Vite builds production assets without any warnings.
+
 ### 2026-06-21: Knip integration — prune unused files, dependencies, devDependencies, and exports
 
 - **Context**: The user requested that we integrate Knip into the project to find and prune unused dependencies, exports, and files across the client and server.
