@@ -71,9 +71,18 @@ const WaveformTimelineOverlay = ({
   const [isReady, setIsReady] = useState(false);
   const loopRegionIdRef = useRef(loopRegionId);
 
+  const onRegionClickRef = useRef(onRegionClick);
+  const onRegionUpdateRef = useRef(onRegionUpdate);
+  const onRegionCreateRef = useRef(onRegionCreate);
+  const regionsRefProp = useRef(regions);
+
   useEffect(() => {
-    loopRegionIdRef.current = loopRegionId;
-  }, [loopRegionId]);
+    onRegionClickRef.current = onRegionClick;
+    onRegionUpdateRef.current = onRegionUpdate;
+    onRegionCreateRef.current = onRegionCreate;
+    regionsRefProp.current = regions;
+  }, [onRegionClick, onRegionUpdate, onRegionCreate, regions]);
+
 
   // ---- Create / destroy waveSurfer (once the <audio> ref is populated) ----
   useEffect(() => {
@@ -147,17 +156,18 @@ const WaveformTimelineOverlay = ({
 
     regionsPlugin.on('region-clicked', (region, e) => {
       e.stopPropagation();
-      onRegionClick?.(region.id, e);
+      onRegionClickRef.current?.(region.id, e);
     });
 
     regionsPlugin.on('region-update-end', (region) => {
-      onRegionUpdate?.(region.id, { start: region.start, end: region.end });
-    });
-
-    regionsPlugin.on('region-created', (region) => {
-      const { start, end } = region;
-      try { region.remove(); } catch (_) {}
-      onRegionCreate?.({ start, end });
+      const isExisting = (regionsRefProp.current || []).some(r => r.id === region.id);
+      if (isExisting) {
+        onRegionUpdateRef.current?.(region.id, { start: region.start, end: region.end });
+      } else {
+        const { start, end } = region;
+        try { region.remove(); } catch (_) {}
+        onRegionCreateRef.current?.({ start, end });
+      }
     });
 
     let activeRegion = null;
