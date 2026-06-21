@@ -128,10 +128,9 @@ export class InMemoryBackendAdapter extends IBackendService {
       err.songId = existing._id;
       throw err;
     }
-    // Mock: the Node server's /import endpoint kicks off a background
-    // download. In the in-memory adapter we simulate that the download
-    // already completed by setting publicUrl synchronously. Real prod
-    // returns 201 with publicUrl=null and the client polls /audio-url.
+    // Mock: the Node server's /import endpoint is now synchronous
+    // (returns 201 with publicUrl set), so we just simulate the same —
+    // no background download, no polling.
     const song = {
       _id: songId,
       title: 'Mock Song',
@@ -162,6 +161,29 @@ export class InMemoryBackendAdapter extends IBackendService {
       return audit?.songId === id && !t.deletedAt;
     }).length;
     return { auditCount, techniqueCount };
+  }
+
+  // Mock: pretend the in-memory download always succeeds. The real Node
+  // server is now synchronous for this; the in-memory adapter already
+  // sets publicUrl on import so this code path is mostly idle.
+  async redownloadSongAudio(songId) {
+    const song = this.songs.find((s) => s._id === songId && !s.deletedAt);
+    if (!song) {
+      const err = new Error('Song not found');
+      err.status = 404;
+      throw err;
+    }
+    if (song.publicUrl) {
+      return { song: { ...song } };
+    }
+    const localPath = `/uploads/songs/${song._id}.mp3`;
+    Object.assign(song, {
+      sourceType: 'local',
+      publicUrl: localPath,
+      audioMimeType: 'audio/mpeg',
+      audioDownloadedAt: new Date().toISOString(),
+    });
+    return { song: { ...song } };
   }
 
   async deleteSong(id) {
@@ -1032,36 +1054,6 @@ export class InMemoryBackendAdapter extends IBackendService {
     s.analysisStatus = 'success';
     s.updatedAt = new Date().toISOString();
     return { queued: false, analysis: s.analysis, sketch: { ...s } };
-  }
-
-  // Audio URL — returns the song's local publicUrl if downloaded, else the
-  // raw YouTube URL (mock). In the in-memory adapter we always have it
-  // synchronously (see importSong).
-  async getAudioFallbackUrl(songId) {
-    const song = this.songs.find((s) => s._id === songId && !s.deletedAt);
-    if (!song) {
-      const err = new Error('Song not found');
-      err.status = 404;
-      throw err;
-    }
-    if (song.publicUrl) {
-      return {
-        url: song.publicUrl,
-        format: song.audioMimeType || 'audio/mpeg',
-        expiresAt: null,
-        sourceType: song.sourceType,
-      };
-    }
-    return {
-      url: song.originalUrl || song.youtubeUrl || '',
-      format: 'bestaudio',
-      expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      sourceType: 'youtube',
-    };
-  }
-
-  async isAudioFallbackAvailable() {
-    return { available: true, storage: 'local' };
   }
 }
 

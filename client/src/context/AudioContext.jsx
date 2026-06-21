@@ -111,25 +111,12 @@ export const AudioProvider = ({ children }) => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
-
-    // If the song's audio hasn't been downloaded yet (in-flight background
-    // download after import), poll the /audio-url endpoint until it lands.
-    // Cap at ~6s so we don't hang the UI forever.
-    let finalSong = song;
-    if (!song.publicUrl && backend?.getAudioFallbackUrl && song._id) {
-      const start = Date.now();
-      while (Date.now() - start < 6000) {
-        try {
-          const result = await backend.getAudioFallbackUrl(song._id);
-          if (result?.url) {
-            finalSong = { ...song, publicUrl: result.url, audioMimeType: result.format || song.audioMimeType };
-            break;
-          }
-        } catch (_) { /* keep polling */ }
-        await new Promise(r => setTimeout(r, 600));
-      }
-    }
-    setActiveSong(finalSong);
+    // /api/songs/import is now synchronous, so `song.publicUrl` is either
+    // set (newly imported) or null (legacy song stuck pre-fix; user must
+    // hit POST /songs/:id/download-audio to recover). No polling here —
+    // the <audio> element just shows a "no audio" state if the URL is
+    // missing, and a manual retry button can trigger the recovery.
+    setActiveSong(song);
     setIsAudioLoading(false);
   };
 

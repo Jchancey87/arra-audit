@@ -49,6 +49,27 @@ const StudySessionWorkspace = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
+  // Recovery for legacy songs stuck with publicUrl=null (the audio download
+  // silently failed before the /import endpoint became synchronous). The
+  // server's POST /songs/:id/download-audio re-runs the download and
+  // refreshes the song in place.
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+  const handleRedownloadAudio = async () => {
+    if (!activeSong?._id || recovering) return;
+    setRecovering(true);
+    setRecoveryError('');
+    try {
+      const { song: fresh } = await backend.redownloadSongAudio(activeSong._id);
+      loadSong(fresh);
+    } catch (err) {
+      const data = err.response?.data;
+      setRecoveryError(data?.message || err.message || 'Audio re-download failed');
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   // Disable global video overlay during active session
   useEffect(() => {
     setShowVideo(false);
@@ -266,6 +287,36 @@ const StudySessionWorkspace = () => {
       </div>
 
       {error && <div className="error">{error}</div>}
+
+      {/* Audio recovery banner — only shows for legacy songs whose background
+          download silently failed before /import became synchronous.
+          The button re-runs the download via POST /songs/:id/download-audio
+          and reloads the song into the global transport. */}
+      {isLinked && activeSong && !activeSong.publicUrl && (
+        <div
+          className="error"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>
+            Audio file missing for this song — the original download didn&apos;t land.
+          </span>
+          <button
+            type="button"
+            onClick={handleRedownloadAudio}
+            disabled={recovering}
+            style={{ padding: '6px 14px', fontSize: '11px' }}
+          >
+            {recovering ? 'Re-downloading…' : 'Re-download audio'}
+          </button>
+        </div>
+      )}
+      {recoveryError && <div className="error">{recoveryError}</div>}
 
       {/* CASE 1: Song is NOT linked yet */}
       {!isLinked ? (

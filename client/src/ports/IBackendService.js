@@ -18,6 +18,7 @@ export class IBackendService {
   async getSongs(filters) { throw new Error('Not implemented'); }
   async getSong(id) { throw new Error('Not implemented'); }
   async importSong(youtubeUrl) { throw new Error('Not implemented'); }
+  async redownloadSongAudio(songId) { throw new Error('Not implemented'); }
   async deleteSong(id) { throw new Error('Not implemented'); }
   async getDeletedSongs() { throw new Error('Not implemented'); }
   async restoreSong(id) { throw new Error('Not implemented'); }
@@ -82,9 +83,5 @@ export class IBackendService {
   async updateSketch(id, updates) { throw new Error('Not implemented'); }
   async deleteSketch(id) { throw new Error('Not implemented'); }
   async analyzeSketch(id) { throw new Error('Not implemented'); }
-
-  // yt-dlp audio fallback (when YouTube embed is blocked)
-  async getAudioFallbackUrl(songId, format = 'bestaudio') { throw new Error('Not implemented'); }
-  async isAudioFallbackAvailable() { throw new Error('Not implemented'); }
 }
 

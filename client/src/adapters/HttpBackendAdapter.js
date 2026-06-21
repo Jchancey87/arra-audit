@@ -73,6 +73,13 @@ export class HttpBackendAdapter extends IBackendService {
     return res.data;
   }
 
+  // Re-trigger audio download for a stuck legacy song (publicUrl=null).
+  // Synchronous; returns the hydrated song on success, throws on failure.
+  async redownloadSongAudio(songId) {
+    const res = await this.api.post(`/songs/${songId}/download-audio`);
+    return res.data;
+  }
+
   async getSongDeletePreview(id) {
     const res = await this.api.get(`/songs/${id}/delete-preview`);
     return res.data; // { auditCount, techniqueCount }
@@ -386,17 +393,6 @@ export class HttpBackendAdapter extends IBackendService {
 
   async analyzeSketch(id) {
     const res = await this.api.post(`/sketches/${id}/analyze`);
-    return res.data;
-  }
-
-  // Audio fallback (yt-dlp). Returns { url, expiresAt } or throws.
-  async getAudioFallbackUrl(songId, format = 'bestaudio') {
-    const res = await this.api.get(`/songs/${songId}/audio-url`, { params: { format } });
-    return res.data;
-  }
-
-  async isAudioFallbackAvailable() {
-    const res = await this.api.get('/songs/audio-url/available');
     return res.data;
   }
 }

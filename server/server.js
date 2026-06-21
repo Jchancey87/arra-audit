@@ -36,6 +36,7 @@ import { TasteService } from './services/tasteService.js';
 import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
 import { FilesystemAudioStorageAdapter } from './services/audioStorageService.js';
+import { AudioDownloadService } from './services/audioDownloadService.js';
 import { BookmarkAnalysisService } from './services/BookmarkAnalysisService.js';
 import { bookmarkAnalysisBus } from './services/BookmarkAnalysisBus.js';
 import { RecommendationService } from './services/RecommendationService.js';
@@ -88,7 +89,12 @@ app.use(express.json());
 // Global rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isProduction ? 100 : 10000, // Keep production safe but prevent blocking in development
+  // 100/15min used to trip the moment a single user opened the song
+  // library while a half-imported song drove the 10x /audio-url polling
+  // loop. With /import now synchronous (and /audio-url removed) we
+  // don't expect sustained 100+ req/15min from one user, but a busy
+  // multi-tab session still hits ~100 quickly, so bump to 1000.
+  max: isProduction ? 1000 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
@@ -124,6 +130,7 @@ const sketchRepository = new MongooseRepository(SongSketch);
 const audioStorageService = new FilesystemAudioStorageAdapter({
   uploadsRoot: path.join(__dirname, 'uploads'),
 });
+const audioDownloader = new AudioDownloadService();
 const authService = new AuthService(userRepository);
 const songService = new SongService(songRepository, searchAdapter, aiAdapter, audioStorageService);
 const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
@@ -221,7 +228,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 });
 
 app.use('/api/auth',       createAuthRoutes(authService));
-app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, audioStorageService));
+app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, audioStorageService, audioDownloader));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService, { analysisBus: bookmarkAnalysisBus, auditRepository }));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService, recommendationService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));

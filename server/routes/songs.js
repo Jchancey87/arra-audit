@@ -1,7 +1,6 @@
 import express from 'express';
 import axios from 'axios';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { body, validationResult } from 'express-validator';
 
@@ -27,7 +26,14 @@ function extractYouTubeId(url) {
   return null;
 }
 
-export default function createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, audioStorageService = null) {
+export default function createSongRoutes(
+  songService,
+  auditRepository,
+  techniqueRepository,
+  sketchRepository,
+  audioStorageService = null,
+  audioDownloader = null
+) {
   const router = express.Router();
 
   const handleValidationErrors = (req, res, next) => {
@@ -117,23 +123,53 @@ export default function createSongRoutes(songService, auditRepository, technique
     const songId = song._id.toString();
 
     // 2. Download the audio via the Python analysis service and persist it
-    //    under server/uploads/songs/. This is fire-and-forget so the user
-    //    gets the Song back immediately; the waveform + analysis both
-    //    surface the file as soon as the download lands.
-    if (audioStorageService) {
-      _downloadAndStoreInBackground({
-        songId,
-        youtubeUrl,
-        audioStorageService,
-        songService,
-      }).catch((err) => {
-        console.error(`[songs] Background audio download failed for ${songId}: ${err.message}`);
-      });
+    //    under server/uploads/songs/. Synchronous: the user gets the Song
+    //    back only after local audio lands. On any download failure we
+    //    delete the half-imported song and return 502 so the client never
+    //    sees a record with publicUrl=null (which used to drive a 10x
+    //    polling loop that tripped the global rate limiter).
+    if (audioDownloader && audioStorageService) {
+      let tempDir;
+      try {
+        const downloaded = await audioDownloader.downloadToTemp({ songId, youtubeUrl });
+        tempDir = downloaded.tempDir;
+        await songService.attachLocalAudio(songId, downloaded.sourcePath, {
+          extension: path.extname(downloaded.sourcePath).replace(/^\./, ''),
+        });
+        // Best-effort: kick off analysis against the now-local file. The
+        // song is already importable, so a failure here is non-fatal.
+        try {
+          const updated = await songService.getSong(songId, null);
+          if (updated && updated.audioAnalysisStatus === 'not_started') {
+            await songService.triggerAnalysis(songId, null);
+          }
+        } catch (err) {
+          console.warn(`[songs] post-download analysis trigger failed for ${songId}: ${err.message}`);
+        }
+      } catch (err) {
+        console.error(`[songs] Audio download failed for ${songId}: ${err.message}`);
+        // Roll back the import so the client doesn't see a stuck record.
+        try {
+          await songService.purgeSong(songId, userId, auditRepository, techniqueRepository);
+        } catch (purgeErr) {
+          console.error(`[songs] Failed to roll back song ${songId} after download error: ${purgeErr.message}`);
+        }
+        return res.status(502).json({
+          error: 'audio_download_failed',
+          message: `Could not download audio from YouTube: ${err.message}`,
+        });
+      } finally {
+        if (tempDir) {
+          try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) { /* swallow */ }
+        }
+      }
     } else {
-      console.warn(`[songs] No audioStorageService — song ${songId} will not have local audio. Set UPLOADS_ROOT or use the FilesystemAudioStorageAdapter.`);
+      console.warn(`[songs] No audioDownloader/audioStorageService — song ${songId} will not have local audio.`);
     }
 
-    res.status(201).json({ song: _sanitizeSong(song) });
+    // Re-read so the response reflects the local audio fields.
+    const hydrated = await songService.getSong(songId, userId);
+    res.status(201).json({ song: _sanitizeSong(hydrated || song) });
   });
 
   // ── Get delete preview ───────────────────────────────────────────────────
@@ -287,33 +323,59 @@ export default function createSongRoutes(songService, auditRepository, technique
     }
   });
 
-  // ── Local audio URL (replaces the old yt-dlp fallback) ────────────────────
-  // The browser fetches the audio directly from /uploads/songs/{songId}.{ext}.
-  // We expose both the URL and the song's local source via these read-only
-  // endpoints so the client can pre-flight or refresh.
-  router.get('/audio-url/available', async (_req, res) => {
-    res.json({ available: true, storage: 'local' });
-  });
-  router.get('/:id/audio-url', async (req, res) => {
-    try {
-      const song = await songService.getSong(req.params.id, req.userId);
-      if (!song) return res.status(404).json({ error: 'Song not found' });
-      if (!song.publicUrl) {
-        return res.status(404).json({
-          error: 'no_local_audio',
-          message: 'Local audio not yet downloaded. The browser should poll this endpoint after import.',
-        });
-      }
-      res.json({
-        url: song.publicUrl,
-        format: song.audioMimeType,
-        expiresAt: null, // local file — no expiry
-        sourceType: song.sourceType,
-        sizeBytes: song.audioSizeBytes,
+  // ── Re-download audio for a stuck song ────────────────────────────────────
+  // Used to recover legacy songs that were imported before /import became
+  // synchronous and were left with publicUrl=null. Synchronous like /import:
+  // on success the song ends up with sourceType='local' and publicUrl set;
+  // on failure the song is unchanged so the user can retry.
+  router.post('/:id/download-audio', async (req, res) => {
+    if (!audioDownloader || !audioStorageService) {
+      return res.status(503).json({
+        error: 'audio_download_unavailable',
+        message: 'Server is not configured to download audio (audioDownloader/audioStorageService missing).',
       });
+    }
+    const songId = req.params.id;
+    let song;
+    try {
+      song = await songService.getSong(songId, req.userId);
     } catch (err) {
-      console.error('[songs] audio-url error:', err.message);
-      res.status(err.status || 500).json({ error: err.message });
+      return res.status(500).json({ error: err.message });
+    }
+    if (!song) return res.status(404).json({ error: 'Song not found' });
+    if (song.publicUrl) {
+      return res.status(409).json({
+        error: 'already_has_local_audio',
+        message: 'Song already has local audio; nothing to download.',
+        song: _sanitizeSong(song),
+      });
+    }
+    const youtubeUrl = song.originalUrl || song.youtubeUrl;
+    if (!youtubeUrl) {
+      return res.status(400).json({
+        error: 'no_youtube_url',
+        message: 'Song has no originalUrl/youtubeUrl; cannot redownload.',
+      });
+    }
+
+    let tempDir;
+    try {
+      const downloaded = await audioDownloader.downloadToTemp({ songId, youtubeUrl });
+      tempDir = downloaded.tempDir;
+      const updated = await songService.attachLocalAudio(songId, downloaded.sourcePath, {
+        extension: path.extname(downloaded.sourcePath).replace(/^\./, ''),
+      });
+      return res.json({ song: _sanitizeSong(updated) });
+    } catch (err) {
+      console.error(`[songs] re-download failed for ${songId}: ${err.message}`);
+      return res.status(502).json({
+        error: 'audio_download_failed',
+        message: `Could not download audio: ${err.message}`,
+      });
+    } finally {
+      if (tempDir) {
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) { /* swallow */ }
+      }
     }
   });
 
@@ -321,53 +383,6 @@ export default function createSongRoutes(songService, auditRepository, technique
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Download the YouTube audio via the Python analysis service into a temp
- * directory, then move it into the persistent uploads tree. On success,
- * attachLocalAudio() updates the Song to sourceType='local'. On failure,
- * the Song remains sourceType='youtube' (back-compat) and importErrors is
- * appended. Either way the user's import request already returned 201.
- */
-async function _downloadAndStoreInBackground({ songId, youtubeUrl, audioStorageService, songService }) {
-  const analysisServiceUrl = process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8080';
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'arra-dl-'));
-  const fileStem = songId;
-
-  try {
-    const ax = axios;
-    const { data } = await ax.post(`${analysisServiceUrl}/download`, {
-      song_id: songId,
-      youtube_url: youtubeUrl,
-      dest_dir: tempDir,
-      file_stem: fileStem,
-    }, { timeout: 240000 });
-
-    const sourcePath = data?.file_path;
-    if (!sourcePath || !fs.existsSync(sourcePath)) {
-      throw new Error(`Python download returned no file_path: ${JSON.stringify(data)}`);
-    }
-
-    await songService.attachLocalAudio(songId, sourcePath, {
-      extension: path.extname(sourcePath).replace(/^\./, ''),
-    });
-
-    // Now that local audio exists, kick off analysis using the local path.
-    // The user may have already gotten a 201 from /import, so this is also
-    // best-effort — failures just leave audioAnalysisStatus as 'not_started'.
-    try {
-      const song = await songService.getSong(songId, null);
-      if (song && song.audioAnalysisStatus === 'not_started') {
-        await songService.triggerAnalysis(songId, null);
-      }
-    } catch (err) {
-      console.warn(`[songs] post-download analysis trigger failed for ${songId}: ${err.message}`);
-    }
-  } finally {
-    // Best-effort temp cleanup.
-    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) { /* swallow */ }
-  }
-}
 
 // Return a clean, consistent song shape to the client
 function _sanitizeSong(song) {
