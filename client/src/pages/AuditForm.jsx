@@ -108,6 +108,50 @@ const AuditForm = () => {
   // already shipped in StudySessionWorkspace.jsx:295.
   const [recovering, setRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState('');
+
+  // Seed responses from audit when it first arrives
+  useEffect(() => {
+    if (audit) setResponses(audit.responses || {});
+  }, [audit?._id]);
+
+  // Sync song to global audio context
+  useEffect(() => {
+    if (song) loadSong(song);
+  }, [song?._id, loadSong]);
+
+  // Sync audit to global audio context
+  useEffect(() => {
+    if (audit) setActiveAudit(audit);
+    return () => setActiveAudit(null);
+  }, [audit, setActiveAudit]);
+
+  // Sync bookmarks to global audio context when audit bookmarks change
+  useEffect(() => {
+    if (audit?.bookmarks) setGlobalBookmarks(audit.bookmarks);
+  }, [audit?.bookmarks, setGlobalBookmarks]);
+
+  // ── Autosave + analysis progress (extracted custom hooks) ───────────────
+  const { saveStatus, markDirty } = useAuditAutosave(auditId, responses, saveResponses);
+  useAnalysisPolling(song, refetchSong);
+  const { progress: analysisProgress, stage: analysisStage } = useAnalysisProgressSim(song);
+
+  // ── Focus Mode auto-enable on mount ─────────────────────────────────────
+  useEffect(() => {
+    setFocusMode(true);
+    return () => setFocusMode(false);
+  }, [setFocusMode]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+  const flash = useCallback((msg) => {
+    setSuccess(msg);
+    setTimeout(() => setSuccess(''), 2500);
+  }, []);
+
+  const handleResponseChange = useCallback((key, value) => {
+    setResponses((prev) => ({ ...prev, [key]: value }));
+    markDirty();
+  }, [markDirty]);
+
   const [zoom, setZoom] = useState(8);
   const [showAddTrack, setShowAddTrack] = useState(false);
   const [newTrackName, setNewTrackName] = useState('');
@@ -217,50 +261,6 @@ const AuditForm = () => {
       type: b.type || 'custom',
     }));
   }, []);
-
-
-  // Seed responses from audit when it first arrives
-  useEffect(() => {
-    if (audit) setResponses(audit.responses || {});
-  }, [audit?._id]);
-
-  // Sync song to global audio context
-  useEffect(() => {
-    if (song) loadSong(song);
-  }, [song?._id, loadSong]);
-
-  // Sync audit to global audio context
-  useEffect(() => {
-    if (audit) setActiveAudit(audit);
-    return () => setActiveAudit(null);
-  }, [audit, setActiveAudit]);
-
-  // Sync bookmarks to global audio context when audit bookmarks change
-  useEffect(() => {
-    if (audit?.bookmarks) setGlobalBookmarks(audit.bookmarks);
-  }, [audit?.bookmarks, setGlobalBookmarks]);
-
-  // ── Autosave + analysis progress (extracted custom hooks) ───────────────
-  const { saveStatus, markDirty } = useAuditAutosave(auditId, responses, saveResponses);
-  useAnalysisPolling(song, refetchSong);
-  const { progress: analysisProgress, stage: analysisStage } = useAnalysisProgressSim(song);
-
-  // ── Focus Mode auto-enable on mount ─────────────────────────────────────
-  useEffect(() => {
-    setFocusMode(true);
-    return () => setFocusMode(false);
-  }, [setFocusMode]);
-
-  // ── Actions ──────────────────────────────────────────────────────────────
-  const flash = useCallback((msg) => {
-    setSuccess(msg);
-    setTimeout(() => setSuccess(''), 2500);
-  }, []);
-
-  const handleResponseChange = useCallback((key, value) => {
-    setResponses((prev) => ({ ...prev, [key]: value }));
-    markDirty();
-  }, [markDirty]);
 
   const handleAdvanceStep = useCallback(async () => {
     try { await advanceStep(); flash('Step completed!'); }
