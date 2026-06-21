@@ -5,15 +5,16 @@
 - **Status**: 288 client + 131 server tests passing, Vite build clean. `react-youtube` removed, `AudioPlayer.jsx` removed, `ytDlpService.js` removed.
 - **Next**: Phase 3.1 Daily Digest, or in-flight download UX polish (currently the user gets a 201 with `publicUrl=null` and the client polls for up to 6s).
 
-## Resume Point (checkpoint 2026-06-20 — TIMELINE INTERACTIONS SHIPPED)
-- Commits closed all timeline interactive needs: resizing/moving drag bugs, section drag-to-copy, and context menus for blocks & lanes.
-- Test totals: client 288/288, server 139/139. Vite clean.
-- Service state: `arra-server` (verify-analysis endpoint active), `arra-analysis`, `arra-client`. All online.
+## Resume Point (checkpoint 2026-06-21 — SSE REFERENCEERROR FIX + PM2 CLEANUP + AUDIO DOWNLOAD WIRING FIX)
+- Bug: `routes/audits.js:352` referenced `audit._id` but `const audit` was declared inside the `try` block (line 345), so it went out of scope. Every successful ownership check on `GET /:id/bookmarks/events` threw `ReferenceError: audit is not defined`, which pm2 surfaced as a crashing arra-server. Fix: lift to `let audit` in the handler scope. Added integration tests for both 404 (non-owner) and 200 (owner) paths of the SSE route. 14 tests pass for that file, 133/133 server total.
+- **Audio download wiring (fixed 2026-06-21, commit `893e5e1`)**: `server.js` constructed `new SongService(songRepository, searchAdapter, aiAdapter)` — the 4th `audioStorageService` arg was dropped. So `attachLocalAudio()` threw `attachLocalAudio requires audioStorageService on SongService`, the background download silently failed, songs stayed with `publicUrl=null`, the client polled `GET /songs/:id/audio-url` 10× per failed song, and the 100/15min `generalLimiter` tripped → 429 on the song library. Fix: move `FilesystemAudioStorageAdapter` construction above `SongService` and pass it as the 4th arg. Two unit tests added (move-into-store + null-storage regression guard). 135/135 server tests pass.
+- **Duplicate pm2 daemon (resolved 2026-06-21)**: a root-owned pm2 god daemon was running (`/root/.pm2`, pid 11786) with its own copies of the three apps, holding 5050 with `python app.py` (FastAPI/uvicorn 404) and conflicting on 3050/8080. Jackc's `pm2 kill` cleanup happened on user's end; current clean state: 5050=node arra-server, 3050=vite, 8080=python. If "arra-server is down" symptoms return, sanity-check `ss -tlnp | grep 5050` and look for a second `pm2 God Daemon` in `ps -ef` before assuming a code crash.
 
 ## Critical Architectural Constraints (Red Lines)
 - **YouTube Embedding**: `controls: 1` + `origin` in `playerVars`. Never `pointer-events: none` on iframe containers (blocks autoplay unlock gesture). **SUPERSEDED 2026-06-21**: YouTube IFrame has been removed. Audio is downloaded at import time and played via a single shared `<audio>` element.
 - **Local audio architecture** (2026-06-21): All song playback goes through one `<audio ref={audioRef}>` rendered by `AudioContext`. wavesurfer in the arrangement timeline attaches via `WaveSurfer.create({ media: audioRef.current, ... })` so waveform + transport share one MediaElement (no drift, no second Web Audio). Songs have `sourceType: 'local'` after the background download completes; `publicUrl: '/uploads/songs/{songId}.{ext}'` is the browser-fetchable URL. `audioStorageService` is the port for moving files into the uploads tree.
 - **Service Layering**: Business logic in `services/`, not routers. Swappable repos (`MongoSongRepository`, `InMemoryRepository`).
+- **Service construction order in `server.js`**: `FilesystemAudioStorageAdapter` MUST be constructed *before* `SongService` and passed as its 4th arg. If dropped, `attachLocalAudio()` throws `attachLocalAudio requires audioStorageService` and the background download silently no-ops — the song stays with `publicUrl=null`, the client polls `/audio-url` 10× per failed song, and the 100/15min global limiter starts returning 429. Regression tested in `__tests__/unit/SongService.test.js` (`attachLocalAudio > throws when audioStorageService is null`).
 - **PM2 Python Paths**: Resolve `yt-dlp` relative to `sys.executable` in FastAPI scripts.
 - **Mock Repo Querying**: `InMemoryRepository` must support null-matching + `$ne`/`$eq` for MongoDB parity.
 - **Vite Proxying**: `VITE_API_URL=/api` + `host: true` for network exposure without hardcoded localhost.
@@ -45,6 +46,8 @@
 | Date | Summary | Commit |
 |---|---|---|
 | 2026-06-20 | Migrated ArrangementTimelineWidget to pure DOM and refactored widget unit tests to target DOM selectors. | `9790029` |
+| 2026-06-21 | Fix `audit is not defined` ReferenceError in SSE bookmarks route (scoped const inside try block) + integration tests for ownership-gated SSE endpoint. | `2fafe9b` |
+| 2026-06-21 | Fix missing `audioStorageService` injection in `new SongService(...)` in server.js — background audio downloads had been silently failing with `attachLocalAudio requires audioStorageService`, leaving `publicUrl=null` and tripping the rate limiter via client polling. | `893e5e1` |
 | 2026-06-20 | Resolved canvas timeline JSX compile syntax errors, hook declaration order ReferenceErrors, and Vitest test regressions. | `738a9c4` |
 | 2026-06-20 | Migrated timeline to Layered Canvas Architecture, fixed click/context menu interactions, and repaired the unit test suite. | `0905804` |
 | 2026-06-20 | Resolved stale closures for timeline drags/resizes, added drag-to-copy sections to tracks, and built left/right-click context menus for sections, blocks, and lanes. | `b1c2168` |
