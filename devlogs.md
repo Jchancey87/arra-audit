@@ -8,6 +8,16 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: UI Theme — unify website with charcoal, white, grey, and orange tape deck audio player palette
+
+- **Context**: The user requested that the entire website follow the charcoal theme of the tape deck audio player.
+- **Implementation**:
+  - Adjusted the CSS variables in `client/src/styles/global.js` (`:root` block) to map `--bg-surface-0` (deep workspace body background) to `#0a0a0c`, `--bg-surface-1` (panels/cards) to `#151518`, `--bg-surface-2` (headers/titlebars/buttons) to `#202025`, and `--bg-surface-3` (expanded controls/timeline tracker) to `#282828`. Changed `--accent-primary` to `#ff6600` (true tape deck orange) and secondary text color to `#8a8a8a`.
+  - Refactored `client/src/App.jsx` to replace hardcoded panel and block color codes (such as `#282828`, `#151518`, `#141418`, `#0c0c0e`, `#202020`, `#151515`, and `#111111`) with CSS variables (`var(--bg-surface-0/1/2/3)` and `var(--border-color)`) so all main shell components dynamically adapt.
+  - Replaced hardcoded `#111114`, `#0c0c0f`, and `#0a0a0d` panel backgrounds inside `ArrangementTimelineWidget.jsx` with variables.
+  - Replaced hardcoded `#1e1e1e` in `StudySessionWorkspace.jsx` and `#0c0c0f` in `UniversalWaveformBar.jsx`, `WaveformTimelineOverlay.jsx`, and `AuditAnalysisTab.jsx` with variables.
+- **Verification**: Built client production bundle successfully and verified all 299 tests pass.
+
 ### 2026-06-21: StudySessionWorkspace — persist timeline region dragging, updates, creations, and type presets in database
 
 - **Context**: The user reported that while dragging/resizing harmony regions in the daily study session workspace worked visually, it did not persist. They also needed to color-code regions for sections like Intro, Verse, Chorus, etc.

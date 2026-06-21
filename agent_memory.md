@@ -57,6 +57,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-21 | feat(theme): unify website theme with charcoal, white, grey, and orange tape deck audio player palette | `f856338` |
 | 2026-06-21 | feat(study-session): persist timeline region dragging, updates, creations, and type presets in daily study workspace | `f24466b` |
 | 2026-06-21 | chore(prune): run knip to prune unused dependencies, files, and exports. | `3519d4f` |
 | 2026-06-21 | feat(waveform): refactor regions to support drag selection, looping, real-time opacity/color edits, and immediate sync on load. | `434558f` |
