@@ -8,6 +8,29 @@ This log tracks architectural decisions, workflows, key configurations, and lear
 
 ## Log Entries
 
+### 2026-06-21: Knip integration — prune unused files, dependencies, devDependencies, and exports
+
+- **Context**: The user requested that we integrate Knip into the project to find and prune unused dependencies, exports, and files across the client and server.
+- **Implementation**:
+  - Installed `knip` at the workspace root directory.
+  - Wrote a custom `knip.json` configuration file setting up `client` and `server` workspaces, explicitly defining their entry files (`src/index.jsx` and `server.js`) and matching project source files. Configured a `"."` workspace with empty project arrays to exclude root-level and virtual environment directories (like `venv/`) from broad scans.
+  - Ran `npx knip` to identify unused files, unused project dependencies, and unused exports.
+  - Executed `npx knip --fix --allow-remove-files` to automatically remove 9 unused files, prune unused packages in package.json files, and clean up 40 unused exports across the codebase.
+- **Cleaned Files**:
+  - `client/src/components/InfoBanner.jsx`
+  - `client/src/components/audit/TrackAnalysisModules.jsx` (removed since Phase 2.2 refactoring)
+  - `server/adapters/MockSearchAdapter.js`
+  - `server/bin/seedCurriculum.js`
+  - `server/ports/IAIModelService.js` (legacy shim)
+  - `server/ports/IBookmarkAnalysisService.js`
+  - `server/ports/IRecommendationService.js`
+  - `server/services/auditGenerator.js`
+  - `server/services/tavilySearch.js`
+- **Cleaned Dependencies**:
+  - Removed unused direct dependency `pdfkit` from `server/package.json`.
+  - Removed unused devDependencies `adm-zip` and `lighthouse` from `client/package.json` (Vite lighthouse profiling has separate script).
+- **Verification**: Re-ran the full suite of client unit tests (299/299 passing) and server unit/integration tests (143/143 passing). The Vite build compiled production assets successfully.
+
 ### 2026-06-21: Waveform Timeline2 (UniversalWaveformBar) — refactor regions to support drag selection, looping, real-time opacity/color edits, and immediate sync
 
 - **Context**: The user reported that clicking on the timeline2 (wavesurfer waveform/timeline bar) on the Harmony lens had regions blocks appear with no way to edit their opacity or region title/information. They pointed to the wavesurfer regions example and requested a refactor of the regions feature.
