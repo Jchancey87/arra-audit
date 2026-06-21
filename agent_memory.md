@@ -1,9 +1,9 @@
 # Active Agent Memory — Arra
 
 ## Active Session Focus (Intent)
-- **Goal**: Rewrote AuditTimeline and ArrangementTimelineWidget from HTML5 Canvas to pure HTML/CSS DOM, removing OOM infinite loops and coordinate calculation code blocks.
-- **Status**: 288/288 client tests passing, production Vite build clean.
-- **Next**: Implement Phase 3.1 Daily Digest spaced repetition or offline-first drafts.
+- **Goal**: Local-audio architecture — YouTube audio downloaded once at import time and stored under `server/uploads/songs/`. Client plays via a single `<audio>` element that wavesurfer also attaches to via the `media:` option. Replaces the YouTube IFrame transport entirely.
+- **Status**: 288 client + 131 server tests passing, Vite build clean. `react-youtube` removed, `AudioPlayer.jsx` removed, `ytDlpService.js` removed.
+- **Next**: Phase 3.1 Daily Digest, or in-flight download UX polish (currently the user gets a 201 with `publicUrl=null` and the client polls for up to 6s).
 
 ## Resume Point (checkpoint 2026-06-20 — TIMELINE INTERACTIONS SHIPPED)
 - Commits closed all timeline interactive needs: resizing/moving drag bugs, section drag-to-copy, and context menus for blocks & lanes.
@@ -11,7 +11,8 @@
 - Service state: `arra-server` (verify-analysis endpoint active), `arra-analysis`, `arra-client`. All online.
 
 ## Critical Architectural Constraints (Red Lines)
-- **YouTube Embedding**: `controls: 1` + `origin` in `playerVars`. Never `pointer-events: none` on iframe containers (blocks autoplay unlock gesture).
+- **YouTube Embedding**: `controls: 1` + `origin` in `playerVars`. Never `pointer-events: none` on iframe containers (blocks autoplay unlock gesture). **SUPERSEDED 2026-06-21**: YouTube IFrame has been removed. Audio is downloaded at import time and played via a single shared `<audio>` element.
+- **Local audio architecture** (2026-06-21): All song playback goes through one `<audio ref={audioRef}>` rendered by `AudioContext`. wavesurfer in the arrangement timeline attaches via `WaveSurfer.create({ media: audioRef.current, ... })` so waveform + transport share one MediaElement (no drift, no second Web Audio). Songs have `sourceType: 'local'` after the background download completes; `publicUrl: '/uploads/songs/{songId}.{ext}'` is the browser-fetchable URL. `audioStorageService` is the port for moving files into the uploads tree.
 - **Service Layering**: Business logic in `services/`, not routers. Swappable repos (`MongoSongRepository`, `InMemoryRepository`).
 - **PM2 Python Paths**: Resolve `yt-dlp` relative to `sys.executable` in FastAPI scripts.
 - **Mock Repo Querying**: `InMemoryRepository` must support null-matching + `$ne`/`$eq` for MongoDB parity.

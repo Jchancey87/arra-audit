@@ -16,6 +16,7 @@ vi.mock('../../context/AudioContext.jsx', () => ({
     play: mockPlay,
     seekTo: mockSeekTo,
     currentTime: 10,
+    audioRef: { current: null }, // no <audio> in jsdom; waveform won't render
   }),
 }));
 

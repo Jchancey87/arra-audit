@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
-import YouTube from 'react-youtube';
 import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
 
 const getLensStyle = (lens) => {
@@ -580,34 +579,31 @@ const StudySessionWorkspace = () => {
                   </div>
                 )}
 
-                {/* YouTube Video toggle and Player */}
+                {/* Album art toggle (video screen replaced with thumbnail now that audio is local) */}
                 {song && (
                   <div>
-                    <button 
-                      onClick={() => setVideoOpen(!videoOpen)} 
+                    <button
+                      onClick={() => setVideoOpen(!videoOpen)}
                       className="secondary"
                       style={{ width: '100%', fontSize: '10px', marginBottom: '10px' }}
                     >
-                      {videoOpen ? 'Hide Video Screen ▲' : 'Show Video Screen ▼'}
+                      {videoOpen ? 'Hide Art ▲' : 'Show Art ▼'}
                     </button>
 
                     {videoOpen && (
-                      <div style={{ 
-                        height: '200px', 
-                        background: '#000000', 
-                        borderRadius: '2px', 
+                      <div style={{
+                        height: '200px',
+                        background: '#000000',
+                        borderRadius: '2px',
                         overflow: 'hidden',
-                        border: '1px solid #282828'
+                        border: '1px solid #282828',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <YouTube
-                          videoId={song.sourceId || song.youtubeId}
-                          opts={{
-                            height: '100%',
-                            width: '100%',
-                            playerVars: { controls: 1, origin: window.location.origin }
-                          }}
-                          style={{ width: '100%', height: '100%' }}
-                        />
+                        {song.thumbnailUrl || song.thumbnail ? (
+                          <img src={song.thumbnailUrl || song.thumbnail} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                        ) : (
+                          <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', fontFamily: 'Roboto Mono' }}>♪</div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -9,11 +9,12 @@
  */
 
 export class SongService {
-  constructor(songRepository, searchService, aiService) {
+  constructor(songRepository, searchService, aiService, audioStorageService = null) {
     if (!songRepository) throw new Error('SongService requires a song repository');
     this.songRepository = songRepository;
     this.searchService = searchService;
     this.aiService = aiService;
+    this.audioStorageService = audioStorageService;
   }
 
   // ─── Import ───────────────────────────────────────────────────────────────
@@ -340,6 +341,16 @@ You MUST respond with a JSON object in this exact format (do not include markdow
       }
     }
 
+    // Remove the local audio file (best-effort). Stored under
+    // uploads/songs/{songId}.{ext}; safe to unlink even if it's missing.
+    if (this.audioStorageService) {
+      try {
+        await this.audioStorageService.remove(songId);
+      } catch (e) {
+        console.warn(`[SongService] Failed to remove local audio for ${songId}: ${e.message}`);
+      }
+    }
+
     await this.songRepository.deleteById(songId);
     return true;
   }
@@ -354,17 +365,37 @@ You MUST respond with a JSON object in this exact format (do not include markdow
     // Call Python FastAPI service asynchronously
     const analysisServiceUrl = process.env.ANALYSIS_SERVICE_URL || 'http://localhost:8080';
     const callbackUrl = `${process.env.BACKEND_CALLBACK_URL || 'http://localhost:5050'}/api/public/songs/${songId}/analysis-completed`;
+    const axios = (await import('axios')).default;
 
+    // Prefer the locally-stored audio file when available. The Python
+    // /analyze-sketch endpoint already accepts a file_path directly, which
+    // skips the entire yt-dlp download round-trip.
+    if (song.localAudioPath) {
+      const payload = {
+        sketch_id: `song-${songId}`,
+        file_path: song.localAudioPath,
+        callback_url: callbackUrl,
+      };
+      try {
+        console.log(`[SongService] Triggering local-file analysis for song ${songId} at ${analysisServiceUrl}/analyze-sketch`);
+        await axios.post(`${analysisServiceUrl}/analyze-sketch`, payload, { timeout: 5000 });
+        console.log(`[SongService] Local-file analysis triggered successfully for song ${songId}`);
+        return;
+      } catch (error) {
+        console.warn(`[SongService] /analyze-sketch failed for song ${songId} (${error.message}); falling back to YouTube URL`);
+      }
+    }
+
+    // Fallback path: ask the Python service to download from YouTube itself.
     const payload = {
       song_id: songId.toString(),
       youtube_url: song.originalUrl || song.youtubeUrl,
       yt_id: song.sourceId || song.youtubeId,
-      callback_url: callbackUrl
+      callback_url: callbackUrl,
     };
 
     try {
       console.log(`[SongService] Triggering audio analysis for song ${songId} at ${analysisServiceUrl}/analyze`);
-      const axios = (await import('axios')).default;
       await axios.post(`${analysisServiceUrl}/analyze`, payload, { timeout: 5000 });
       console.log(`[SongService] Audio analysis triggered successfully for song ${songId}`);
     } catch (error) {
@@ -372,6 +403,26 @@ You MUST respond with a JSON object in this exact format (do not include markdow
       // Fallback: If python service is offline/errored, update database to 'failed'
       await this.songRepository.updateById(songId, { audioAnalysisStatus: 'failed' });
     }
+  }
+
+  /**
+   * Persist a downloaded audio file for an existing song. Called by the import
+   * route after Python downloads the YouTube audio into a Node-supplied dir.
+   * No-op if audioStorageService wasn't injected (e.g. test stub).
+   */
+  async attachLocalAudio(songId, sourcePath, { mimeType, extension } = {}) {
+    if (!this.audioStorageService) {
+      throw new Error('attachLocalAudio requires audioStorageService on SongService');
+    }
+    const stored = await this.audioStorageService.moveIntoStore(songId, sourcePath, { mimeType, extension });
+    return this.songRepository.updateById(songId, {
+      sourceType: 'local',
+      localAudioPath: stored.localAudioPath,
+      publicUrl: stored.publicUrl,
+      audioSizeBytes: stored.audioSizeBytes,
+      audioMimeType: stored.audioMimeType,
+      audioDownloadedAt: new Date(),
+    });
   }
 
   async crossVerifyAnalysis(songId, userId = null) {

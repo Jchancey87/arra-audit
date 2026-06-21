@@ -1387,3 +1387,109 @@ No backend changes. 146/146 client vitest (142 + 4 new), 67/67 server jest uncha
 
 - **Tests**: Re-verified the test suite and updated `AuditTimeline` to pass all 49 timeline tests. All 283 client tests pass. Vite build clean.
 
+
+## 2026-06-21 — Local audio storage + wavesurfer integration
+
+### Architecture decision
+Replaced YouTube IFrame playback with locally-stored MP3s downloaded once at
+import time. YouTube IFrame was the largest source of friction in the app:
+embed blocks (101/150), CDA autoplay gesture requirements, video/audio drift
+between the IFrame's clock and our React state, and the recurring "audio
+fallback" branch in handleError. By owning the bytes we get a single
+transport, sample-accurate seeking, and analysis that can skip yt-dlp
+entirely.
+
+### Data flow
+```
+Import (YouTube URL)
+  → POST /api/songs/import
+  → fetch oEmbed metadata + Tavily/AI research
+  → songService.importSong()           # creates Song record
+  → background: Python POST /download   # yt-dlp → /tmp/arra-dl-XXXXX/
+  → audioStorageService.moveIntoStore() # /uploads/songs/{songId}.mp3
+  → songService.attachLocalAudio()      # song.sourceType='local'
+  → songService.triggerAnalysis()       # uses /analyze-sketch (file_path)
+  → 201 { song } returned to client
+
+Playback
+  → AudioContext.loadSong(song)
+  → <audio src={song.publicUrl}> rendered once
+  → wavesurfer attaches via { media: audioRef.current } in arrangement timeline
+  → all transport (play/pause/seek) drives the shared <audio>
+  → rAF poll (60fps) reads audioRef.currentTime
+  → wavesurfer + <audio> read the same MediaElement (no drift, no second Web Audio)
+```
+
+### Files added
+- `analysis_service/app.py` — new `POST /download` endpoint; refactored
+  `_ensure_cached_audio` to share a `_download_to_dir(youtube_url, dest_dir,
+  file_stem)` helper so cache-and-skip-yt-dlp and store-and-persist share
+  the same subprocess plumbing.
+- `server/services/audioStorageService.js` — `IAudioStorageService` port
+  + `FilesystemAudioStorageAdapter`. Stores under
+  `server/uploads/songs/{songId}.{ext}`, served at `/uploads/songs/...`
+  via the existing `express.static` middleware.
+- `client/src/components/WaveformTimelineOverlay.jsx` — wavesurfer.js v7
+  wrapper. Attaches to the shared `<audio>` via the `media:` option, so
+  waveform + transport share one MediaElement. TimelinePlugin gets its
+  own dedicated `timelineRef`; RegionsPlugin regions are added after
+  the `decode` event (Decoded Math Guard from the skill doc).
+
+### Files modified
+- `server/models/Song.js` — added `localAudioPath`, `publicUrl`,
+  `audioSizeBytes`, `audioMimeType`, `audioDownloadedAt`. `sourceType`
+  enum expanded to `['youtube', 'local', 'upload']`.
+- `server/services/songService.js` — `triggerAnalysis` prefers
+  `/analyze-sketch` with `file_path: song.localAudioPath` (the existing
+  Python endpoint already accepts a local path) and only falls back to
+  `/analyze` with YouTube URL if the local path is missing. New
+  `attachLocalAudio(songId, sourcePath)` method. `purgeSong` unlinks
+  the local file.
+- `server/routes/songs.js` — `/import` now kicks off the background
+  download+store via `_downloadAndStoreInBackground`. `/audio-url` and
+  `/audio-url/available` now return `song.publicUrl` instead of a
+  live yt-dlp URL.
+- `server/server.js` — wire `FilesystemAudioStorageAdapter` at startup.
+  Drop the `ytDlpService` injection (service deleted).
+- `client/src/context/AudioContext.jsx` — full rewrite. The entire 486-line
+  `react-youtube` integration is replaced by a single `<audio ref={audioRef}>`
+  element + `rAF` polling for 60fps playhead motion. `audioRef` is exposed
+  on the context value so wavesurfer can attach to it. `loadSong` now
+  polls `/audio-url` if `publicUrl` is null (handles the in-flight
+  download case). `addGlobalBookmark`, `highlightBookmark`, and the
+  bookmark-deep-link logic are unchanged.
+- `client/src/components/ArrangementTimelineWidget.jsx` — drop the
+  `useBackend` audio URL fetching (no longer needed). Waveform overlay
+  receives `audioRef` instead of `audioUrl`. The visual change is small:
+  the waveform now lights up as soon as the user loads a song, not after
+  an additional network round-trip.
+- `client/src/pages/StudySessionWorkspace.jsx` — drop the embedded
+  YouTube player; replaced with the song's `thumbnailUrl`.
+- `client/src/pages/AuditDetail.jsx` — drop `waitForPlayerReady()`.
+  `<audio>` mounts synchronously; `seekTo()` works immediately.
+- `client/src/adapters/InMemoryBackendAdapter.js` — `importSong` sets
+  `sourceType: 'local'` and `publicUrl: '/uploads/songs/{id}.mp3'`
+  synchronously (the in-memory adapter can't do real background work).
+  `getAudioFallbackUrl` returns the song's `publicUrl` directly.
+
+### Files removed
+- `server/services/ytDlpService.js` — no longer needed. The Python
+  service handles yt-dlp directly; Node orchestrates the download via
+  the new `/download` endpoint.
+- `server/__tests__/unit/ytDlpService.test.js` — gone with the service.
+- `client/src/components/AudioPlayer.jsx` — orphan, removed.
+- `react-youtube` — removed from `client/package.json`.
+
+### Why this matters for the arranger timeline
+The whole point of the earlier wavesurfer integration was to get a real
+waveform display, but it was still playing through YouTube. Now the
+waveform *is* the transport. The same `<audio>` element feeds:
+- the rAF-polled playhead that drives section-block highlight
+- the timeline ruler tick positions
+- the seek-on-click in the existing ruler
+- the seek-on-click in wavesurfer's waveform background
+- the seek-on-region-click in wavesurfer's regions
+- the A/B compare sketch player's sync to the reference
+
+No dual-engine sync, no IFrame CDA, no embed-block failure mode. The
+arranger timeline is now genuinely a single-audio-source DAW.

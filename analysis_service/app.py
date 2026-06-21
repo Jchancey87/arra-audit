@@ -87,18 +87,23 @@ class SegmentAnalysisRequest(BaseModel):
     pad_seconds: Optional[float] = 5.0
 
 
-def _ensure_cached_audio(youtube_url, yt_id):
-    """Download via yt-dlp if `/tmp/arra_temp_{yt_id}.mp3` is missing.
-    Returns the file path on success, raises HTTPException on failure."""
-    temp_dir = tempfile.gettempdir()
-    target = os.path.join(temp_dir, f"arra_temp_{yt_id}.mp3")
-    if os.path.exists(target):
-        return target
+def _resolve_ytdlp_bin():
+    """Locate the yt-dlp binary. Prefers the venv-bundled copy, falls back to PATH."""
+    cand = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
+    return cand if os.path.exists(cand) else "yt-dlp"
 
-    output_template = os.path.join(temp_dir, f"arra_temp_{yt_id}.%(ext)s")
-    ytdlp_bin = os.path.join(os.path.dirname(sys.executable), "yt-dlp")
-    if not os.path.exists(ytdlp_bin):
-        ytdlp_bin = "yt-dlp"
+
+def _download_to_dir(youtube_url, dest_dir, file_stem, timeout=180):
+    """Download YouTube audio via yt-dlp to ``{dest_dir}/{file_stem}.mp3``.
+
+    Returns the absolute path of the produced file. Raises HTTPException on
+    any failure (non-zero exit, no file produced, timeout). The caller is
+    responsible for ensuring ``dest_dir`` exists and for moving/renaming
+    the file afterwards.
+    """
+    os.makedirs(dest_dir, exist_ok=True)
+    output_template = os.path.join(dest_dir, f"{file_stem}.%(ext)s")
+    ytdlp_bin = _resolve_ytdlp_bin()
     cmd = [
         ytdlp_bin,
         "--no-playlist",
@@ -108,22 +113,88 @@ def _ensure_cached_audio(youtube_url, yt_id):
         "-o", output_template,
         youtube_url,
     ]
-    print(f"[API] Caching audio for {yt_id} via yt-dlp...")
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120)
+    print(f"[download] yt-dlp → {dest_dir}/{file_stem}.*  (bin={ytdlp_bin})")
+    try:
+        result = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail=f"yt-dlp download timed out after {timeout}s")
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail=f"yt-dlp binary not found at {ytdlp_bin}")
+
     if result.returncode != 0:
-        # Try without audio extraction as a last resort
+        # Try without -x/--audio-format as a last resort (some sources reject extraction)
         fallback = [ytdlp_bin, "--no-playlist", "-o", output_template, youtube_url]
-        fb_result = subprocess.run(fallback, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=120)
-        if fb_result.returncode != 0:
-            raise HTTPException(status_code=502, detail=f"yt-dlp download failed: {fb_result.stderr[:300]}")
-    if not os.path.exists(target):
-        # yt-dlp may have produced a different extension
-        for ext in ("mp3", "m4a", "webm", "opus", "wav"):
-            cand = os.path.join(temp_dir, f"arra_temp_{yt_id}.{ext}")
-            if os.path.exists(cand):
-                return cand
-        raise HTTPException(status_code=502, detail="yt-dlp finished but no audio file was found")
-    return target
+        try:
+            fb = subprocess.run(fallback, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail=f"yt-dlp fallback timed out after {timeout}s")
+        if fb.returncode != 0:
+            stderr_tail = (fb.stderr or result.stderr or "")[-400:]
+            raise HTTPException(status_code=502, detail=f"yt-dlp failed: {stderr_tail}")
+
+    # yt-dlp picks the extension; accept any audio container we can feed to librosa.
+    for ext in ("mp3", "m4a", "webm", "opus", "wav", "ogg"):
+        cand = os.path.join(dest_dir, f"{file_stem}.{ext}")
+        if os.path.exists(cand):
+            return cand
+    raise HTTPException(status_code=502, detail="yt-dlp finished but no audio file was found in dest_dir")
+
+
+def _ensure_cached_audio(youtube_url, yt_id):
+    """Download via yt-dlp if `/tmp/arra_temp_{yt_id}.mp3` is missing.
+    Returns the file path on success, raises HTTPException on failure."""
+    temp_dir = tempfile.gettempdir()
+    target = os.path.join(temp_dir, f"arra_temp_{yt_id}.mp3")
+    if os.path.exists(target):
+        return target
+    return _download_to_dir(youtube_url, temp_dir, f"arra_temp_{yt_id}")
+
+
+class DownloadRequest(BaseModel):
+    """Request: download YouTube audio for a given song to a Node-supplied directory.
+
+    Node calls this at import time, then moves the file to
+    server/uploads/songs/{song_id}.mp3 and stores the public URL on the Song.
+    """
+    song_id: str
+    youtube_url: str
+    dest_dir: str
+    file_stem: Optional[str] = None  # defaults to song_id
+
+
+class DownloadResponse(BaseModel):
+    song_id: str
+    file_path: str
+    size_bytes: int
+
+
+@app.post("/download")
+def download_audio(request: DownloadRequest):
+    """Download YouTube audio to ``{dest_dir}/{file_stem}.<ext>``.
+
+    Returns the absolute file path. The Node orchestrator is responsible
+    for moving the file into the uploads tree and updating the Song record.
+    """
+    if not request.youtube_url or not request.song_id or not request.dest_dir:
+        raise HTTPException(status_code=400, detail="Missing song_id, youtube_url, or dest_dir")
+    if not os.path.isabs(request.dest_dir):
+        raise HTTPException(status_code=400, detail="dest_dir must be an absolute path")
+
+    stem = request.file_stem or request.song_id
+    file_path = _download_to_dir(request.youtube_url, request.dest_dir, stem)
+    try:
+        size_bytes = os.path.getsize(file_path)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Could not stat downloaded file: {e}")
+
+    print(f"[API] Downloaded {request.song_id} → {file_path} ({size_bytes} bytes)")
+    return DownloadResponse(
+        song_id=request.song_id,
+        file_path=file_path,
+        size_bytes=size_bytes,
+    ).model_dump()
 
 
 @app.get("/health")

@@ -33,7 +33,6 @@ const AuditDetail = () => {
     duration,
     highlightBookmark,
     highlightBookmarkId,
-    waitForPlayerReady,
   } = useAudio();
 
   const deepLinkAppliedRef = useRef(false);
@@ -109,19 +108,14 @@ const AuditDetail = () => {
       }
     }
     if (ts !== null && Number.isFinite(ts)) {
-      // Wait for the YouTube IFrame to be ready, with a safety timeout. Drops
-      // the 350ms heuristic — slow networks and mobile can take longer to
-      // mount the player, and on dev machines it can be ready immediately.
-      let cancelled = false;
-      waitForPlayerReady({ timeoutMs: 4000 })
-        .then(() => {
-          if (!cancelled) seekTo(ts);
-        })
-        .catch(() => { /* swallow — best effort */ });
-      return () => { cancelled = true; };
+      // <audio> mounts synchronously in the new AudioContext — no iframe
+      // to wait for. seekTo() updates currentTime even before the audio
+      // finishes loading metadata; the browser applies the seek when
+      // ready.
+      seekTo(ts);
     }
     return undefined;
-  }, [audit, deepLinkTs, deepLinkBookmarkId, seekTo, highlightBookmark, waitForPlayerReady]);
+  }, [audit, deepLinkTs, deepLinkBookmarkId, seekTo, highlightBookmark]);
 
   const handleConfirmDelete = async () => {
     try {

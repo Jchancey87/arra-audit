@@ -120,6 +120,7 @@ export class InMemoryBackendAdapter extends IBackendService {
 
   async importSong(youtubeUrl) {
     const sourceId = `mock-id-${Date.now()}`;
+    const songId = `song-${Date.now()}`;
     const existing = this.songs.find((s) => s.sourceId === sourceId && !s.deletedAt);
     if (existing) {
       const err = new Error('already_imported');
@@ -127,16 +128,23 @@ export class InMemoryBackendAdapter extends IBackendService {
       err.songId = existing._id;
       throw err;
     }
+    // Mock: the Node server's /import endpoint kicks off a background
+    // download. In the in-memory adapter we simulate that the download
+    // already completed by setting publicUrl synchronously. Real prod
+    // returns 201 with publicUrl=null and the client polls /audio-url.
     const song = {
-      _id: `song-${Date.now()}`,
+      _id: songId,
       title: 'Mock Song',
       artistName: 'Mock Artist',
       artist: 'Mock Artist',
-      sourceType: 'youtube',
+      sourceType: 'local',
       sourceId,
       youtubeId: sourceId,
       originalUrl: youtubeUrl,
       youtubeUrl,
+      publicUrl: `/uploads/songs/${songId}.mp3`,
+      audioSizeBytes: null,
+      audioMimeType: 'audio/mpeg',
       thumbnailUrl: null,
       thumbnail: null,
       researchStatus: 'skipped',
@@ -1026,25 +1034,34 @@ export class InMemoryBackendAdapter extends IBackendService {
     return { queued: false, analysis: s.analysis, sketch: { ...s } };
   }
 
-  // Audio fallback (mock) — always available in the in-memory adapter, returns
-  // a synthetic /uploads/ URL the consumer can play or treat as a placeholder.
-  async getAudioFallbackUrl(songId, format = 'bestaudio') {
+  // Audio URL — returns the song's local publicUrl if downloaded, else the
+  // raw YouTube URL (mock). In the in-memory adapter we always have it
+  // synchronously (see importSong).
+  async getAudioFallbackUrl(songId) {
     const song = this.songs.find((s) => s._id === songId && !s.deletedAt);
     if (!song) {
       const err = new Error('Song not found');
       err.status = 404;
       throw err;
     }
-    const sourceId = song.sourceId || song.youtubeId || 'mock';
+    if (song.publicUrl) {
+      return {
+        url: song.publicUrl,
+        format: song.audioMimeType || 'audio/mpeg',
+        expiresAt: null,
+        sourceType: song.sourceType,
+      };
+    }
     return {
-      url: `/uploads/fake-audio-${sourceId}.m4a`,
+      url: song.originalUrl || song.youtubeUrl || '',
+      format: 'bestaudio',
       expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      format,
+      sourceType: 'youtube',
     };
   }
 
   async isAudioFallbackAvailable() {
-    return { available: true };
+    return { available: true, storage: 'local' };
   }
 }
 

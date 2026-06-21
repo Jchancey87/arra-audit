@@ -3,6 +3,7 @@ import { useAudio } from '../context/AudioContext';
 import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../utils/playheadAnnouncer.js';
 import { applyBlockClick, detectModifier, pruneSelection } from '../utils/blockSelection.js';
 import ExportArrangementButton from './ExportArrangementButton.jsx';
+import WaveformTimelineOverlay from './WaveformTimelineOverlay.jsx';
 
 // ── Section type colors ──────────────────────────────────────────────────────
 const TYPE_COLORS = {
@@ -93,7 +94,7 @@ const ContextMenuItem = ({ onClick, children, style = {} }) => {
 
 // ── Main component ────────────────────────────────────────────────────────────
 const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOnly = false, saveNow }) => {
-  const { loadSong, activeSong, play, seekTo, currentTime } = useAudio();
+  const { loadSong, activeSong, play, seekTo, currentTime, audioRef } = useAudio();
 
   // ── Zoom & Time signature states ──
   const [pxPerSec, setPxPerSec] = useState(6);
@@ -909,6 +910,43 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           )}
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          WAVEFORM OVERLAY (wavesurfer.js — attached to the shared <audio>)
+      ══════════════════════════════════════════════════════════════════════ */}
+      {song?.publicUrl && audioRef?.current && (
+        <div style={{
+          background: '#0c0c0f', borderRadius: '4px',
+          border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden',
+        }}>
+          <div style={{ height: '22px', display: 'flex', alignItems: 'center', paddingLeft: '12px', background: '#0a0a0d', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: '"Roboto Mono", monospace', letterSpacing: '0.06em' }}>
+              ▨ WAVEFORM
+            </span>
+          </div>
+          <WaveformTimelineOverlay
+            audioRef={audioRef}
+            sections={sortedBlocks}
+            selectedBlockId={selectedBlockId}
+            pxPerSec={pxPerSec}
+            currentTime={currentTime}
+            onRegionClick={(sectionId) => {
+              setSelectedBlockId(sectionId);
+              if (sectionId) {
+                const sec = sortedBlocks.find(b => b.id === sectionId);
+                if (sec) handleSeek(sec.startTime || 0);
+              }
+            }}
+            onRegionUpdate={(sectionId, { start, end }) => {
+              updateBlock(sectionId, {
+                startTime: start,
+                duration: Math.max(1, end - start),
+              });
+              if (saveNow) setTimeout(saveNow, 100);
+            }}
+          />
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           EMPTY STATE

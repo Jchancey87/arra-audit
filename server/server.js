@@ -35,7 +35,7 @@ import { TemplateComposer } from './services/templateComposer.js';
 import { TasteService } from './services/tasteService.js';
 import { CurriculumService } from './services/curriculumService.js';
 import { SketchService } from './services/SketchService.js';
-import { YtDlpMockAdapter, YtDlpSubprocessAdapter } from './services/ytDlpService.js';
+import { FilesystemAudioStorageAdapter } from './services/audioStorageService.js';
 import { BookmarkAnalysisService } from './services/BookmarkAnalysisService.js';
 import { bookmarkAnalysisBus } from './services/BookmarkAnalysisBus.js';
 import { RecommendationService } from './services/RecommendationService.js';
@@ -117,6 +117,14 @@ const sketchRepository = new MongooseRepository(SongSketch);
 const authService = new AuthService(userRepository);
 const songService = new SongService(songRepository, searchAdapter, aiAdapter);
 const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
+
+// ── Audio storage (filesystem under server/uploads/songs/) ──────────────────
+// Song audio is downloaded from YouTube at import time and stored locally so
+// the client can play it through <audio> (no IFrame, no CDA gesture, no
+// embed blocks). See services/audioStorageService.js for the port contract.
+const audioStorageService = new FilesystemAudioStorageAdapter({
+  uploadsRoot: path.join(__dirname, 'uploads'),
+});
 const techniqueService = new TechniqueService(techniqueRepository);
 const templateComposer = new TemplateComposer(aiAdapter);
 const tasteService = new TasteService(tasteProfileRepository, searchAdapter, aiAdapter);
@@ -165,12 +173,6 @@ const recommendationService = new RecommendationService({
   techniqueRepository,
 });
 
-// yt-dlp adapter: prefer the real subprocess when YT_DLP_ENABLED is set;
-// otherwise use the deterministic mock so dev/CI always have a fallback path.
-const ytDlpService = process.env.YT_DLP_ENABLED === '1'
-  ? new YtDlpSubprocessAdapter({ binaryPath: process.env.YT_DLP_BIN })
-  : new YtDlpMockAdapter({ available: process.env.NODE_ENV !== 'production' });
-
 // ── Routes (all under /api/) ──────────────────────────────────────────────────
 app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
   try {
@@ -217,7 +219,7 @@ app.post('/api/public/songs/:id/analysis-completed', async (req, res) => {
 });
 
 app.use('/api/auth',       createAuthRoutes(authService));
-app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, ytDlpService));
+app.use('/api/songs',      authMiddleware, createSongRoutes(songService, auditRepository, techniqueRepository, sketchRepository, audioStorageService));
 app.use('/api/audits',     authMiddleware, createAuditRoutes(auditService, templateComposer, techniqueRepository, bookmarkAnalysisService, { analysisBus: bookmarkAnalysisBus, auditRepository }));
 app.use('/api/techniques', authMiddleware, createTechniqueRoutes(techniqueService, recommendationService));
 app.use('/api/tastes',     authMiddleware, createTasteRoutes(tasteService));

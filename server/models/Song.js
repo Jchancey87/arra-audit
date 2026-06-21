@@ -5,7 +5,7 @@ const songSchema = new mongoose.Schema(
     // Source identification
     sourceType: {
       type: String,
-      enum: ['youtube'],
+      enum: ['youtube', 'local', 'upload'],
       default: 'youtube',
       required: true,
     },
@@ -23,6 +23,30 @@ const songSchema = new mongoose.Schema(
     // Keep youtubeUrl as alias for backward compat
     youtubeUrl: {
       type: String,
+    },
+
+    // Local audio file (downloaded at import time from YouTube, or uploaded directly).
+    // `localAudioPath` is an absolute path on the server (consumed by the analysis
+    // service). `publicUrl` is the browser-fetchable path under /uploads.
+    localAudioPath: {
+      type: String,
+      default: null,
+    },
+    publicUrl: {
+      type: String,
+      default: null,
+    },
+    audioSizeBytes: {
+      type: Number,
+      default: null,
+    },
+    audioMimeType: {
+      type: String,
+      default: null,
+    },
+    audioDownloadedAt: {
+      type: Date,
+      default: null,
     },
 
     // Metadata
