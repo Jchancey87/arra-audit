@@ -114,17 +114,19 @@ const curriculumRepository = new MongooseRepository(Curriculum);
 const studyProgressRepository = new MongooseRepository(StudyProgress);
 const sketchRepository = new MongooseRepository(SongSketch);
 
-const authService = new AuthService(userRepository);
-const songService = new SongService(songRepository, searchAdapter, aiAdapter);
-const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
-
 // ── Audio storage (filesystem under server/uploads/songs/) ──────────────────
 // Song audio is downloaded from YouTube at import time and stored locally so
 // the client can play it through <audio> (no IFrame, no CDA gesture, no
 // embed blocks). See services/audioStorageService.js for the port contract.
+//
+// Created before SongService so it can be injected (attachLocalAudio() throws
+// if the service is null — see "audioStorageService requires" red line).
 const audioStorageService = new FilesystemAudioStorageAdapter({
   uploadsRoot: path.join(__dirname, 'uploads'),
 });
+const authService = new AuthService(userRepository);
+const songService = new SongService(songRepository, searchAdapter, aiAdapter, audioStorageService);
+const auditService = new AuditService(auditRepository, techniqueRepository, songRepository);
 const techniqueService = new TechniqueService(techniqueRepository);
 const templateComposer = new TemplateComposer(aiAdapter);
 const tasteService = new TasteService(tasteProfileRepository, searchAdapter, aiAdapter);

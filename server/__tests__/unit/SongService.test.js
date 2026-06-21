@@ -1,6 +1,10 @@
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { SongService } from '../../services/songService.js';
 import { InMemoryRepository } from '../../adapters/InMemoryRepository.js';
+import { FilesystemAudioStorageAdapter } from '../../services/audioStorageService.js';
 
 describe('SongService Unit Tests', () => {
   let songService;
@@ -230,6 +234,70 @@ describe('SongService Unit Tests', () => {
       expect(updated.audioAnalysis.estimated_meter).toBe('4/4');
       expect(updated.audioAnalysis.meter_confidence).toBe(0.95);
       expect(updated.audioAnalysis.meter_cross_verified).toBe(true);
+    });
+  });
+
+  describe('attachLocalAudio', () => {
+    let tmpRoot;
+    let sourceFile;
+    let audioStorage;
+    let serviceWithStorage;
+
+    beforeEach(() => {
+      tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arra-svc-test-'));
+      // FilesystemAudioStorageAdapter always writes under <root>/songs/.
+      sourceFile = path.join(tmpRoot, 'source.mp3');
+      fs.writeFileSync(sourceFile, Buffer.from('fake-mp3-bytes'));
+      audioStorage = new FilesystemAudioStorageAdapter({ uploadsRoot: tmpRoot });
+      serviceWithStorage = new SongService(
+        songRepository,
+        mockSearchService,
+        null,
+        audioStorage
+      );
+    });
+
+    afterEach(() => {
+      try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (_) { /* ignore */ }
+    });
+
+    test('moves the file into the songs dir and sets publicUrl/sourceType on the song', async () => {
+      const song = await songRepository.create({
+        title: 'Local Audio Song',
+        userId: 'user-1',
+        sourceType: 'youtube',
+        publicUrl: null,
+      });
+
+      const updated = await serviceWithStorage.attachLocalAudio(song._id, sourceFile, {
+        mimeType: 'audio/mpeg',
+        extension: 'mp3',
+      });
+
+      expect(updated.sourceType).toBe('local');
+      expect(updated.publicUrl).toBe(`/uploads/songs/${song._id}.mp3`);
+      expect(updated.audioMimeType).toBe('audio/mpeg');
+      expect(updated.audioSizeBytes).toBe(Buffer.byteLength('fake-mp3-bytes'));
+      // InMemoryRepository clones Dates → ISO strings, so just check
+      // the value is a parseable timestamp from before "now".
+      expect(new Date(updated.audioDownloadedAt).getTime()).toBeLessThanOrEqual(Date.now());
+      // File actually landed on disk under <root>/songs/{songId}.mp3.
+      expect(fs.existsSync(path.join(tmpRoot, 'songs', `${song._id}.mp3`))).toBe(true);
+    });
+
+    test('throws when audioStorageService is null (regression: server.js wiring bug)', async () => {
+      const song = await songRepository.create({
+        title: 'Local Audio Song',
+        userId: 'user-1',
+        sourceType: 'youtube',
+        publicUrl: null,
+      });
+      // songService from the outer beforeEach has no audioStorageService
+      // (mirrors the server.js bug where the 4th constructor arg was
+      // dropped). attachLocalAudio must throw, not silently no-op.
+      await expect(
+        songService.attachLocalAudio(song._id, sourceFile, { extension: 'mp3' })
+      ).rejects.toThrow(/audioStorageService/);
     });
   });
 });
