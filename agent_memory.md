@@ -57,6 +57,7 @@
 ## Pruned Session Log (Full history in devlogs.md; pre-June-19 in devlogs-archive.md)
 | Date | Summary | Commit |
 |---|---|---|
+| 2026-06-21 | fix(audit): resolve handleResponseChange temporal dead zone reference error by reordering state/helper declarations | `2962436` |
 | 2026-06-21 | feat(audit): replace old timeline with dynamic multi-track lanes synced to master waveform and TabBar positioning above waveform | `68f0a0a` |
 | 2026-06-21 | feat(theme): unify website theme with charcoal, white, grey, and orange tape deck audio player palette | `f856338` |
 | 2026-06-21 | feat(study-session): persist timeline region dragging, updates, creations, and type presets in daily study workspace | `f24466b` |
