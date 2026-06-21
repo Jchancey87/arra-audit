@@ -67,17 +67,19 @@ const StudySessionWorkspace = () => {
         id: sec.id,
         start: sec.startTime || 0,
         end: (sec.startTime || 0) + Math.max(1, sec.duration || 30),
-        color: SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
+        color: sec.color || SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
         label: sec.name || '',
         drag: true,
         resize: true,
         selected: false,
+        opacity: sec.opacity !== undefined ? sec.opacity : 0.25,
+        notes: sec.notes || '',
       });
     });
     return regions;
   }, [responses]);
 
-  const handleWaveformRegionClick = (regionId) => {
+  const handleWaveformRegionClick = useCallback((regionId) => {
     if (!regionId) return;
     const raw = responses['arrangement-timeline'];
     let sections = [];
@@ -85,7 +87,82 @@ const StudySessionWorkspace = () => {
     catch { sections = []; }
     const sec = sections.find(s => s.id === regionId);
     if (sec) seekTo(sec.startTime || 0);
-  };
+  }, [responses, seekTo]);
+
+  const handleWaveformRegionUpdate = useCallback((regionId, { start, end }) => {
+    if (!regionId) return;
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const secIdx = arr.findIndex(s => s.id === regionId);
+    if (secIdx !== -1) {
+      const duration = Math.max(1, Math.round(end - start));
+      const updated = {
+        ...arr[secIdx],
+        startTime: Math.max(0, Math.floor(start)),
+        duration,
+      };
+      const newArr = [...arr];
+      newArr[secIdx] = updated;
+      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+    }
+  }, [responses]);
+
+  const handleWaveformRegionChange = useCallback((regionId, fields) => {
+    if (!regionId) return;
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const secIdx = arr.findIndex(s => s.id === regionId);
+    if (secIdx !== -1) {
+      const updated = {
+        ...arr[secIdx],
+        ...(fields.label !== undefined ? { name: fields.label } : {}),
+        ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
+        ...(fields.color !== undefined ? { color: fields.color } : {}),
+        ...(fields.opacity !== undefined ? { opacity: fields.opacity } : {}),
+      };
+      const newArr = [...arr];
+      newArr[secIdx] = updated;
+      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+    }
+  }, [responses]);
+
+  const handleWaveformRegionDelete = useCallback((regionId) => {
+    if (!regionId) return;
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const newArr = arr.filter(s => s.id !== regionId);
+    handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+  }, [responses]);
+
+  const handleWaveformRegionCreate = useCallback(({ start, end }) => {
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const block = {
+      id: `sec-${Date.now()}`,
+      name: 'New Section',
+      type: 'verse',
+      startTime: Math.max(0, Math.floor(start)),
+      duration: Math.max(1, Math.round(end - start)),
+      notes: '',
+    };
+    handleResponseChange('arrangement-timeline', JSON.stringify([...arr, block]));
+  }, [responses]);
 
   const [activeProgress, setActiveProgress] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -766,6 +843,10 @@ const StudySessionWorkspace = () => {
                     <UniversalWaveformBar
                       regions={waveformRegions}
                       onRegionClick={handleWaveformRegionClick}
+                      onRegionUpdate={handleWaveformRegionUpdate}
+                      onRegionChange={handleWaveformRegionChange}
+                      onRegionDelete={handleWaveformRegionDelete}
+                      onRegionCreate={handleWaveformRegionCreate}
                       onRecover={activeSong?._id ? handleRedownloadAudio : undefined}
                       recovering={recovering}
                       title={`${(currDay.lens || 'REFERENCE').toUpperCase()} · WAVEFORM`}

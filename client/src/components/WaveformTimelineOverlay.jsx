@@ -31,6 +31,22 @@ import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram.js';
  *   - waveHeight: optional height for the waveform (default 80)
  *   - showTimeline: optional bool to render the TimelinePlugin ruler (default true)
  */
+const hexToRgba = (hex, opacity = 0.25) => {
+  if (!hex) return `rgba(255, 102, 0, ${opacity})`;
+  if (hex.startsWith('rgba')) {
+    return hex.replace(/[\d.]+\)$/, `${opacity})`);
+  }
+  if (hex.startsWith('#')) {
+    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+    const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
+    return result
+      ? `rgba(${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}, ${opacity})`
+      : `rgba(255, 102, 0, ${opacity})`;
+  }
+  return hex;
+};
+
 const WaveformTimelineOverlay = ({
   audioRef,
   regions = [],
@@ -38,17 +54,25 @@ const WaveformTimelineOverlay = ({
   currentTime,
   onRegionClick,
   onRegionUpdate,
+  onRegionCreate,
   waveHeight = 80,
   showTimeline = true,
   spectrogram = false,
   paddingLeft = 0,
+  dragSelectEnabled = false,
+  loopRegionId = null,
 }) => {
   const waveformRef = useRef(null);
   const timelineRef = useRef(null);
   const spectrogramRef = useRef(null);
   const wsRef = useRef(null);
   const regionsRef = useRef(null);
-  const isReadyRef = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+  const loopRegionIdRef = useRef(loopRegionId);
+
+  useEffect(() => {
+    loopRegionIdRef.current = loopRegionId;
+  }, [loopRegionId]);
 
   // ---- Create / destroy waveSurfer (once the <audio> ref is populated) ----
   useEffect(() => {
@@ -113,11 +137,11 @@ const WaveformTimelineOverlay = ({
     wsRef.current = ws;
 
     ws.on('ready', () => {
-      isReadyRef.current = true;
+      setIsReady(true);
     });
 
     ws.on('decode', () => {
-      isReadyRef.current = true;
+      setIsReady(true);
     });
 
     regionsPlugin.on('region-clicked', (region, e) => {
@@ -125,12 +149,31 @@ const WaveformTimelineOverlay = ({
       onRegionClick?.(region.id, e);
     });
 
-    regionsPlugin.on('region-updated', (region) => {
+    regionsPlugin.on('region-update-end', (region) => {
       onRegionUpdate?.(region.id, { start: region.start, end: region.end });
     });
 
+    regionsPlugin.on('region-created', (region) => {
+      const { start, end } = region;
+      try { region.remove(); } catch (_) {}
+      onRegionCreate?.({ start, end });
+    });
+
+    let activeRegion = null;
+    regionsPlugin.on('region-in', (region) => {
+      activeRegion = region;
+    });
+
+    regionsPlugin.on('region-out', (region) => {
+      if (activeRegion === region && loopRegionIdRef.current === region.id) {
+        region.play();
+      } else if (activeRegion === region) {
+        activeRegion = null;
+      }
+    });
+
     return () => {
-      isReadyRef.current = false;
+      setIsReady(false);
       try { ws.destroy(); } catch (_) { /* already torn down */ }
       wsRef.current = null;
       regionsRef.current = null;
@@ -147,11 +190,30 @@ const WaveformTimelineOverlay = ({
     try { ws.zoom(pxPerSec); } catch (_) { /* not yet ready */ }
   }, [pxPerSec]);
 
+  // ---- Sync drag selection state ----
+  useEffect(() => {
+    const regionsPlugin = regionsRef.current;
+    if (!regionsPlugin || !isReady) return;
+
+    let disableDrag = null;
+    if (dragSelectEnabled) {
+      disableDrag = regionsPlugin.enableDragSelection({
+        color: 'rgba(255, 102, 0, 0.1)',
+      });
+    }
+
+    return () => {
+      if (disableDrag) {
+        try { disableDrag(); } catch (_) {}
+      }
+    };
+  }, [dragSelectEnabled, isReady]);
+
   // ---- Sync regions when the regions prop changes ----
   useEffect(() => {
     const regionsPlugin = regionsRef.current;
     const ws = wsRef.current;
-    if (!regionsPlugin || !ws || !isReadyRef.current) return;
+    if (!regionsPlugin || !ws || !isReady) return;
 
     regionsPlugin.clearRegions();
     const dur = ws.getDuration();
@@ -160,21 +222,22 @@ const WaveformTimelineOverlay = ({
       const start = Number.isFinite(r.start) ? r.start : 0;
       const rawEnd = Number.isFinite(r.end) ? r.end : (start + (r.duration || 2));
       const end = Math.min(dur || rawEnd, rawEnd);
-      const color = r.color || 'rgba(255, 102, 0, 0.25)';
       const isSel = r.selected;
+      const opacity = r.opacity !== undefined ? r.opacity : (isSel ? 0.45 : 0.25);
+      const colorWithOpacity = hexToRgba(r.color, opacity);
 
       const region = regionsPlugin.addRegion({
         id: r.id,
         start: Math.max(0, start),
         end: Math.max(start + 0.1, end),
-        color: isSel ? `${color}66` : color,
+        color: colorWithOpacity,
         drag: r.drag !== false,
         resize: Boolean(r.resize),
         content: r.label || '',
       });
 
       if (region.element) {
-        region.element.style.borderLeft = `3px solid ${color}`;
+        region.element.style.borderLeft = `3px solid ${r.color || 'rgba(255, 102, 0, 0.5)'}`;
         region.element.style.borderRadius = '2px';
         region.element.style.fontSize = '10px';
         region.element.style.fontFamily = '"Roboto Mono", monospace';
@@ -188,7 +251,7 @@ const WaveformTimelineOverlay = ({
         region.element.style.pointerEvents = 'auto';
       }
     });
-  }, [regions]);
+  }, [regions, isReady]);
 
   // NOTE: playhead sync is implicit — wavesurfer reads currentTime from the
   // shared <audio> element via the `media:` option, so no manual setTime()

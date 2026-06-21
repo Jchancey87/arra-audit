@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAudio } from '../context/AudioContext';
 import WaveformTimelineOverlay from './WaveformTimelineOverlay.jsx';
 
@@ -77,10 +77,15 @@ const headerLabel = {
   letterSpacing: '0.06em',
 };
 
+const PRESET_COLORS = ['#c084fc', '#34d399', '#f472b6', '#22d3ee', '#fbbf24', '#ff6600', '#ef4444'];
+
 const UniversalWaveformBar = ({
   regions = [],
   onRegionClick,
   onRegionUpdate,
+  onRegionChange,
+  onRegionDelete,
+  onRegionCreate,
   onRecover,
   recovering = false,
   pxPerSec = 8,
@@ -96,8 +101,59 @@ const UniversalWaveformBar = ({
 
   const hasPlayableAudio = Boolean(activeSong?.publicUrl) && !audioError;
   const [zoom, setZoom] = useState(pxPerSec);
+  const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [dragSelectEnabled, setDragSelectEnabled] = useState(false);
+  const [loopRegionId, setLoopRegionId] = useState(null);
+  const [regionForm, setRegionForm] = useState({ label: '', notes: '', color: '', opacity: 0.25, start: 0, end: 0 });
 
-  const regionsMemo = useMemo(() => regions, [regions]);
+  const selectedRegion = useMemo(() => {
+    return regions.find(r => r.id === selectedRegionId);
+  }, [regions, selectedRegionId]);
+
+  // Sync selection details to local form state when selected region changes
+  useEffect(() => {
+    if (selectedRegion) {
+      setRegionForm({
+        label: selectedRegion.label || '',
+        notes: selectedRegion.notes || '',
+        color: selectedRegion.color || '',
+        opacity: selectedRegion.opacity !== undefined ? selectedRegion.opacity : 0.25,
+        start: selectedRegion.start || 0,
+        end: selectedRegion.end || 0,
+      });
+    } else {
+      setLoopRegionId(null);
+    }
+  }, [selectedRegion?.id, selectedRegion?.start, selectedRegion?.end, selectedRegion?.color, selectedRegion?.opacity, selectedRegion?.label, selectedRegion?.notes]);
+
+  const handleRegionClickInternal = (regionId, e) => {
+    setSelectedRegionId(regionId);
+    onRegionClick?.(regionId, e);
+  };
+
+  const handleRegionFormChange = (field, value) => {
+    setRegionForm(prev => ({ ...prev, [field]: value }));
+    onRegionChange?.(selectedRegionId, { [field]: value });
+  };
+
+  const handleDeleteSelectedRegion = () => {
+    if (selectedRegionId) {
+      onRegionDelete?.(selectedRegionId);
+      setSelectedRegionId(null);
+    }
+  };
+
+  const handleRegionCreateInternal = ({ start, end }) => {
+    setDragSelectEnabled(false); // disable draw mode after drawing
+    onRegionCreate?.({ start, end });
+  };
+
+  const regionsWithSelection = useMemo(() => {
+    return regions.map(r => ({
+      ...r,
+      selected: r.id === selectedRegionId,
+    }));
+  }, [regions, selectedRegionId]);
 
   // ── Recovery state: publicUrl null OR audio error (file missing on disk) ──
   const showRecovery = !activeSong?.publicUrl || audioError;
@@ -177,17 +233,170 @@ const UniversalWaveformBar = ({
           {audioRef?.current && (
             <WaveformTimelineOverlay
               audioRef={audioRef}
-              regions={regionsMemo}
+              regions={regionsWithSelection}
               pxPerSec={zoom}
               currentTime={currentTime}
-              onRegionClick={onRegionClick}
+              onRegionClick={handleRegionClickInternal}
               onRegionUpdate={onRegionUpdate}
+              onRegionCreate={handleRegionCreateInternal}
               waveHeight={waveHeight}
               showTimeline={showTimeline}
               paddingLeft={paddingLeft}
+              dragSelectEnabled={dragSelectEnabled}
+              loopRegionId={loopRegionId}
             />
           )}
         </>
+      )}
+
+      {/* Inline Region Inspector Panel */}
+      {selectedRegion && (
+        <div style={{
+          background: '#0d0d11',
+          borderTop: '1px solid rgba(255,255,255,0.05)',
+          padding: '10px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.6)', fontFamily: '"Roboto Mono", monospace', letterSpacing: '0.05em' }}>
+              ⚙️ REGION PROPERTIES
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontFamily: '"Roboto Mono", monospace' }}>
+                <input
+                  type="checkbox"
+                  checked={loopRegionId === selectedRegionId}
+                  onChange={(e) => setLoopRegionId(e.target.checked ? selectedRegionId : null)}
+                  style={{ margin: 0 }}
+                />
+                Loop Playback
+              </label>
+              <button
+                type="button"
+                onClick={() => setSelectedRegionId(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  padding: '2px 4px',
+                }}
+              >✕ Close</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+            {/* Title / Name */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '2 1 200px' }}>
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>TITLE</span>
+              <input
+                type="text"
+                value={regionForm.label}
+                onChange={(e) => handleRegionFormChange('label', e.target.value)}
+                placeholder="Name this region..."
+                style={{
+                  background: '#14141c',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '2px',
+                  color: '#fff',
+                  fontSize: '11px',
+                  padding: '4px 6px',
+                  fontFamily: '"Roboto Mono", monospace',
+                }}
+              />
+            </div>
+
+            {/* Information / Notes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: '3 1 250px' }}>
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>NOTES / DESCRIPTION</span>
+              <input
+                type="text"
+                value={regionForm.notes}
+                onChange={(e) => handleRegionFormChange('notes', e.target.value)}
+                placeholder="Details about this region..."
+                style={{
+                  background: '#14141c',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '2px',
+                  color: '#fff',
+                  fontSize: '11px',
+                  padding: '4px 6px',
+                  fontFamily: '"Roboto Mono", monospace',
+                }}
+              />
+            </div>
+
+            {/* Timing */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>START</span>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontFamily: '"Roboto Mono", monospace', background: '#14141c', padding: '4px 8px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  {fmt(regionForm.start)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>END</span>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', fontFamily: '"Roboto Mono", monospace', background: '#14141c', padding: '4px 8px', borderRadius: '2px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  {fmt(regionForm.end)}
+                </span>
+              </div>
+            </div>
+
+            {/* Opacity Slider */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '90px' }}>
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>OPACITY ({Math.round(regionForm.opacity * 100)}%)</span>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={regionForm.opacity}
+                onChange={(e) => handleRegionFormChange('opacity', parseFloat(e.target.value))}
+                style={{ height: '18px', cursor: 'pointer', accentColor: '#ff6600' }}
+              />
+            </div>
+
+            {/* Color Presets */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>COLOR</span>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '22px' }}>
+                {PRESET_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => handleRegionFormChange('color', color)}
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: color,
+                      border: regionForm.color === color ? '2px solid #fff' : '1px solid rgba(0,0,0,0.5)',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Deletion Button */}
+            <div style={{ display: 'flex', alignSelf: 'flex-end', marginLeft: 'auto' }}>
+              <button
+                type="button"
+                onClick={handleDeleteSelectedRegion}
+                style={{
+                  ...transportBtn,
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  color: '#f87171',
+                  borderColor: 'rgba(239, 68, 68, 0.25)',
+                }}
+              >Delete</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Compact transport row — always present (drives the shared <audio>) */}
@@ -227,6 +436,23 @@ const UniversalWaveformBar = ({
         >+10s</button>
 
         <div style={{ flex: 1 }} />
+
+        {/* Drag selection draw button */}
+        <button
+          type="button"
+          onClick={() => setDragSelectEnabled(!dragSelectEnabled)}
+          disabled={!hasPlayableAudio}
+          title="Draw a custom region by dragging on the waveform"
+          style={{
+            ...transportBtn,
+            background: dragSelectEnabled ? 'rgba(255, 102, 0, 0.15)' : 'transparent',
+            color: dragSelectEnabled ? '#ff6600' : 'rgba(255,255,255,0.7)',
+            borderColor: dragSelectEnabled ? 'rgba(255, 102, 0, 0.4)' : 'rgba(255,255,255,0.12)',
+            marginRight: '8px',
+          }}
+        >
+          {dragSelectEnabled ? '✏️ Drawing Region' : '✏️ Draw Region'}
+        </button>
 
         {/* Zoom controls */}
         <button

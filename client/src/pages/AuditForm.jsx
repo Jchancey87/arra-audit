@@ -270,11 +270,13 @@ const AuditForm = () => {
         id: sec.id,
         start: sec.startTime || 0,
         end: (sec.startTime || 0) + Math.max(1, sec.duration || 30),
-        color: SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
+        color: sec.color || SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
         label: sec.name || '',
         drag: true,
         resize: true,
         selected: false,
+        opacity: sec.opacity !== undefined ? sec.opacity : 0.25,
+        notes: sec.notes || '',
       });
     });
 
@@ -291,6 +293,7 @@ const AuditForm = () => {
         drag: false,
         resize: false,
         selected: false,
+        notes: bm.note || '',
       });
     });
 
@@ -301,8 +304,9 @@ const AuditForm = () => {
         const raw = responses[`lens-${activeLens}-${i}`];
         if (!raw) return;
         let ts = null;
+        let parsed = null;
         try {
-          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
           ts = parsed?.timestampSeconds;
         } catch { ts = null; }
         if (Number.isFinite(ts)) {
@@ -311,10 +315,11 @@ const AuditForm = () => {
             start: ts,
             end: ts + 2,
             color: LENS_REGION_COLOR[activeLens] || '#ff6600',
-            label: `#${i + 1}`,
+            label: parsed?.label || `#${i + 1}`,
             drag: false,
             resize: false,
             selected: false,
+            notes: parsed?.text || '',
           });
         }
       });
@@ -373,6 +378,177 @@ const AuditForm = () => {
     try { await deleteBookmark(id); }
     catch { setError('Failed to delete marker'); }
   }, [auditId, deleteBookmark]);
+
+  const handleWaveformRegionUpdate = useCallback(async (regionId, { start, end }) => {
+    if (!regionId) return;
+
+    // 1. Bookmarks
+    if (regionId.startsWith('bm-')) {
+      const bm = globalBookmarks.find(b => `bm-${b._id || b.timestampSeconds}` === regionId);
+      if (bm) {
+        await handleUpdateMarker(bm._id || bm.timestampSeconds, {
+          timestampSeconds: Math.max(0, Math.floor(start)),
+        });
+      }
+      return;
+    }
+
+    // 2. Tagged timestamps
+    if (regionId.startsWith('tag-')) {
+      const parts = regionId.split('-');
+      const lens = parts[1];
+      const idx = Number(parts[2]);
+      const raw = responses[`lens-${lens}-${idx}`];
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed) {
+          const updated = { ...parsed, timestampSeconds: Math.max(0, Math.floor(start)) };
+          handleResponseChange(`lens-${lens}-${idx}`, JSON.stringify(updated));
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+
+    // 3. Arrangement sections
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const secIdx = arr.findIndex(s => s.id === regionId);
+    if (secIdx !== -1) {
+      const duration = Math.max(1, Math.round(end - start));
+      const updated = {
+        ...arr[secIdx],
+        startTime: Math.max(0, Math.floor(start)),
+        duration,
+      };
+      const newArr = [...arr];
+      newArr[secIdx] = updated;
+      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+    }
+  }, [globalBookmarks, responses, handleResponseChange, handleUpdateMarker]);
+
+  const handleWaveformRegionChange = useCallback(async (regionId, fields) => {
+    if (!regionId) return;
+
+    // 1. Bookmarks
+    if (regionId.startsWith('bm-')) {
+      const bm = globalBookmarks.find(b => `bm-${b._id || b.timestampSeconds}` === regionId);
+      if (bm) {
+        const updateFields = {};
+        if (fields.label !== undefined) updateFields.label = fields.label;
+        if (fields.notes !== undefined) updateFields.note = fields.notes;
+        await handleUpdateMarker(bm._id || bm.timestampSeconds, updateFields);
+      }
+      return;
+    }
+
+    // 2. Tagged timestamps
+    if (regionId.startsWith('tag-')) {
+      const parts = regionId.split('-');
+      const lens = parts[1];
+      const idx = Number(parts[2]);
+      const raw = responses[`lens-${lens}-${idx}`];
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed) {
+          const updated = {
+            ...parsed,
+            ...(fields.label !== undefined ? { label: fields.label } : {}),
+            ...(fields.notes !== undefined ? { text: fields.notes } : {}),
+          };
+          handleResponseChange(`lens-${lens}-${idx}`, JSON.stringify(updated));
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+
+    // 3. Arrangement sections
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const secIdx = arr.findIndex(s => s.id === regionId);
+    if (secIdx !== -1) {
+      const updated = {
+        ...arr[secIdx],
+        ...(fields.label !== undefined ? { name: fields.label } : {}),
+        ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
+        ...(fields.color !== undefined ? { color: fields.color } : {}),
+        ...(fields.opacity !== undefined ? { opacity: fields.opacity } : {}),
+      };
+      const newArr = [...arr];
+      newArr[secIdx] = updated;
+      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+    }
+  }, [globalBookmarks, responses, handleResponseChange, handleUpdateMarker]);
+
+  const handleWaveformRegionDelete = useCallback(async (regionId) => {
+    if (!regionId) return;
+
+    // 1. Bookmarks
+    if (regionId.startsWith('bm-')) {
+      const bm = globalBookmarks.find(b => `bm-${b._id || b.timestampSeconds}` === regionId);
+      if (bm) {
+        await handleDeleteMarker(bm._id || bm.timestampSeconds);
+      }
+      return;
+    }
+
+    // 2. Tagged timestamps
+    if (regionId.startsWith('tag-')) {
+      const parts = regionId.split('-');
+      const lens = parts[1];
+      const idx = Number(parts[2]);
+      handleResponseChange(`lens-${lens}-${idx}`, '');
+      return;
+    }
+
+    // 3. Arrangement sections
+    let arr = [];
+    const raw = responses['arrangement-timeline'];
+    if (raw) {
+      try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+      catch { arr = []; }
+    }
+    const newArr = arr.filter(s => s.id !== regionId);
+    handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+  }, [globalBookmarks, responses, handleResponseChange, handleDeleteMarker]);
+
+  const handleWaveformRegionCreate = useCallback(async ({ start, end }) => {
+    if (activeLens === 'arrangement' || activeLens === 'form') {
+      let arr = [];
+      const raw = responses['arrangement-timeline'];
+      if (raw) {
+        try { arr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+        catch { arr = []; }
+      }
+      const block = {
+        id: `sec-${Date.now()}`,
+        name: 'New Section',
+        type: 'verse',
+        startTime: Math.max(0, Math.floor(start)),
+        duration: Math.max(1, Math.round(end - start)),
+        notes: '',
+      };
+      handleResponseChange('arrangement-timeline', JSON.stringify([...arr, block]));
+      flash(`Section "${block.name}" created`);
+    } else {
+      try {
+        await addBookmark({
+          timestampSeconds: Math.max(0, Math.floor(start)),
+          label: 'New Bookmark',
+          note: '',
+          lens: activeLens,
+        });
+        flash('Bookmark dropped at timeline region');
+      } catch { setError('Failed to drop bookmark'); }
+    }
+  }, [activeLens, responses, handleResponseChange, addBookmark, flash, setError]);
 
   // ── Section handler (arrangement-timeline storage) ────────────────────────
   const handleAddSection = useCallback(({ name, start }) => {
@@ -569,6 +745,10 @@ const AuditForm = () => {
         <UniversalWaveformBar
           regions={waveformRegions}
           onRegionClick={handleWaveformRegionClick}
+          onRegionUpdate={handleWaveformRegionUpdate}
+          onRegionChange={handleWaveformRegionChange}
+          onRegionDelete={handleWaveformRegionDelete}
+          onRegionCreate={handleWaveformRegionCreate}
           onRecover={songId ? handleRedownloadAudio : undefined}
           recovering={recovering}
           title={`${LENS_LABEL[activeLens] || 'HARMONY'} LENS · WAVEFORM`}
