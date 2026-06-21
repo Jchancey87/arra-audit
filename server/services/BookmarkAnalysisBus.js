@@ -7,13 +7,16 @@
  * the "Queued / Analyzing" pill updates without a manual refresh.
  *
  * Design notes:
- *   - In-process EventEmitter. Multi-instance deployments would need a
- *     Redis pub/sub or similar — out of scope for a single-PM2-process
- *     app. The route + service live in the same Node process so this is
- *     sufficient.
- *   - One channel per `auditId` (clients subscribe by opening the SSE
- *     stream for the audit they're viewing). The bus broadcasts every
- *     event to every subscriber; clients filter by `bookmarkId`.
+ *   - Transport: Redis pub/sub via `pubSubService` (see
+ *     services/pubSubService.js) with an in-process EventEmitter fallback.
+ *     Same-process delivery is synchronous (tests + single-instance deploys
+ *     rely on this); cross-instance delivery goes through Redis so
+ *     multi-process deploys work. The bus owns a per-instance snapshot
+ *     cache; the transport is solely the fan-out mechanism.
+ *   - One channel per `auditId` (`audit:${auditId}:bookmarks`). Clients
+ *     subscribe by opening the SSE stream for the audit they're viewing.
+ *     The bus broadcasts every event to every subscriber; clients filter
+ *     by `bookmarkId`.
  *   - Heartbeat: every 25s the server sends a `:keep-alive` SSE comment
  *     so corporate proxies (and Node's default 2-minute idle timeout)
  *     don't silently kill the connection. The client treats a missing
@@ -21,17 +24,22 @@
  *   - Caching: the service records each `auditId`'s last-known snapshot
  *     (Map<auditId, Map<bookmarkId, analysis>>). New subscribers get
  *     a full snapshot on connect so they don't need to call the regular
- *     /api/audits/:id route first.
+ *     /api/audits/:id route first. The snapshot is per-process — a fresh
+ *     process starts with an empty snapshot and fills it as events arrive.
  */
 
-import { EventEmitter } from 'events';
+import { PubSubService } from './pubSubService.js';
 
 const HEARTBEAT_MS = 25_000;
 
+const channelFor = (auditId) => `audit:${auditId}:bookmarks`;
+
 class BookmarkAnalysisBus {
-  constructor() {
-    this._emitter = new EventEmitter();
-    this._emitter.setMaxListeners(0);
+  constructor({ pubSub = null } = {}) {
+    // Each bus owns its own PubSubService instance so test instances stay
+    // isolated (separate local EventEmitters). In production there is a
+    // single bus → a single Redis connection pair.
+    this._pubSub = pubSub || new PubSubService();
     this._snapshots = new Map();
   }
 
@@ -50,7 +58,7 @@ class BookmarkAnalysisBus {
       this._snapshots.set(auditId, snap);
     }
     snap.set(bookmarkId, analysis);
-    this._emitter.emit('change', { auditId, bookmarkId, analysis });
+    this._pubSub.publish(channelFor(auditId), { auditId, bookmarkId, analysis });
   }
 
   /**
@@ -71,13 +79,7 @@ class BookmarkAnalysisBus {
    * @param {(payload) => void} handler
    */
   subscribe(auditId, handler) {
-    const changeListener = (payload) => {
-      if (payload.auditId === auditId) handler(payload);
-    };
-    this._emitter.on('change', changeListener);
-    return () => {
-      this._emitter.off('change', changeListener);
-    };
+    return this._pubSub.subscribe(channelFor(auditId), handler);
   }
 
   size() {
@@ -87,6 +89,10 @@ class BookmarkAnalysisBus {
   clear(auditId) {
     if (auditId) this._snapshots.delete(auditId);
     else this._snapshots.clear();
+  }
+
+  async close() {
+    await this._pubSub?.close?.();
   }
 }
 

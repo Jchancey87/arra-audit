@@ -175,16 +175,7 @@ export const TYPE = {
   caption: { fontFamily: FONT_FAMILY.body, fontSize: 8, lineHeight: 1.3, color: COLORS.textDim },
 };
 
-export const LENS_LABELS = {
-  rhythm: 'Rhythm',
-  texture: 'Texture',
-  harmony: 'Harmony',
-  arrangement: 'Arrangement',
-};
-
-export const LENS_DESCRIPTIONS = {
-  rhythm: 'Pulse, groove, timing feel, micro-timing, subdivision and swing.',
-  texture: 'Timbre, layering, density, articulation, frequency balance and spatial width.',
-  harmony: 'Chord movement, voice leading, modal colour, extensions and substitutions.',
-  arrangement: 'Form, structure, section transitions, dynamics, instrumentation and energy arc.',
-};
+// Lens labels/descriptions live in constants.js (no react-pdf dep) so pure
+// data-transform modules can import them without pulling in the 1.6 MB
+// react-pdf bundle. Re-exported here for backward compatibility.
+export { LENS_LABELS, LENS_DESCRIPTIONS } from './constants.js';
