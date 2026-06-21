@@ -572,6 +572,7 @@ const AuditForm = () => {
           onRecover={songId ? handleRedownloadAudio : undefined}
           recovering={recovering}
           title={`${LENS_LABEL[activeLens] || 'HARMONY'} LENS · WAVEFORM`}
+          paddingLeft={activeLens === 'texture' ? 55 : 0}
         />
       </div>
 

@@ -41,6 +41,7 @@ const WaveformTimelineOverlay = ({
   waveHeight = 80,
   showTimeline = true,
   spectrogram = false,
+  paddingLeft = 0,
 }) => {
   const waveformRef = useRef(null);
   const timelineRef = useRef(null);
@@ -194,7 +195,7 @@ const WaveformTimelineOverlay = ({
   // is needed (and doing so would fight the audio engine).
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div style={{ position: 'relative', width: '100%', paddingLeft: paddingLeft, boxSizing: 'border-box' }}>
       {spectrogram && (
         <div
           ref={spectrogramRef}

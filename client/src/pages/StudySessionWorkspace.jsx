@@ -769,6 +769,7 @@ const StudySessionWorkspace = () => {
                       onRecover={activeSong?._id ? handleRedownloadAudio : undefined}
                       recovering={recovering}
                       title={`${(currDay.lens || 'REFERENCE').toUpperCase()} · WAVEFORM`}
+                      paddingLeft={currDay.lens?.toLowerCase() === 'texture' ? 55 : 0}
                     />
                   </div>
                 )}

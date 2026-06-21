@@ -87,6 +87,7 @@ const UniversalWaveformBar = ({
   waveHeight = 64,
   title = 'WAVEFORM',
   showTimeline = true,
+  paddingLeft = 0,
 }) => {
   const {
     audioRef, activeSong, togglePlay, isPlaying, currentTime, duration,
@@ -183,6 +184,7 @@ const UniversalWaveformBar = ({
               onRegionUpdate={onRegionUpdate}
               waveHeight={waveHeight}
               showTimeline={showTimeline}
+              paddingLeft={paddingLeft}
             />
           )}
         </>
