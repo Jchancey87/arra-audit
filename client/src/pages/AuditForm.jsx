@@ -277,6 +277,7 @@ const AuditForm = () => {
         selected: false,
         opacity: sec.opacity !== undefined ? sec.opacity : 0.25,
         notes: sec.notes || '',
+        type: sec.type || 'custom',
       });
     });
 
@@ -480,6 +481,7 @@ const AuditForm = () => {
         ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
         ...(fields.color !== undefined ? { color: fields.color } : {}),
         ...(fields.opacity !== undefined ? { opacity: fields.opacity } : {}),
+        ...(fields.type !== undefined ? { type: fields.type } : {}),
       };
       const newArr = [...arr];
       newArr[secIdx] = updated;

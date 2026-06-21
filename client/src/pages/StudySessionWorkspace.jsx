@@ -53,6 +53,60 @@ const StudySessionWorkspace = () => {
   };
   const hasPlayableAudio = Boolean(activeSong?.publicUrl) && !audioError;
 
+  // React states
+  const [activeProgress, setActiveProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Search/linking states
+  const [existingSongs, setExistingSongs] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importStep, setImportStep] = useState(0);
+
+  // Responses & uploader states
+  const [responses, setResponses] = useState({});
+  const [syncTechnique, setSyncTechnique] = useState(true);
+  const [videoOpen, setVideoOpen] = useState(true);
+
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  // Recovery for legacy songs stuck with publicUrl=null
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
+
+  // Core update/autosave functions
+  const handleResponseChange = useCallback((key, value) => {
+    setResponses(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const saveDraft = useCallback(async (responsesToSave = responses) => {
+    if (!activeProgress?._id) return;
+    try {
+      setSaving(true);
+      setError('');
+      const updated = await backend.saveDayProgress(activeProgress._id, dayNum, responsesToSave);
+      setActiveProgress(updated);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to save draft responses.');
+    } finally {
+      setSaving(false);
+    }
+  }, [backend, activeProgress?._id, dayNum, responses]);
+
+  const saveNow = useCallback(async (updatedResponses) => {
+    setResponses(prev => {
+      const next = { ...prev, ...updatedResponses };
+      saveDraft(next);
+      return next;
+    });
+  }, [saveDraft]);
+
   // Universal waveform regions — arrangement sections from the day's
   // responses (present on arrangement/form days; empty on other lens days,
   // where the waveform still renders with just the timeline + transport).
@@ -74,6 +128,7 @@ const StudySessionWorkspace = () => {
         selected: false,
         opacity: sec.opacity !== undefined ? sec.opacity : 0.25,
         notes: sec.notes || '',
+        type: sec.type || 'custom',
       });
     });
     return regions;
@@ -107,9 +162,9 @@ const StudySessionWorkspace = () => {
       };
       const newArr = [...arr];
       newArr[secIdx] = updated;
-      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+      saveNow({ 'arrangement-timeline': JSON.stringify(newArr) });
     }
-  }, [responses]);
+  }, [responses, saveNow]);
 
   const handleWaveformRegionChange = useCallback((regionId, fields) => {
     if (!regionId) return;
@@ -127,12 +182,13 @@ const StudySessionWorkspace = () => {
         ...(fields.notes !== undefined ? { notes: fields.notes } : {}),
         ...(fields.color !== undefined ? { color: fields.color } : {}),
         ...(fields.opacity !== undefined ? { opacity: fields.opacity } : {}),
+        ...(fields.type !== undefined ? { type: fields.type } : {}),
       };
       const newArr = [...arr];
       newArr[secIdx] = updated;
-      handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
+      saveNow({ 'arrangement-timeline': JSON.stringify(newArr) });
     }
-  }, [responses]);
+  }, [responses, saveNow]);
 
   const handleWaveformRegionDelete = useCallback((regionId) => {
     if (!regionId) return;
@@ -143,8 +199,8 @@ const StudySessionWorkspace = () => {
       catch { arr = []; }
     }
     const newArr = arr.filter(s => s.id !== regionId);
-    handleResponseChange('arrangement-timeline', JSON.stringify(newArr));
-  }, [responses]);
+    saveNow({ 'arrangement-timeline': JSON.stringify(newArr) });
+  }, [responses, saveNow]);
 
   const handleWaveformRegionCreate = useCallback(({ start, end }) => {
     let arr = [];
@@ -161,37 +217,10 @@ const StudySessionWorkspace = () => {
       duration: Math.max(1, Math.round(end - start)),
       notes: '',
     };
-    handleResponseChange('arrangement-timeline', JSON.stringify([...arr, block]));
-  }, [responses]);
+    saveNow({ 'arrangement-timeline': JSON.stringify([...arr, block]) });
+  }, [responses, saveNow]);
 
-  const [activeProgress, setActiveProgress] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  // Search/linking states
-  const [existingSongs, setExistingSongs] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [importStep, setImportStep] = useState(0);
-
-  // Responses & uploader states
-  const [responses, setResponses] = useState({});
-  const [syncTechnique, setSyncTechnique] = useState(true);
-  const [videoOpen, setVideoOpen] = useState(true);
-
-  // Upload state
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-
-  // Recovery for legacy songs stuck with publicUrl=null (the audio download
-  // silently failed before the /import endpoint became synchronous). The
-  // server's POST /songs/:id/download-audio re-runs the download and
-  // refreshes the song in place.
-  const [recovering, setRecovering] = useState(false);
-  const [recoveryError, setRecoveryError] = useState('');
-  const handleRedownloadAudio = async () => {
+  const handleRedownloadAudio = useCallback(async () => {
     if (!activeSong?._id || recovering) return;
     setRecovering(true);
     setRecoveryError('');
@@ -204,7 +233,8 @@ const StudySessionWorkspace = () => {
     } finally {
       setRecovering(false);
     }
-  };
+  }, [activeSong?._id, recovering, backend, loadSong]);
+
 
   // Disable global video overlay during active session
   useEffect(() => {
@@ -335,31 +365,7 @@ const StudySessionWorkspace = () => {
     }
   };
 
-  const handleResponseChange = (key, value) => {
-    setResponses(prev => ({ ...prev, [key]: value }));
-  };
 
-  const saveDraft = async (responsesToSave = responses) => {
-    try {
-      setSaving(true);
-      setError('');
-      const updated = await backend.saveDayProgress(activeProgress._id, dayNum, responsesToSave);
-      setActiveProgress(updated);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to save draft responses.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveNow = async (updatedResponses) => {
-    setResponses(prev => {
-      const next = { ...prev, ...updatedResponses };
-      saveDraft(next);
-      return next;
-    });
-  };
 
   const handleComplete = async () => {
     try {

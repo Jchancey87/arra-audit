@@ -16,6 +16,12 @@ export function useAuditAutosave(auditId, responses, save, delay = 3000) {
   const [saveStatus, setSaveStatus] = useState('saved');
   const dirtyRef = useRef(false);
   const timerRef = useRef(null);
+  const responsesRef = useRef(responses);
+
+  // Keep ref up to date to avoid stale closure in setTimeout
+  useEffect(() => {
+    responsesRef.current = responses;
+  }, [responses]);
 
   const markDirty = useCallback(() => {
     dirtyRef.current = true;
@@ -25,14 +31,14 @@ export function useAuditAutosave(auditId, responses, save, delay = 3000) {
       if (!dirtyRef.current) return;
       setSaveStatus('saving');
       try {
-        await save(responses);
+        await save(responsesRef.current);
         setSaveStatus('saved');
         dirtyRef.current = false;
       } catch {
         setSaveStatus('error');
       }
     }, delay);
-  }, [responses, save, delay]);
+  }, [save, delay]);
 
   // Cleanup on unmount
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);

@@ -79,6 +79,17 @@ const headerLabel = {
 
 const PRESET_COLORS = ['#c084fc', '#34d399', '#f472b6', '#22d3ee', '#fbbf24', '#ff6600', '#ef4444'];
 
+const SECTION_TYPES = [
+  { value: 'intro', label: 'Intro', color: '#a78bfa' },
+  { value: 'verse', label: 'Verse', color: '#34d399' },
+  { value: 'chorus', label: 'Chorus', color: '#22d3ee' },
+  { value: 'pre-chorus', label: 'Pre-Chorus', color: '#ff6f61' },
+  { value: 'bridge', label: 'Bridge', color: '#fbbf24' },
+  { value: 'solo', label: 'Solo', color: '#ff6600' },
+  { value: 'outro', label: 'Outro', color: '#ffd700' },
+  { value: 'custom', label: 'Custom', color: '#f472b6' },
+];
+
 const UniversalWaveformBar = ({
   regions = [],
   onRegionClick,
@@ -104,11 +115,15 @@ const UniversalWaveformBar = ({
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [dragSelectEnabled, setDragSelectEnabled] = useState(false);
   const [loopRegionId, setLoopRegionId] = useState(null);
-  const [regionForm, setRegionForm] = useState({ label: '', notes: '', color: '', opacity: 0.25, start: 0, end: 0 });
+  const [regionForm, setRegionForm] = useState({ label: '', notes: '', color: '', opacity: 0.25, start: 0, end: 0, type: 'custom' });
 
   const selectedRegion = useMemo(() => {
     return regions.find(r => r.id === selectedRegionId);
   }, [regions, selectedRegionId]);
+
+  const isArrangementSection = useMemo(() => {
+    return selectedRegionId && !selectedRegionId.startsWith('bm-') && !selectedRegionId.startsWith('tag-');
+  }, [selectedRegionId]);
 
   // Sync selection details to local form state when selected region changes
   useEffect(() => {
@@ -120,11 +135,12 @@ const UniversalWaveformBar = ({
         opacity: selectedRegion.opacity !== undefined ? selectedRegion.opacity : 0.25,
         start: selectedRegion.start || 0,
         end: selectedRegion.end || 0,
+        type: selectedRegion.type || 'custom',
       });
     } else {
       setLoopRegionId(null);
     }
-  }, [selectedRegion?.id, selectedRegion?.start, selectedRegion?.end, selectedRegion?.color, selectedRegion?.opacity, selectedRegion?.label, selectedRegion?.notes]);
+  }, [selectedRegion?.id, selectedRegion?.start, selectedRegion?.end, selectedRegion?.color, selectedRegion?.opacity, selectedRegion?.label, selectedRegion?.notes, selectedRegion?.type]);
 
   const handleRegionClickInternal = (regionId, e) => {
     setSelectedRegionId(regionId);
@@ -134,6 +150,13 @@ const UniversalWaveformBar = ({
   const handleRegionFormChange = (field, value) => {
     setRegionForm(prev => ({ ...prev, [field]: value }));
     onRegionChange?.(selectedRegionId, { [field]: value });
+  };
+
+  const handleSectionTypeChange = (typeVal) => {
+    const typeObj = SECTION_TYPES.find(t => t.value === typeVal);
+    const colorVal = typeObj ? typeObj.color : '#f472b6';
+    setRegionForm(prev => ({ ...prev, type: typeVal, color: colorVal }));
+    onRegionChange?.(selectedRegionId, { type: typeVal, color: colorVal });
   };
 
   const handleDeleteSelectedRegion = () => {
@@ -328,6 +351,32 @@ const UniversalWaveformBar = ({
                 }}
               />
             </div>
+
+            {/* Section Type (for arrangement sections only) */}
+            {isArrangementSection && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', width: '120px' }}>
+                <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: '"Roboto Mono", monospace' }}>SECTION TYPE</span>
+                <select
+                  value={regionForm.type || 'custom'}
+                  onChange={(e) => handleSectionTypeChange(e.target.value)}
+                  style={{
+                    background: '#14141c',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '2px',
+                    color: '#fff',
+                    fontSize: '11px',
+                    padding: '4px 6px',
+                    fontFamily: '"Roboto Mono", monospace',
+                    height: '24px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {SECTION_TYPES.map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Timing */}
             <div style={{ display: 'flex', gap: '6px' }}>
