@@ -17,6 +17,14 @@ export const AudioProvider = ({ children }) => {
   const [volume, setVolumeState] = useState(80);
   const [isMuted, setIsMuted] = useState(false);
 
+  // Audio load error — set when the <audio> element fires `error` (e.g. the
+  // publicUrl points at a file that no longer exists on disk, so
+  // express.static returns a 404 HTML page that the browser tries to decode
+  // as audio → brief white-noise burst → error event → silence). Surfaced
+  // to the UI so the recovery banner can offer "Re-download audio" even
+  // when song.publicUrl is non-null but the file is gone.
+  const [audioError, setAudioError] = useState(null);
+
   // Floating monitor for the song cover/thumbnail (since we no longer
   // have a video, we just show the thumbnail + playback controls).
   const [showMonitor, setShowMonitor] = useState(true);
@@ -101,12 +109,23 @@ export const AudioProvider = ({ children }) => {
 
   // ── Transport API ────────────────────────────────────────────────────────
 
-  const loadSong = async (song) => {
+  // Memoized — loadSong is used as a useEffect dependency in AuditForm
+  // (`useEffect(() => { if (song) loadSong(song); }, [song?._id, loadSong])`).
+  // If it's NOT memoized, it gets a new function identity on every render,
+  // so the effect fires every render → loadSong() → pause() + currentTime=0
+  // on every render → the audio is constantly reset. Symptom: the user
+  // clicks play, hears a fraction of a second of audio (the "brief white
+  // noise" — actually the first few ms of the MP3), then the next render
+  // cycle pauses it → silence. useCallback with [] is safe because all
+  // referenced setters are stable useState dispatchers and audioRef is a
+  // stable ref.
+  const loadSong = useCallback(async (song) => {
     if (!song) return;
     setIsAudioLoading(true);
     setCurrentTime(0);
     setDuration(song.durationSeconds || 0);
     setIsPlaying(false);
+    setAudioError(null);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -118,7 +137,7 @@ export const AudioProvider = ({ children }) => {
     // missing, and a manual retry button can trigger the recovery.
     setActiveSong(song);
     setIsAudioLoading(false);
-  };
+  }, []);
 
   const play = useCallback(() => {
     if (!audioRef.current) return;
@@ -155,10 +174,14 @@ export const AudioProvider = ({ children }) => {
     setIsMuted(audioRef.current.muted);
   }, []);
 
-  const setShowVideo = (v) => {
+  // Memoized — setShowVideo is used as a useEffect dependency in
+  // StudySessionWorkspace (`useEffect(() => { setShowVideo(false); ... }, [setShowVideo])`).
+  // If not memoized, it gets a new identity every render and the effect
+  // re-runs constantly (harmless but wasteful, and can mask real issues).
+  const setShowVideo = useCallback((v) => {
     // Kept for backward compat — now flips the floating thumbnail monitor.
     setShowMonitor(Boolean(v));
-  };
+  }, []);
 
   // ── Bookmarks / deep-link ────────────────────────────────────────────────
 
@@ -209,8 +232,22 @@ export const AudioProvider = ({ children }) => {
   const onAudioPlay = () => setIsPlaying(true);
   const onAudioPause = () => setIsPlaying(false);
   const onAudioEnded = () => setIsPlaying(false);
-  const onAudioError = () => {
-    console.warn('[AudioContext] <audio> error event — src may be unreachable');
+  const onAudioError = (e) => {
+    // Most common cause: publicUrl points at a file that's gone from disk
+    // (e.g. a stale record left over from the rmdir incident, or a manual
+    // cleanup). express.static returns a 404 HTML page; the browser tries
+    // to decode it as audio → brief white-noise burst → this error event.
+    const el = e?.currentTarget;
+    const code = el?.error?.code;
+    const src = el?.src || activeSong?.publicUrl || '';
+    console.warn('[AudioContext] <audio> error event — src may be unreachable', { code, src });
+    setAudioError({
+      code,
+      src,
+      message: code === 4
+        ? 'Audio source not found — the file may have been removed from the server.'
+        : 'Audio playback failed to start.',
+    });
     setIsAudioLoading(false);
     setIsPlaying(false);
   };
@@ -248,6 +285,8 @@ export const AudioProvider = ({ children }) => {
     highlightBookmarkId,
     isAudioLoading,
     isPlayerReady: Boolean(audioRef.current),
+    audioError,
+    clearAudioError: useCallback(() => setAudioError(null), []),
   };
 
   return (

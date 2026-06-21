@@ -33,3 +33,29 @@ export const LENS_LABEL = {
   texture: 'Texture',
   melody: 'Melody',
 };
+
+// Region colors per lens — used by the universal wavesurfer RegionsPlugin
+// overlay so bookmarks / tagged timestamps are color-coded by the lens they
+// belong to. arrangement is included for sections on arrangement/form days.
+export const LENS_REGION_COLOR = {
+  harmony:      '#c084fc',
+  rhythm:       '#34d399',
+  form:         '#f472b6',
+  texture:      '#22d3ee',
+  melody:       '#fbbf24',
+  arrangement:  '#ff6600',
+};
+
+// Section type colors for arrangement regions (mirrors the TYPE_COLORS map
+// in ArrangementTimelineWidget — kept here so non-arrangement surfaces can
+// build section regions without importing the widget).
+export const SECTION_TYPE_COLORS = {
+  intro:        '#a78bfa',
+  verse:        '#34d399',
+  chorus:       '#22d3ee',
+  bridge:       '#fbbf24',
+  outro:        '#ffd700',
+  'pre-chorus': '#ff6f61',
+  solo:         '#ff6600',
+  custom:       '#f472b6',
+};

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAudio } from '../context/AudioContext';
+import { useBackend } from '../context/BackendContext';
 import { useAudit, useSong, useTechniques, useAuditAutosave, useAnalysisPolling, useAnalysisProgressSim, useCompletionCheck, useAuditShortcuts } from '../hooks';
 // Phase 4.3: lazy-load audit panel subcomponents to shrink the initial bundle
 const AuditPanelHeader = lazy(() => import('../components/audit/AuditPanelHeader'));
@@ -12,7 +13,8 @@ const CaptureTechnique = lazy(() => import('../components/audit/CaptureTechnique
 import AuditAnalysisTab from '../components/audit/AuditAnalysisTab';
 import LoggedThisSession from '../components/audit/LoggedThisSession';
 import SessionBookmarks from '../components/audit/SessionBookmarks';
-import { LENS_PROMPTS, LENS_LABEL } from '../components/audit/lensConstants';
+import { LENS_PROMPTS, LENS_LABEL, LENS_REGION_COLOR, SECTION_TYPE_COLORS } from '../components/audit/lensConstants';
+import UniversalWaveformBar from '../components/UniversalWaveformBar';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 // (helpers moved into the new components: AnalysisPipelineStates,
@@ -56,7 +58,7 @@ const AuditForm = () => {
 
   const {
     loadSong, setActiveAudit, bookmarks: globalBookmarks, setBookmarks: setGlobalBookmarks,
-    seekTo, isPlaying, currentTime, duration, focusMode, setFocusMode, togglePlay,
+    seekTo, isPlaying, currentTime, duration, focusMode, setFocusMode, togglePlay, audioError,
   } = useAudio();
 
   // ── Data hooks (Phase 0.4: deep-module layer) ─────────────────────────────
@@ -81,12 +83,20 @@ const AuditForm = () => {
   const notebookError = notebookErrorRaw?.response?.data?.error || notebookErrorRaw?.message || '';
 
   // ── Local state ──────────────────────────────────────────────────────────
+  const backend = useBackend();
   const [responses, setResponses] = useState({});
   const [sessionTechniques, setSessionTechniques] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [captureSavedTick, setCaptureSavedTick] = useState(0);
+  // Recovery UI for stuck legacy songs whose publicUrl is null (audio was
+  // never downloaded before /import became synchronous). Without this the
+  // <audio> element at AudioContext.jsx:258 doesn't mount and the play
+  // button in the MonitorPortal is silently dead. Mirrors the banner
+  // already shipped in StudySessionWorkspace.jsx:295.
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
 
   // Seed responses from audit when it first arrives
   useEffect(() => {
@@ -174,6 +184,31 @@ const AuditForm = () => {
     }
   }, [isSaving, responses, saveResponses, flash]);
 
+  // Re-trigger /songs/:id/download-audio for a stuck song (publicUrl=null).
+  // Reuses the synchronous endpoint added on 2026-06-21 — returns the
+  // hydrated song with publicUrl set, which we then push into both the
+  // audio context (so the <audio> element mounts) and useSong (so the
+  // header / panel reflects the new state).
+  const handleRedownloadAudio = useCallback(async () => {
+    if (!songId || recovering) return;
+    setRecovering(true);
+    setRecoveryError('');
+    try {
+      const fresh = await backend.redownloadSongAudio(songId);
+      const next = fresh?.song || fresh;
+      if (next) {
+        loadSong(next);
+        refetchSong();
+        flash('Audio re-downloaded');
+      }
+    } catch (err) {
+      const data = err.response?.data;
+      setRecoveryError(data?.message || err.message || 'Audio re-download failed');
+    } finally {
+      setRecovering(false);
+    }
+  }, [songId, recovering, backend, loadSong, refetchSong, flash]);
+
   // ── Tab state (persists in session via sessionStorage) ──────────────────
   const [activeTab, setActiveTab] = useState(() => {
     try { return sessionStorage.getItem(`audit-tab-${auditId}`) || 'analysis'; } catch { return 'analysis'; }
@@ -216,6 +251,103 @@ const AuditForm = () => {
     if (audit.templateQuestions?.lenses?.arrangement) return true;
     return false;
   }, [audit?.lensSelection, audit?.templateQuestions]);
+
+  // ── Universal waveform regions ───────────────────────────────────────────
+  // Built from three sources so the UniversalWaveformBar (always visible
+  // above the tab bar) shows meaningful regions on EVERY lens + the analysis
+  // tab:
+  //   1. Arrangement sections (responses['arrangement-timeline']) — draggable
+  //   2. Bookmarks (globalBookmarks) — colored by lens, point markers
+  //   3. Tagged timestamps for the active lens (responses['lens-<lens>-<i>'])
+  //      — only on the lens tab, so the user sees their tag pins for the
+  //      lens they're currently working in.
+  const waveformRegions = useMemo(() => {
+    const regions = [];
+
+    // (1) Arrangement sections
+    arrangementSections.forEach((sec) => {
+      regions.push({
+        id: sec.id,
+        start: sec.startTime || 0,
+        end: (sec.startTime || 0) + Math.max(1, sec.duration || 30),
+        color: SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
+        label: sec.name || '',
+        drag: true,
+        resize: true,
+        selected: false,
+      });
+    });
+
+    // (2) Bookmarks — point markers (2s span) colored by lens
+    globalBookmarks.forEach((bm) => {
+      const ts = Number(bm.timestampSeconds);
+      if (!Number.isFinite(ts)) return;
+      regions.push({
+        id: `bm-${bm._id || bm.timestampSeconds}`,
+        start: ts,
+        end: ts + 2,
+        color: LENS_REGION_COLOR[bm.lens] || 'rgba(255,102,0,0.5)',
+        label: bm.label || '♪',
+        drag: false,
+        resize: false,
+        selected: false,
+      });
+    });
+
+    // (3) Tagged timestamps for the active lens (lens tab only)
+    if (activeTab === 'lens') {
+      const prompts = LENS_PROMPTS[activeLens] || [];
+      prompts.forEach((_, i) => {
+        const raw = responses[`lens-${activeLens}-${i}`];
+        if (!raw) return;
+        let ts = null;
+        try {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          ts = parsed?.timestampSeconds;
+        } catch { ts = null; }
+        if (Number.isFinite(ts)) {
+          regions.push({
+            id: `tag-${activeLens}-${i}`,
+            start: ts,
+            end: ts + 2,
+            color: LENS_REGION_COLOR[activeLens] || '#ff6600',
+            label: `#${i + 1}`,
+            drag: false,
+            resize: false,
+            selected: false,
+          });
+        }
+      });
+    }
+
+    return regions;
+  }, [arrangementSections, globalBookmarks, responses, activeLens, activeTab]);
+
+  const handleWaveformRegionClick = useCallback((regionId) => {
+    if (!regionId) return;
+    if (regionId.startsWith('bm-')) {
+      const bm = globalBookmarks.find(b => `bm-${b._id || b.timestampSeconds}` === regionId);
+      if (bm) seekTo(Number(bm.timestampSeconds) || 0);
+      return;
+    }
+    if (regionId.startsWith('tag-')) {
+      const parts = regionId.split('-');
+      const ts = Number(parts[parts.length - 1]);
+      // tagged regions are named tag-<lens>-<index>; the index isn't a ts,
+      // so look the ts up from responses
+      const lens = parts[1];
+      const idx = Number(parts[2]);
+      const raw = responses[`lens-${lens}-${idx}`];
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Number.isFinite(parsed?.timestampSeconds)) seekTo(parsed.timestampSeconds);
+      } catch { /* ignore */ }
+      return;
+    }
+    // Arrangement section
+    const sec = arrangementSections.find(s => s.id === regionId);
+    if (sec) seekTo(sec.startTime || 0);
+  }, [globalBookmarks, arrangementSections, responses, seekTo]);
 
   // ── Marker (bookmark) handlers ──────────────────────────────────────────
   const handleAddMarker = useCallback(async (time) => {
@@ -374,6 +506,44 @@ const AuditForm = () => {
       {error && <div className="error" style={{ margin: '8px 12px 0' }}>{error}</div>}
       {success && <div className="success" style={{ margin: '8px 12px 0' }}>{success}</div>}
 
+      {/* Recovery banner for stuck legacy songs (publicUrl=null) OR when the
+          audio file is missing on disk (audioError set — the white-noise-then-
+          silence case: publicUrl points at a file express.static 404s on, the
+          browser decodes the HTML error page as audio → static burst → error).
+          The MonitorPortal's play button is silently dead in both cases.
+          Re-downloading via the synchronous /songs/:id/download-audio endpoint
+          (added 2026-06-21) hydrates the song with a real publicUrl so
+          playback works on every lens tab. Mirrors the StudySessionWorkspace
+          banner. */}
+      {song && (!song.publicUrl || audioError) && !recovering && (
+        <div
+          className="error"
+          style={{
+            margin: '8px 12px 0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span>
+            {audioError
+              ? (audioError.message || 'Audio file missing on the server.')
+              : 'Audio file missing for this song — the original download didn\'t land. Playback is disabled until audio is re-downloaded.'}
+          </span>
+          <button
+            type="button"
+            onClick={handleRedownloadAudio}
+            disabled={recovering}
+            style={{ padding: '6px 14px', fontSize: '11px' }}
+          >
+            {recovering ? 'Re-downloading…' : 'Re-download audio'}
+          </button>
+        </div>
+      )}
+      {recoveryError && <div className="error" style={{ margin: '8px 12px 0' }}>{recoveryError}</div>}
+
       <Suspense fallback={<AuditPanelSkeleton />}>
         <AuditPanelHeader
           song={song}
@@ -387,6 +557,23 @@ const AuditForm = () => {
           onReturnToPlan={() => navigate('/planner')}
         />
       </Suspense>
+
+      {/* Universal wavesurfer waveform + RegionsPlugin + TimelinePlugin
+          (timeline2). Always visible above the tab bar so every lens
+          (harmony / rhythm / texture / melody / form / arrangement) and
+          the analysis tab share the same waveform, region pins, and
+          transport. Regions adapt to the active context: arrangement
+          sections + bookmarks always; tagged timestamps for the active
+          lens when on the lens tab. */}
+      <div style={{ padding: '8px 12px 0' }}>
+        <UniversalWaveformBar
+          regions={waveformRegions}
+          onRegionClick={handleWaveformRegionClick}
+          onRecover={songId ? handleRedownloadAudio : undefined}
+          recovering={recovering}
+          title={`${LENS_LABEL[activeLens] || 'HARMONY'} LENS · WAVEFORM`}
+        />
+      </div>
 
       <Suspense fallback={<div style={{ height: '40px', background: 'var(--bg-surface-1)', borderBottom: '1px solid var(--border-subtle)' }} />}>
         <AuditTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />

@@ -21,17 +21,24 @@ import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline.js';
  *
  * Props:
  *   - audioRef: React ref to the shared <audio> HTMLAudioElement
- *   - sections, selectedBlockId, pxPerSec, currentTime: visual state
- *   - onRegionClick, onRegionUpdate: region events
+ *   - regions: array of generic region descriptors:
+ *       { id, start, end, color, label, drag?, resize?, selected? }
+ *   - pxPerSec: zoom level (pixels per second)
+ *   - currentTime: (unused for seek — playhead is implicit via media:)
+ *       kept for API compatibility.
+ *   - onRegionClick(regionId, e), onRegionUpdate(regionId, { start, end })
+ *   - waveHeight: optional height for the waveform (default 80)
+ *   - showTimeline: optional bool to render the TimelinePlugin ruler (default true)
  */
 const WaveformTimelineOverlay = ({
   audioRef,
-  sections,
-  selectedBlockId,
-  pxPerSec,
+  regions = [],
+  pxPerSec = 6,
   currentTime,
   onRegionClick,
   onRegionUpdate,
+  waveHeight = 80,
+  showTimeline = true,
 }) => {
   const waveformRef = useRef(null);
   const timelineRef = useRef(null);
@@ -44,15 +51,23 @@ const WaveformTimelineOverlay = ({
     const waveformEl = waveformRef.current;
     const timelineEl = timelineRef.current;
     const media = audioRef?.current;
-    if (!waveformEl || !timelineEl || !media) return;
+    if (!waveformEl || !media) return;
+    if (showTimeline && !timelineEl) return;
 
-    const timeline = TimelinePlugin.create({
-      container: timelineEl,
-      height: 22,
-    });
+    const plugins = [];
 
-    const regions = RegionsPlugin.create();
-    regionsRef.current = regions;
+    let timeline = null;
+    if (showTimeline) {
+      timeline = TimelinePlugin.create({
+        container: timelineEl,
+        height: 22,
+      });
+      plugins.push(timeline);
+    }
+
+    const regionsPlugin = RegionsPlugin.create();
+    regionsRef.current = regionsPlugin;
+    plugins.push(regionsPlugin);
 
     const ws = WaveSurfer.create({
       container: waveformEl,
@@ -61,7 +76,7 @@ const WaveformTimelineOverlay = ({
       progressColor: 'rgba(255, 102, 0, 0.65)',
       cursorColor: '#00e5ff',
       cursorWidth: 1.5,
-      height: 80,
+      height: waveHeight,
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
@@ -72,7 +87,7 @@ const WaveformTimelineOverlay = ({
       autoScroll: true,
       autoCenter: false,
       interact: false,
-      plugins: [timeline, regions],
+      plugins,
     });
 
     wsRef.current = ws;
@@ -85,27 +100,25 @@ const WaveformTimelineOverlay = ({
       isReadyRef.current = true;
     });
 
-    regions.on('region-clicked', (region, e) => {
+    regionsPlugin.on('region-clicked', (region, e) => {
       e.stopPropagation();
-      const sectionId = region.id.replace('section-', '');
-      onRegionClick?.(sectionId);
+      onRegionClick?.(region.id, e);
     });
 
-    regions.on('region-updated', (region) => {
-      const sectionId = region.id.replace('section-', '');
-      onRegionUpdate?.(sectionId, { start: region.start, end: region.end });
+    regionsPlugin.on('region-updated', (region) => {
+      onRegionUpdate?.(region.id, { start: region.start, end: region.end });
     });
 
     return () => {
       isReadyRef.current = false;
-      ws.destroy();
+      try { ws.destroy(); } catch (_) { /* already torn down */ }
       wsRef.current = null;
       regionsRef.current = null;
     };
   // We intentionally only re-create when the underlying <audio> element
   // identity changes (i.e. when a new song loads), not on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioRef?.current?.src]);
+  }, [audioRef?.current?.src, showTimeline, waveHeight]);
 
   // ---- Keep zoom in sync ----
   useEffect(() => {
@@ -114,29 +127,30 @@ const WaveformTimelineOverlay = ({
     try { ws.zoom(pxPerSec); } catch (_) { /* not yet ready */ }
   }, [pxPerSec]);
 
-  // ---- Sync regions when sections change ----
+  // ---- Sync regions when the regions prop changes ----
   useEffect(() => {
-    const regions = regionsRef.current;
+    const regionsPlugin = regionsRef.current;
     const ws = wsRef.current;
-    if (!regions || !ws || !isReadyRef.current) return;
+    if (!regionsPlugin || !ws || !isReadyRef.current) return;
 
-    regions.clearRegions();
+    regionsPlugin.clearRegions();
     const dur = ws.getDuration();
 
-    sections.forEach((section) => {
-      const start = section.startTime || 0;
-      const end = Math.min(dur || start + 1, start + Math.max(1, section.duration || 30));
-      const color = TYPE_COLORS[section.type] || TYPE_COLORS.custom;
-      const isSel = section.id === selectedBlockId;
+    regions.forEach((r) => {
+      const start = Number.isFinite(r.start) ? r.start : 0;
+      const rawEnd = Number.isFinite(r.end) ? r.end : (start + (r.duration || 2));
+      const end = Math.min(dur || rawEnd, rawEnd);
+      const color = r.color || 'rgba(255, 102, 0, 0.25)';
+      const isSel = r.selected;
 
-      const region = regions.addRegion({
-        id: `section-${section.id}`,
-        start,
-        end,
-        color: isSel ? `${color}55` : `${color}20`,
-        drag: true,
-        resize: isSel,
-        content: section.name || '',
+      const region = regionsPlugin.addRegion({
+        id: r.id,
+        start: Math.max(0, start),
+        end: Math.max(start + 0.1, end),
+        color: isSel ? `${color}66` : color,
+        drag: r.drag !== false,
+        resize: Boolean(r.resize),
+        content: r.label || '',
       });
 
       if (region.element) {
@@ -151,9 +165,10 @@ const WaveformTimelineOverlay = ({
         region.element.style.alignItems = 'center';
         region.element.style.overflow = 'hidden';
         region.element.style.cursor = isSel ? 'col-resize' : 'pointer';
+        region.element.style.pointerEvents = 'auto';
       }
     });
-  }, [sections, selectedBlockId]);
+  }, [regions]);
 
   // NOTE: playhead sync is implicit — wavesurfer reads currentTime from the
   // shared <audio> element via the `media:` option, so no manual setTime()
@@ -162,20 +177,9 @@ const WaveformTimelineOverlay = ({
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <div ref={waveformRef} style={{ width: '100%' }} />
-      <div ref={timelineRef} style={{ width: '100%' }} />
+      {showTimeline && <div ref={timelineRef} style={{ width: '100%' }} />}
     </div>
   );
-};
-
-const TYPE_COLORS = {
-  intro:        '#a78bfa',
-  verse:        '#34d399',
-  chorus:       '#22d3ee',
-  bridge:       '#fbbf24',
-  outro:        '#ffd700',
-  'pre-chorus': '#ff6f61',
-  solo:         '#ff6600',
-  custom:       '#f472b6',
 };
 
 export default WaveformTimelineOverlay;

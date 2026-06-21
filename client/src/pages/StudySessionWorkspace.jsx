@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useBackend } from '../context/BackendContext';
 import { useAudio } from '../context/AudioContext';
 import ArrangementTimelineWidget from '../components/ArrangementTimelineWidget';
+import UniversalWaveformBar from '../components/UniversalWaveformBar';
+import { SECTION_TYPE_COLORS } from '../components/audit/lensConstants';
 
 const getLensStyle = (lens) => {
   switch (lens?.toLowerCase()) {
@@ -21,12 +23,69 @@ const getLensStyle = (lens) => {
   }
 };
 
+// Inline transport row in the Reference Signal panel. Used for texture /
+// harmony / rhythm / melody lens days where the global MonitorPortal is
+// hidden and there is no wavesurfer timeline. Mirrors the styling of the
+// MonitorPortal's button row so the two surfaces feel consistent.
+const transportBtnStyle = {
+  flex: 1,
+  padding: '4px 6px',
+  fontSize: '10px',
+  fontFamily: 'Roboto Mono',
+  background: 'transparent',
+  color: 'rgba(255,255,255,0.7)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '2px',
+  cursor: 'pointer',
+};
+
 const StudySessionWorkspace = () => {
   const { dayNumber } = useParams();
   const dayNum = parseInt(dayNumber, 10);
   const navigate = useNavigate();
   const backend = useBackend();
-  const { loadSong, activeSong, setShowVideo } = useAudio();
+  const { loadSong, activeSong, setShowVideo, togglePlay, isPlaying, currentTime, duration, seekTo, audioError } = useAudio();
+
+  // Format seconds as M:SS for the inline player's time read-out.
+  const fmt = (s) => {
+    const n = Math.max(0, Math.floor(Number(s) || 0));
+    return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  };
+  const hasPlayableAudio = Boolean(activeSong?.publicUrl) && !audioError;
+
+  // Universal waveform regions — arrangement sections from the day's
+  // responses (present on arrangement/form days; empty on other lens days,
+  // where the waveform still renders with just the timeline + transport).
+  const waveformRegions = useMemo(() => {
+    const regions = [];
+    const raw = responses['arrangement-timeline'];
+    let sections = [];
+    try { sections = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+    catch { sections = []; }
+    sections.forEach((sec) => {
+      regions.push({
+        id: sec.id,
+        start: sec.startTime || 0,
+        end: (sec.startTime || 0) + Math.max(1, sec.duration || 30),
+        color: SECTION_TYPE_COLORS[sec.type] || SECTION_TYPE_COLORS.custom,
+        label: sec.name || '',
+        drag: true,
+        resize: true,
+        selected: false,
+      });
+    });
+    return regions;
+  }, [responses]);
+
+  const handleWaveformRegionClick = (regionId) => {
+    if (!regionId) return;
+    const raw = responses['arrangement-timeline'];
+    let sections = [];
+    try { sections = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []); }
+    catch { sections = []; }
+    const sec = sections.find(s => s.id === regionId);
+    if (sec) seekTo(sec.startTime || 0);
+  };
 
   const [activeProgress, setActiveProgress] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -288,11 +347,14 @@ const StudySessionWorkspace = () => {
 
       {error && <div className="error">{error}</div>}
 
-      {/* Audio recovery banner — only shows for legacy songs whose background
-          download silently failed before /import became synchronous.
+      {/* Audio recovery banner — shows for legacy songs whose background
+          download silently failed before /import became synchronous
+          (publicUrl === null), OR when the file is missing on disk
+          (audioError set — the white-noise-then-silence case where
+          publicUrl points at a file express.static 404s on).
           The button re-runs the download via POST /songs/:id/download-audio
           and reloads the song into the global transport. */}
-      {isLinked && activeSong && !activeSong.publicUrl && (
+      {isLinked && activeSong && (!activeSong.publicUrl || audioError) && (
         <div
           className="error"
           style={{
@@ -627,6 +689,87 @@ const StudySessionWorkspace = () => {
                   <div style={{ background: '#151518', padding: '12px', borderRadius: '2px', border: '1px solid #282828', marginBottom: '15px' }}>
                     <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#ffffff' }}>{song.title}</div>
                     <div style={{ fontSize: '11px', color: '#ff6600', fontFamily: 'Roboto Mono', marginTop: '2px' }}>{song.artist || song.artistName}</div>
+
+                    {/* Inline transport — gives every lens day (texture, harmony,
+                        rhythm, melody) a play button. arrangement/form days also
+                        have the wavesurfer-backed timeline widget; this row is
+                        additive and stays in the Reference Signal panel so the
+                        transport is one click away regardless of lens. */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '10px',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => seekTo(currentTime - 10)}
+                        disabled={!hasPlayableAudio}
+                        aria-label="Back 10 seconds"
+                        style={transportBtnStyle}
+                      >
+                        −10s
+                      </button>
+                      <button
+                        type="button"
+                        onClick={togglePlay}
+                        disabled={!hasPlayableAudio}
+                        aria-label={isPlaying ? 'Pause' : 'Play'}
+                        title={
+                          !hasPlayableAudio
+                            ? 'Audio not downloaded yet'
+                            : isPlaying
+                            ? 'Pause'
+                            : 'Play'
+                        }
+                        style={{ ...transportBtnStyle, background: 'rgba(255,102,0,0.18)', color: '#ff6600', borderColor: 'rgba(255,102,0,0.4)' }}
+                      >
+                        {isPlaying ? '⏸' : '▶'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => seekTo(currentTime + 10)}
+                        disabled={!hasPlayableAudio}
+                        aria-label="Forward 10 seconds"
+                        style={transportBtnStyle}
+                      >
+                        +10s
+                      </button>
+                      <span
+                        style={{
+                          flex: 1,
+                          textAlign: 'right',
+                          fontSize: '10px',
+                          fontFamily: 'Roboto Mono',
+                          color: hasPlayableAudio ? 'rgba(255,255,255,0.55)' : 'rgba(248,113,113,0.85)',
+                          whiteSpace: 'nowrap',
+                        }}
+                        aria-live="off"
+                      >
+                        {hasPlayableAudio ? `${fmt(currentTime)} / ${fmt(duration)}` : 'no audio'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Universal wavesurfer waveform + RegionsPlugin + TimelinePlugin
+                    (timeline2) — present on EVERY lens day (harmony / rhythm /
+                    texture / melody / form / arrangement), not just
+                    arrangement/form. On arrangement/form days the detailed
+                    ArrangementTimelineWidget below also renders but with its
+                    own waveform suppressed (hideWaveform) so we don't get two
+                    WaveSurfer.create() instances on the same <audio>. */}
+                {song && (
+                  <div style={{ marginTop: '12px' }}>
+                    <UniversalWaveformBar
+                      regions={waveformRegions}
+                      onRegionClick={handleWaveformRegionClick}
+                      onRecover={activeSong?._id ? handleRedownloadAudio : undefined}
+                      recovering={recovering}
+                      title={`${(currDay.lens || 'REFERENCE').toUpperCase()} · WAVEFORM`}
+                    />
                   </div>
                 )}
 
@@ -758,6 +901,7 @@ const StudySessionWorkspace = () => {
                 song={song}
                 lensData={currDay}
                 saveNow={saveNow}
+                hideWaveform
               />
             </div>
           )}

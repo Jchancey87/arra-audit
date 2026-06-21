@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAudio } from '../context/AudioContext';
 import { usePlayheadAnnouncer, playheadSrOnlyStyle } from '../utils/playheadAnnouncer.js';
 import { applyBlockClick, detectModifier, pruneSelection } from '../utils/blockSelection.js';
-import ExportArrangementButton from './ExportArrangementButton.jsx';
+const ExportArrangementButton = React.lazy(() => import('./ExportArrangementButton.jsx'));
 import WaveformTimelineOverlay from './WaveformTimelineOverlay.jsx';
 
 // ── Section type colors ──────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ const ContextMenuItem = ({ onClick, children, style = {} }) => {
 };
 
 // ── Main component ────────────────────────────────────────────────────────────
-const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOnly = false, saveNow }) => {
+const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOnly = false, saveNow, hideWaveform = false }) => {
   const { loadSong, activeSong, play, seekTo, currentTime, audioRef } = useAudio();
 
   // ── Zoom & Time signature states ──
@@ -884,15 +884,17 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
         {/* Right: Add Section + Export */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ExportArrangementButton
-            sections={sortedBlocks}
-            tracks={tracks}
-            song={song}
-            bpm={bpm}
-            timeSignature={timeSignature}
-            viewMode={viewMode}
-            readOnly={readOnly}
-          />
+          <React.Suspense fallback={<span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Export</span>}>
+            <ExportArrangementButton
+              sections={sortedBlocks}
+              tracks={tracks}
+              song={song}
+              bpm={bpm}
+              timeSignature={timeSignature}
+              viewMode={viewMode}
+              readOnly={readOnly}
+            />
+          </React.Suspense>
           {!readOnly && (
             <button
               type="button" onClick={addBlock}
@@ -913,8 +915,12 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
 
       {/* ══════════════════════════════════════════════════════════════════════
           WAVEFORM OVERLAY (wavesurfer.js — attached to the shared <audio>)
+          Skipped when hideWaveform is set — the caller (e.g.
+          StudySessionWorkspace) renders the universal UniversalWaveformBar
+          above instead, so we avoid two WaveSurfer.create() instances
+          attaching to the same <audio>.
       ══════════════════════════════════════════════════════════════════════ */}
-      {song?.publicUrl && audioRef?.current && (
+      {!hideWaveform && song?.publicUrl && audioRef?.current && (
         <div style={{
           background: '#0c0c0f', borderRadius: '4px',
           border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden',
@@ -926,8 +932,20 @@ const ArrangementTimelineWidget = ({ responses, onChange, song, lensData, readOn
           </div>
           <WaveformTimelineOverlay
             audioRef={audioRef}
-            sections={sortedBlocks}
-            selectedBlockId={selectedBlockId}
+            regions={sortedBlocks.map((b) => {
+              const color = TYPE_COLORS[b.type] || TYPE_COLORS.custom;
+              const isSel = b.id === selectedBlockId;
+              return {
+                id: b.id,
+                start: b.startTime || 0,
+                end: (b.startTime || 0) + Math.max(1, b.duration || 30),
+                color,
+                label: b.name || '',
+                drag: true,
+                resize: isSel,
+                selected: isSel,
+              };
+            })}
             pxPerSec={pxPerSec}
             currentTime={currentTime}
             onRegionClick={(sectionId) => {
